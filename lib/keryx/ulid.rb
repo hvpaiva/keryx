@@ -23,7 +23,7 @@ module Keryx
       encode((time.to_r * 1000).floor, TIME_LENGTH) + encode(random, RANDOM_LENGTH)
     end
 
-    def valid?(text) = FORMAT.match?(text.to_s)
+    def valid?(text) = text.is_a?(String) && FORMAT.match?(text)
 
     def encode(number, length)
       Array.new(length) do
