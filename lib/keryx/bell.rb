@@ -78,7 +78,10 @@ module Keryx
       agent = @herdr.agent(socket, pane)
       return outcome(FAILED, 'herdr', "no agent in pane #{pane}") unless agent
       return outcome(DEFERRED, 'herdr', "the agent is #{agent.status}") unless TYPABLE.include?(agent.status)
-      return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if DIALOG.match?(@herdr.screen(socket, pane).to_s)
+
+      screen = @herdr.screen(socket, pane)
+      return outcome(DEFERRED, 'herdr', 'the screen could not be read') if screen.nil?
+      return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if DIALOG.match?(screen)
 
       typed(@herdr.prompt(socket, pane, text))
     end
