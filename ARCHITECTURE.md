@@ -29,8 +29,8 @@ after it was read. Reading a message links it into `read/`, and the unread messa
 
 Nothing else records state. A request is answered when some mailbox holds a reply from its
 recipient, in its thread, whose `in_reply_to` is the request's id; it is read when its name is in
-`read/`. Because no operation has
-to change two files together, there are no locks and a crash leaves nothing half done.
+`read/`. Because no operation has to change two files together, there are no locks and a crash
+leaves nothing half done.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
