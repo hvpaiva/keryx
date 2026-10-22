@@ -106,12 +106,15 @@ it once the dialog is answered, so nothing is ever typed into the session itself
 
 The new pane gets `KERYX_HOME`, and `KERYX_HOST` when it is set, through herdr, so the session joins
 the store spawn watches. Codex passes its commands only the variables its `shell_environment_policy`
-allows, so Codex also gets them as `-c shell_environment_policy.set` values.
+allows, so Codex also gets them, with the herdr socket and pane, as
+`-c shell_environment_policy.set` values.
 
-spawn then polls the store until the address has an occupant that joined after the one it found, if
-any. It never answers a dialog. herdr's `agent_not_ready`, a `blocked` agent or a screen that
-matches the bell's dialog patterns count as a dialog, which spawn reports once while it keeps
-waiting. It stops when the pane has no agent left or `--timeout` passes.
+spawn then polls the store until the address has an occupant of the harness it started, in the herdr
+socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,
+reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
+`agent_not_ready`, a `blocked` agent or a screen that matches the bell's dialog patterns count as a
+dialog, which spawn reports once while it keeps waiting. It stops when the pane has no agent of that
+harness left or `--timeout` passes.
 
 ## The stop hook
 

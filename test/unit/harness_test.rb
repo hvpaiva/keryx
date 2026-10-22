@@ -36,7 +36,8 @@ class HarnessTest < Minitest::Test
   def test_cursor_takes_a_model_and_refuses_an_effort
     assert_equal ['--model', 'sonnet-4'], arguments('cursor', model: 'sonnet-4')
     assert_empty arguments('cursor')
-    error = assert_raises(Keryx::UsageError) { arguments('cursor', effort: 'high') }
+    assert_nil Keryx::Harness.check('claude', effort: 'high')
+    error = assert_raises(Keryx::UsageError) { Keryx::Harness.check('cursor', effort: 'high') }
 
     assert_match(/cursor takes no --effort/, error.message)
   end

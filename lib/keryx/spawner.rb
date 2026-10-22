@@ -46,7 +46,8 @@ module Keryx
     def await_join(name, address, pane, kind:, before:, deadline:)
       loop do
         occupant = @store.occupant(name)
-        return occupant if occupant && occupant.joined_at != before&.joined_at
+        return occupant if occupant && started?(occupant, pane, kind)
+        raise Error, conflict(address, occupant, pane) if occupant && occupant != before
 
         watch(address, pane, kind)
         raise WaitTimeout, late(address, pane) if @clock.call >= deadline
@@ -57,9 +58,18 @@ module Keryx
 
     private
 
+    def started?(occupant, pane, kind)
+      occupant.harness == kind && occupant.herdr_socket == @socket && occupant.herdr_pane == pane
+    end
+
+    def conflict(address, occupant, pane)
+      "#{address} was joined by another #{occupant.harness} session, not the one spawn started in pane #{pane}; " \
+        "'keryx who' shows it"
+    end
+
     def watch(address, pane, kind)
       agent = @herdr.agent(@socket, pane)
-      unless agent
+      unless agent&.kind == kind
         raise Error, "no #{kind} session runs in pane #{pane}, and #{address} has not joined; look at the pane"
       end
 

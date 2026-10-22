@@ -117,10 +117,12 @@ module Keryx
         Postman.check_body(text) if text
 
         %i[model effort].each { check_setting(it) }
+        Harness.check(options[:harness], effort: options[:effort])
+        checked_passthrough
         check_label
         timeout
         due_at
-        harness_arguments(name)
+        first_prompt(name)
         directory
         herdr_caller
       end
@@ -166,12 +168,10 @@ module Keryx
         { 'KERYX_HOME' => app.store.root, 'KERYX_HOST' => host }.compact
       end
 
-      def harness_arguments(name)
-        @harness_arguments ||= [
-          *Harness.arguments(options[:harness], name:, model: options[:model], effort: options[:effort],
-                                                env: session_env),
-          *checked_passthrough, '--', first_prompt(name)
-        ]
+      def harness_arguments(name, pane)
+        env = session_env.merge('HERDR_SOCKET_PATH' => herdr_caller.herdr_socket, 'HERDR_PANE_ID' => pane)
+        [*Harness.arguments(options[:harness], name:, model: options[:model], effort: options[:effort], env:),
+         *passthrough, '--', first_prompt(name)]
       end
 
       def checked_passthrough
@@ -184,6 +184,10 @@ module Keryx
       end
 
       def first_prompt(name)
+        @first_prompt ||= compose_prompt(name)
+      end
+
+      def compose_prompt(name)
         role = options[:role]
         join = Shellwords.join(['keryx', 'join', name, *(['--role', role] if role)])
         [
@@ -223,7 +227,7 @@ module Keryx
         deadline = app.now + timeout
         kind = options[:harness]
         @pane = place
-        spawner.start(@pane, name:, kind:, arguments: harness_arguments(name), deadline:)
+        spawner.start(@pane, name:, kind:, arguments: harness_arguments(name, @pane), deadline:)
         @occupant = spawner.await_join(name, app.full(name), @pane, kind:, before:, deadline:)
       end
 

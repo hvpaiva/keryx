@@ -14,11 +14,15 @@ module Keryx
 
     module_function
 
+    def check(kind, effort:)
+      raise UsageError, CURSOR_EFFORT if kind == 'cursor' && effort
+    end
+
     def arguments(kind, name:, model: nil, effort: nil, env: {})
       case kind
       when 'claude' then claude(name, model, effort)
       when 'codex' then codex(model, effort, env)
-      else cursor(model, effort)
+      else option('--model', model)
       end
     end
 
@@ -27,17 +31,11 @@ module Keryx
        '--settings', CLAUDE_SETTINGS]
     end
 
-    # Codex passes its commands only the variables its shell_environment_policy allows, so KERYX_* go through it.
+    # Codex passes its commands only the variables its shell_environment_policy allows, so the session's go through it.
     def codex(model, effort, env)
       settings = { 'model' => model, 'model_reasoning_effort' => effort }.compact
       settings.merge!(env.transform_keys { "shell_environment_policy.set.#{it}" })
       settings.flat_map { |key, value| ['-c', "#{key}=#{JSON.generate(value)}"] }
-    end
-
-    def cursor(model, effort)
-      raise UsageError, CURSOR_EFFORT if effort
-
-      option('--model', model)
     end
 
     def option(flag, value) = value ? [flag, value] : []

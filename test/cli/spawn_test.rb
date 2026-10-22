@@ -44,7 +44,9 @@ class SpawnTest < Minitest::Test
     assert_equal "Spawned impl@athena as a codex session in pane w1:p2, and it joined.\n", result.out
     assert_equal ['-c', 'model_reasoning_effort="low"',
                   '-c', %(shell_environment_policy.set.KERYX_HOME="#{tmp('state')}"),
-                  '-c', 'shell_environment_policy.set.KERYX_HOST="athena"', '--',
+                  '-c', 'shell_environment_policy.set.KERYX_HOST="athena"',
+                  '-c', %(shell_environment_policy.set.HERDR_SOCKET_PATH="#{SOCKET}"),
+                  '-c', 'shell_environment_policy.set.HERDR_PANE_ID="w1:p2"', '--',
                   "You are impl@athena, started by keryx spawn. Run 'keryx join impl', then run 'keryx skill' and " \
                   "follow it, then run 'keryx inbox'."], herdr.starts.first[:arguments]
     assert_empty store.mailbox('impl')
@@ -95,7 +97,7 @@ class SpawnTest < Minitest::Test
     herdr.on_start = lambda do |socket, pane, name, kind|
       herdr.put(socket, pane, lambda do
         polls += 1
-        keryx('join', name, env: claude(500).tap { alive << 500 }) if polls == 3
+        keryx('join', name, env: claude(500).merge(in_pane(socket, pane)).tap { alive << 500 }) if polls == 3
         agent(pane, kind, polls < 3 ? 'blocked' : 'working')
       end)
     end
@@ -148,6 +150,37 @@ class SpawnTest < Minitest::Test
 
     assert_equal 1, result.status
     assert_match(/herdr could not start claude in pane w1:p2: pane_busy: pane is running a command/, result.err)
+  end
+
+  def test_another_session_that_joins_the_address_is_a_conflict
+    herdr.on_start = lambda do |socket, pane, name, kind|
+      herdr.put(socket, pane, agent(pane, kind, 'blocked'))
+      alive << 600
+      keryx('join', name, env: claude(600).merge(in_pane(socket, 'w9:p9')))
+    end
+    result = spawn('rev-1', '--harness', 'claude', 'Review it')
+
+    assert_equal 1, result.status
+    assert_match(/rev-1@athena was joined by another claude session, not the one spawn started in pane w1:p2/,
+                 result.err)
+    assert_empty result.out
+  end
+
+  def test_a_pane_that_runs_another_harness_is_an_error
+    herdr.on_start = ->(socket, pane, _name, _kind) { herdr.put(socket, pane, agent(pane, 'codex', 'idle')) }
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal 1, result.status
+    assert_match(/no claude session runs in pane w1:p2/, result.err)
+  end
+
+  def test_a_session_that_replaces_a_gone_one_in_the_same_second_joins
+    join_claude('rev-1', 111)
+    alive.delete(111)
+    session_joins
+
+    assert_equal 0, spawn('rev-1', '--harness', 'claude').status
+    assert_equal 500, store.occupant('rev-1').pid
   end
 
   def test_a_session_gone_from_the_address_is_not_taken_for_the_join

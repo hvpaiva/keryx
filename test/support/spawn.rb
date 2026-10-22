@@ -17,11 +17,14 @@ module SpawnHelpers
 
   def agent(pane, kind, status) = Keryx::Herdr::Agent.new(pane:, kind:, status:)
 
+  def in_pane(socket, pane) = { 'HERDR_SOCKET_PATH' => socket, 'HERDR_PANE_ID' => pane }
+
   def session_joins(pid: 500)
     herdr.on_start = lambda do |socket, pane, name, kind|
       herdr.put(socket, pane, agent(pane, kind, 'working'))
       alive << pid
-      keryx('join', name, env: kind == 'codex' ? { 'CODEX_THREAD_ID' => "thread-#{pid}" } : claude(pid))
+      session = kind == 'codex' ? { 'CODEX_THREAD_ID' => "thread-#{pid}" } : claude(pid)
+      keryx('join', name, env: session.merge(in_pane(socket, pane)))
     end
   end
 
