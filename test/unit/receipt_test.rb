@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'socket'
 require 'timeout'
 
 class ReceiptTest < Minitest::Test
@@ -33,6 +34,14 @@ class ReceiptTest < Minitest::Test
     File.mkfifo(bell_receipt(id))
 
     assert_nil Timeout.timeout(5) { store.receipt('rev-1', id, 'bell') }
+    assert_match(/#{id}\.bell is not a regular file; it is ignored/, store.problems.first)
+  end
+
+  def test_a_socket_in_place_of_a_receipt_is_ignored
+    id = Keryx::Ulid.generate
+    UNIXServer.open(bell_receipt(id)).close
+
+    assert_nil store.receipt('rev-1', id, 'bell')
     assert_match(/#{id}\.bell is not a regular file; it is ignored/, store.problems.first)
   end
 

@@ -80,9 +80,11 @@ module Keryx
       nil
     end
 
-    # Opening a named pipe without O_NONBLOCK waits for a writer, and the type is checked on the open file.
+    # Without O_NONBLOCK a named pipe waits for a writer, and a socket fails to open; neither is a regular file.
     def read_regular(path)
       File.open(path, File::RDONLY | File::NONBLOCK) { |file| file.read if file.stat.file? }
+    rescue Errno::ENXIO, Errno::EOPNOTSUPP
+      nil
     end
 
     def write_atomic(path, content)

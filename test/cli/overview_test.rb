@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'socket'
 
 class OverviewTest < Minitest::Test
   include TempDir
@@ -56,6 +57,16 @@ class OverviewTest < Minitest::Test
     assert_equal 0, result.status
     assert_equal([[id, 'none']], JSON.parse(result.out)['not_rung'].map { it.values_at('id', 'bell') })
     assert_match(/#{id}\.bell is not a JSON object; it is ignored until keryx writes it again/, result.err)
+  end
+
+  def test_a_socket_in_a_mailbox_stops_neither_listing_nor_the_courier
+    keryx('send', 'rev-1', 'readable', env: @orq)
+    UNIXServer.open(tmp('state', 'addresses', 'rev-1', 'mail', "#{Keryx::Ulid.generate}.json")).close
+    runs = [keryx('inbox', '-o', 'json', env: @rev), keryx('status'), keryx('courier', '--once')]
+
+    assert_equal([0, 0, 0], runs.map(&:status))
+    assert_equal(['readable'], JSON.parse(runs.first.out).map { it['body'] })
+    assert(runs.all? { it.err.include?('not a regular file') })
   end
 
   def test_status_with_nothing_pending
