@@ -12,7 +12,9 @@
 | Other agents | Any agent that herdr recognizes in its pane. |
 
 CI runs Ruby 3.4 and 4.0 on Linux and Ruby 4.0 on macOS. The stop hooks were last checked against
-real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19.
+real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19. `keryx spawn`,
+which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Code 2.1.308, Codex
+0.163.0 and Cursor Agent 2026.10.22.
 
 ## Limits
 

@@ -94,6 +94,25 @@ The outbox counts with the mailboxes when keryx decides what is answered, so a r
 reply look the same from both machines. `Courier` forwards on a schedule, rings again for bells that
 did not reach a session, and sends the deadline notices from `keryx@HOST`.
 
+## Starting a session
+
+`keryx spawn` starts a harness in a herdr pane and waits for it to join. It checks every option and
+the address first, then creates the address and posts the request, so the request is in the mailbox
+before the session exists. `Spawner` splits the caller's pane, or uses a tab of its workspace, and
+runs `herdr agent start`, which types the harness command into the new pane's shell. `Harness`
+builds that command's arguments, and the first prompt goes last, after a `--`, as the harness's own
+initial prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on
+it once the dialog is answered, so nothing is ever typed into the session itself.
+
+The new pane gets `KERYX_HOME`, and `KERYX_HOST` when it is set, through herdr, so the session joins
+the store spawn watches. Codex passes its commands only the variables its `shell_environment_policy`
+allows, so Codex also gets them as `-c shell_environment_policy.set` values.
+
+spawn then polls the store until the address has an occupant that joined after the one it found, if
+any. It never answers a dialog. herdr's `agent_not_ready`, a `blocked` agent or a screen that
+matches the bell's dialog patterns count as a dialog, which spawn reports once while it keeps
+waiting. It stops when the pane has no agent left or `--timeout` passes.
+
 ## The stop hook
 
 Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to end its turn.
@@ -107,9 +126,10 @@ hook cannot hold a session in a loop.
 
 `Keryx.run` builds a `CLI::Dispatcher` over the command classes in `Commands::ALL`. The dispatcher
 parses the global options, finds the command, parses its options with `OptionParser`, checks the
-number of arguments and calls it. Every error becomes a message on standard error and one of the
-exit statuses `keryx --help` lists, never a backtrace. Help lists the commands of each section in
-the order of `Commands::ALL`.
+number of arguments and calls it. A command that passes arguments to another program, as spawn does,
+gets everything after the first `--` unparsed. Every error becomes a message on standard error and
+one of the exit statuses `keryx --help` lists, never a backtrace. Help lists the commands of each
+section in the order of `Commands::ALL`.
 
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
