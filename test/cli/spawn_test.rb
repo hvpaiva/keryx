@@ -62,6 +62,30 @@ class SpawnTest < Minitest::Test
     assert_match(/the request #{store.unread('impl').first.id} waits in its mailbox$/, result.err)
   end
 
+  def test_the_request_rings_no_session_that_held_the_address_before
+    alive << 111
+    keryx('join', 'rev-1', env: claude(111).merge(in_pane(SOCKET, 'w1:p5')))
+    alive.delete(111)
+    sockets.gone << '/tmp/cc-111.sock'
+    herdr.put(SOCKET, 'w1:p5', agent('w1:p5', 'claude', 'idle'))
+    session_joins
+    result = spawn('rev-1', '--harness', 'claude', 'Review it')
+
+    assert_equal 0, result.status, result.err
+    assert_empty herdr.prompts
+    assert_empty sockets.posts
+    assert_nil store.receipt('rev-1', store.unread('rev-1').first.id, 'bell')
+  end
+
+  def test_the_request_is_not_queued_for_a_codex_thread_that_held_the_address
+    keryx('join', 'rev-1', env: { 'CODEX_THREAD_ID' => 'closed-thread' })
+    session_joins
+    result = spawn('rev-1', '--harness', 'codex', 'Review it')
+
+    assert_equal 0, result.status, result.err
+    assert_empty codex.queued
+  end
+
   def test_an_agent_learns_that_the_reply_will_ring_it
     session_joins
     orq = join_claude('orq', 111)

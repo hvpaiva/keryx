@@ -30,7 +30,7 @@ module Keryx
                    'write long content to a file and send its path'
     end
 
-    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil)
+    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true)
       check_recipient(recipient)
       body = Postman.check_body(body)
       message = compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
@@ -38,13 +38,13 @@ module Keryx
 
       @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
       @store.deliver(recipient.name, message)
-      bell = ring(recipient.name, message) unless recipient.name == sender
+      bell = announce(recipient.name, message) if ring && recipient.name != sender
       Posted.new(message:, bell:, forward: nil)
     end
 
     private
 
-    def ring(name, message)
+    def announce(name, message)
       @bell.ring(name, [message])
     rescue StandardError => e
       Bell::Result.new(status: Bell::FAILED, channel: nil, detail: e.message, at: @clock.call)

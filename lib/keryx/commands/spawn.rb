@@ -29,7 +29,8 @@ module Keryx
                                    "its first request.\n\n" \
                                    'spawn runs in a herdr pane and splits it, or uses the tab --tab names. It ' \
                                    'creates NAME and, when TEXT or --file gives one, posts the request from this ' \
-                                   'session before the new session exists. The harness then starts with a first ' \
+                                   'session before the new session exists, without a bell, since nothing holds NAME ' \
+                                   'yet but a session that may have ended. The harness then starts with a first ' \
                                    'prompt that tells the session to join NAME, follow the keryx skill and open its ' \
                                    'inbox. spawn waits for the join and prints the address, harness, pane and ' \
                                    "request id.\n\n" \
@@ -215,9 +216,10 @@ module Keryx
         app.store.create_address(name, role: options[:role])
       end
 
+      # The address may still name a session that ended, and the new session opens its inbox from its first prompt.
       def post(sender, name, text)
         app.postman.post(sender:, recipient: Address.new(name:, host: app.host), kind: 'request', body: text,
-                         due_at:).message
+                         due_at:, ring: false).message
       end
 
       def waiting(request)
