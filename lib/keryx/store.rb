@@ -48,7 +48,9 @@ module Keryx
 
     def address(name)
       data = read_json(address_file(name)) or return nil
-      AddressRecord.new(name: data['name'], role: data['role'], created_at: Time.iso8601(data['created_at']))
+      AddressRecord.new(name: data['name'], role: data['role'], created_at: Time.iso8601(data['created_at'].to_s))
+    rescue ArgumentError, KeyError, TypeError
+      raise Error, "#{address_file(name)} is damaged"
     end
 
     def create_address(name, role: nil, now: Time.now.utc)
@@ -65,6 +67,8 @@ module Keryx
     def occupant(name)
       data = read_json(occupant_file(name)) or return nil
       Occupant.from_record(data)
+    rescue ArgumentError, KeyError, TypeError
+      raise Error, "#{occupant_file(name)} is damaged"
     end
 
     def bind(name, occupant)

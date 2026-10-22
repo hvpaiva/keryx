@@ -222,4 +222,14 @@ class StoreTest < Minitest::Test
 
     assert_match(/address.json is not valid JSON/, assert_raises(Keryx::Error) { store.address('rev-1') }.message)
   end
+
+  def test_a_damaged_date_in_an_address_or_occupant_file_is_an_error_naming_it
+    store.create_address('rev-1')
+    address = JSON.generate('name' => 'rev-1', 'created_at' => 'x')
+    File.write(tmp('state', 'addresses', 'rev-1', 'address.json'), address)
+    File.write(tmp('state', 'addresses', 'rev-1', 'occupant.json'), JSON.generate('harness' => 'claude'))
+
+    assert_match(/address.json is damaged/, assert_raises(Keryx::Error) { store.address('rev-1') }.message)
+    assert_match(/occupant.json is damaged/, assert_raises(Keryx::Error) { store.occupant('rev-1') }.message)
+  end
 end
