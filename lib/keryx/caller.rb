@@ -9,15 +9,19 @@ module Keryx
     def self.from_env(env, cwd:, herdr:)
       socket = value(env, 'HERDR_SOCKET_PATH')
       pane = value(env, 'HERDR_PANE_ID')
-      claude = env['CLAUDECODE'] == '1' ? claude_fields(env) : nil
-      harness = claude ? 'claude' : pane_harness(herdr, socket, pane)
-      new(harness:, session_id: claude&.fetch(:session_id), pid: claude&.fetch(:pid),
-          claude_socket: claude&.fetch(:claude_socket), herdr_socket: socket, herdr_pane: pane, cwd:)
+      fields = harness_fields(env) || { harness: pane_harness(herdr, socket, pane) }
+      new(harness: fields[:harness], session_id: fields[:session_id], pid: fields[:pid],
+          claude_socket: fields[:claude_socket], herdr_socket: socket, herdr_pane: pane, cwd:)
     end
 
-    def self.claude_fields(env)
-      { session_id: value(env, 'CLAUDE_CODE_SESSION_ID'), pid: Integer(env['CLAUDE_PID'].to_s, 10, exception: false),
-        claude_socket: value(env, 'CLAUDE_CODE_MESSAGING_SOCKET') }
+    def self.harness_fields(env)
+      if env['CLAUDECODE'] == '1'
+        { harness: 'claude', session_id: value(env, 'CLAUDE_CODE_SESSION_ID'),
+          pid: Integer(env['CLAUDE_PID'].to_s, 10, exception: false),
+          claude_socket: value(env, 'CLAUDE_CODE_MESSAGING_SOCKET') }
+      elsif value(env, 'CODEX_THREAD_ID')
+        { harness: 'codex', session_id: value(env, 'CODEX_THREAD_ID') }
+      end
     end
 
     def self.pane_harness(herdr, socket, pane) = socket && pane ? herdr.agent(socket, pane)&.kind : nil
@@ -26,13 +30,13 @@ module Keryx
       text = env[name].to_s
       text.empty? ? nil : text
     end
-    private_class_method :claude_fields, :pane_harness, :value
+    private_class_method :harness_fields, :pane_harness, :value
 
     def agent? = !harness.nil?
 
-    def holds?(occupant) = same_claude?(occupant) || same_pane?(occupant)
+    def holds?(occupant) = same_session?(occupant) || same_pane?(occupant)
 
-    def same_claude?(occupant)
+    def same_session?(occupant)
       (!pid.nil? && occupant.pid == pid) || (!session_id.nil? && occupant.session_id == session_id)
     end
 

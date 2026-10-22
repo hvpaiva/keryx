@@ -46,7 +46,25 @@ module CLIHelpers
     end
   end
 
+  class FakeCodexQueue
+    attr_reader :queued, :gone
+
+    def initialize
+      @queued = []
+      @gone = []
+    end
+
+    def queue(thread, text)
+      return Keryx::Runner::Result.new(out: '', err: "no thread #{thread}\n", success: false) if @gone.include?(thread)
+
+      @queued << [thread, text]
+      Keryx::Runner::Result.new(out: "Queued message for thread #{thread}.\n", err: '', success: true)
+    end
+  end
+
   def clock = @clock ||= Clock.new(Factory::NOW)
+
+  def codex = @codex ||= FakeCodexQueue.new
 
   def sockets = @sockets ||= FakeClaudeSockets.new
 
@@ -66,7 +84,7 @@ module CLIHelpers
     err = StringIO.new
     terminal = Keryx::CLI::Terminal.new(out:, err:, input: StringIO.new(input), env: base_env.merge(env))
     factory = lambda do |globals|
-      Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets,
+      Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets, codex:,
                      sleeper: ->(seconds) { clock.advance(seconds) }, process: FakeProcesses.new(alive))
     end
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)

@@ -50,6 +50,13 @@ class SessionTest < Minitest::Test
     assert_equal(%w[codex /h.sock w1:p2], store.occupant('impl').then { [it.harness, it.herdr_socket, it.herdr_pane] })
   end
 
+  def test_join_in_codex_records_its_thread
+    result = keryx('join', 'impl', env: { 'CODEX_THREAD_ID' => 'thread-1' })
+
+    assert_equal "Joined impl@athena as a codex session (thread thread-1).\n", result.out
+    assert_equal(%w[codex thread-1], store.occupant('impl').then { [it.harness, it.session_id] })
+  end
+
   def test_join_refuses_an_address_a_live_session_holds_unless_forced
     join_claude('rev-1', 111)
     alive << 222

@@ -4,6 +4,7 @@ require 'json'
 require 'socket'
 require 'time'
 require_relative 'herdr'
+require_relative 'runner'
 
 module Keryx
   class Bell
@@ -23,11 +24,12 @@ module Keryx
       /allow (this|once|always)/i
     )
 
-    def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new)
+    def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)
       @store = store
       @herdr = herdr
       @clock = clock
       @claude_socket = claude_socket
+      @codex = codex
     end
 
     def ring(name, messages)
@@ -41,13 +43,19 @@ module Keryx
     def attempt(occupant, text)
       return outcome(ABSENT, nil, 'no session holds the address') unless occupant
 
-      if occupant.claude_socket
-        result = through_claude(occupant.claude_socket, text)
-        return result unless result.status == FAILED && occupant.herdr?
-      end
+      native = through_harness(occupant, text)
+      return native if native && !(native.status == FAILED && occupant.herdr?)
       return through_herdr(occupant, text) if occupant.herdr?
 
-      result || outcome(ABSENT, nil, 'the session has neither a Claude Code socket nor a herdr pane')
+      native || outcome(ABSENT, nil, 'the session has no Claude Code socket, Codex thread or herdr pane')
+    end
+
+    def through_harness(occupant, text)
+      if occupant.claude_socket
+        through_claude(occupant.claude_socket, text)
+      elsif occupant.harness == 'codex' && occupant.session_id
+        through_codex(occupant.session_id, text)
+      end
     end
 
     def through_claude(path, text)
@@ -55,6 +63,13 @@ module Keryx
       outcome(RUNG, 'claude', nil)
     rescue SystemCallError, IOError => e
       outcome(FAILED, 'claude', "socket #{path}: #{e.message.split(' - ').first}")
+    end
+
+    def through_codex(thread, text)
+      result = @codex.queue(thread, text)
+      return outcome(RUNG, 'codex', nil) if result.success
+
+      outcome(FAILED, 'codex', result.err.lines.first.to_s.strip)
     end
 
     def through_herdr(occupant, text)
@@ -95,6 +110,14 @@ module Keryx
           socket.close_write
         end
       end
+    end
+
+    class CodexQueue
+      def initialize(runner: Runner.new)
+        @runner = runner
+      end
+
+      def queue(thread, text) = @runner.call(['codex', 'queue', '--thread', thread, '--message', text])
     end
   end
 end

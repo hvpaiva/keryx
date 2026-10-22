@@ -16,13 +16,15 @@ module Keryx
     attr_reader :env, :cwd, :clock, :sleeper, :process
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
-                   claude_socket: Bell::ClaudeSocket.new, sleeper: ->(seconds) { sleep(seconds) }, process: Process)
+                   claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new,
+                   sleeper: ->(seconds) { sleep(seconds) }, process: Process)
       @env = env
       @cwd = cwd
       @as = as || present(env['KERYX_AS'])
       @clock = clock
       @herdr = herdr
       @claude_socket = claude_socket
+      @codex = codex
       @sleeper = sleeper
       @process = process
     end
@@ -39,7 +41,7 @@ module Keryx
 
     def identity = @identity ||= Identity.new(store:, caller:, env:)
 
-    def bell = @bell ||= Bell.new(store:, herdr:, clock:, claude_socket: @claude_socket)
+    def bell = @bell ||= Bell.new(store:, herdr:, clock:, claude_socket: @claude_socket, codex: @codex)
 
     def postman = @postman ||= Postman.new(store:, bell:, host:, clock:)
 

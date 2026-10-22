@@ -11,8 +11,8 @@ class BellTest < Minitest::Test
 
   def store = @store ||= Keryx::Store.new(tmp('state'))
 
-  def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new)
-    Keryx::Bell.new(store:, herdr:, clock: -> { NOW }, claude_socket:)
+  def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new, codex: CLIHelpers::FakeCodexQueue.new)
+    Keryx::Bell.new(store:, herdr:, clock: -> { NOW }, claude_socket:, codex:)
   end
 
   def deliver(kind: 'request')
@@ -90,6 +90,29 @@ class BellTest < Minitest::Test
 
     assert_equal %w[failed claude], [result.status, result.channel]
     assert_match(/gone.sock/, result.detail)
+  end
+
+  def test_a_codex_session_is_rung_through_its_queue
+    message = deliver
+    store.bind('rev-1', build_occupant(harness: 'codex', session_id: 'thread-1'))
+    queue = CLIHelpers::FakeCodexQueue.new
+    result = bell(codex: queue).ring('rev-1', [message])
+
+    assert_equal %w[rung codex], [result.status, result.channel]
+    assert_equal 'thread-1', queue.queued.first.first
+    assert_match(/\A\[keryx\] New request for rev-1@athena/, queue.queued.first.last)
+  end
+
+  def test_a_failed_codex_queue_falls_back_to_the_pane_or_fails
+    message = deliver
+    queue = CLIHelpers::FakeCodexQueue.new.tap { it.gone << 'thread-1' }
+    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
+
+    assert_equal 'herdr', bell(herdr: herdr_with('idle'), codex: queue).ring('rev-1', [message]).channel
+    store.bind('rev-1', build_occupant(harness: 'codex', session_id: 'thread-1'))
+    result = bell(codex: queue).ring('rev-1', [message])
+
+    assert_equal ['failed', 'no thread thread-1'], [result.status, result.detail]
   end
 
   def test_herdr_types_into_an_idle_or_working_agent

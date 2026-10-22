@@ -24,6 +24,17 @@ class MailTest < Minitest::Test
                                        "Run 'keryx read #{id}' to open it."]], sockets.posts
   end
 
+  def test_a_request_to_codex_rings_its_thread_and_the_reply_rings_back
+    impl = { 'CODEX_THREAD_ID' => 'thread-1' }
+    keryx('join', 'impl', env: impl)
+    keryx('ask', 'impl', 'Fix retry.py', env: @orq)
+    id = last_id(impl)
+
+    assert_equal 'thread-1', codex.queued.last.first
+    assert_match(/Replied to orq@athena/, keryx('reply', id, 'Fixed in retry_fixed.py', env: impl).out)
+    assert_equal '/tmp/cc-111.sock', sockets.posts.last.first
+  end
+
   def test_inbox_lists_unread_messages_with_their_deadline
     keryx('ask', 'rev-1', 'Review PR #448', '--within', '30m', env: @orq)
     clock.advance(600)

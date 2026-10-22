@@ -32,6 +32,13 @@ class CallerTest < Minitest::Test
     assert_predicate caller, :agent?
   end
 
+  def test_a_codex_session_is_named_by_its_thread
+    caller = caller_from({ 'CODEX_THREAD_ID' => 'thread-1' })
+
+    assert_equal %w[codex thread-1], [caller.harness, caller.session_id]
+    assert caller.holds?(build_occupant(harness: 'codex', session_id: 'thread-1'))
+  end
+
   def test_a_plain_terminal_is_not_an_agent
     refute_predicate caller_from({}), :agent?
     refute_predicate caller_from({ 'HERDR_SOCKET_PATH' => HERDR_SOCKET, 'HERDR_PANE_ID' => 'w1:p3' }), :agent?
