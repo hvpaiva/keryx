@@ -11,6 +11,8 @@ module Keryx
     MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
     DIR_MODE = 0o700
     FILE_MODE = 0o600
+    RECEIPT = { 'status' => [String], 'channel' => [String, NilClass], 'detail' => [String, NilClass],
+                'at' => [String, NilClass], 'attempts' => [Integer, NilClass], 'bell' => [Hash, NilClass] }.freeze
 
     private
 
@@ -43,7 +45,8 @@ module Keryx
     end
 
     def read_message(path)
-      message = Message.from_json(File.read(path))
+      text = read_regular(path) or raise Error, 'not a regular file'
+      message = Message.from_json(text)
       return message if File.basename(path, '.json') == message.id
 
       raise Error, "the file name does not match the message id #{message.id}"
@@ -55,11 +58,33 @@ module Keryx
     end
 
     def read_json(path)
-      JSON.parse(File.read(path))
+      text = read_regular(path) or raise Error, "#{path} is not a regular file"
+      data = JSON.parse(text)
+      return data if data.is_a?(Hash)
+
+      raise Error, "#{path} is not a JSON object"
     rescue Errno::ENOENT
       nil
     rescue JSON::ParserError => e
       raise Error, "#{path} is not valid JSON (#{e.message.lines.first.strip})"
+    end
+
+    def read_receipt(path)
+      receipt = read_json(path) or return nil
+      field, = RECEIPT.find { |name, types| types.none? { receipt[name].is_a?(it) } }
+      raise Error, "#{path} has a bad #{field}" if field
+
+      receipt
+    rescue Error => e
+      @problems << "#{e.message}; it is ignored until keryx writes it again"
+      nil
+    end
+
+    # Without O_NONBLOCK a named pipe waits for a writer, and a socket fails to open; neither is a regular file.
+    def read_regular(path)
+      File.open(path, File::RDONLY | File::NONBLOCK) { |file| file.read if file.stat.file? }
+    rescue Errno::ENXIO, Errno::EOPNOTSUPP
+      nil
     end
 
     def write_atomic(path, content)
@@ -67,6 +92,14 @@ module Keryx
       write_file(temporary, content)
       File.rename(temporary, path)
       sync_directory(File.dirname(path))
+    ensure
+      FileUtils.rm_f(temporary) if temporary
+    end
+
+    def write_once(path, content)
+      temporary = "#{path}.#{Process.pid}.#{SecureRandom.hex(4)}.tmp"
+      write_file(temporary, content)
+      link(temporary, path)
     ensure
       FileUtils.rm_f(temporary) if temporary
     end

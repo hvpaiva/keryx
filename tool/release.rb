@@ -84,7 +84,11 @@ class Release
     unless Changelog.released?(read(CHANGELOG), version)
       raise Error, "#{CHANGELOG} on main has no section for #{version}; merge the pull request of bin/release prepare"
     end
-    raise Error, "v#{version} already exists" if tagged?
+    raise Error, "v#{version} already exists" if remote_tag?
+    if local_tag?
+      raise Error, "v#{version} is in this clone but not on origin, as when pushing it failed; delete it with " \
+                   "git tag -d v#{version} and run bin/release tag again"
+    end
 
     run('git', 'tag', '--sign', '--message', "keryx #{version}", "v#{version}")
     run('git', 'push', 'origin', "refs/tags/v#{version}")
@@ -113,11 +117,13 @@ class Release
     raise Error, 'main differs from origin/main; pull or reset it first'
   end
 
-  def tagged?
-    ref = "refs/tags/v#{version}"
-    @runner.capture('git', 'rev-parse', '--quiet', '--verify', ref).last ||
-      !capture('git', 'ls-remote', 'origin', ref).empty?
-  end
+  def tagged? = local_tag? || remote_tag?
+
+  def local_tag? = @runner.capture('git', 'rev-parse', '--quiet', '--verify', tag_ref).last
+
+  def remote_tag? = !capture('git', 'ls-remote', 'origin', tag_ref).empty?
+
+  def tag_ref = "refs/tags/v#{version}"
 
   def capture(*argv)
     out, ok = @runner.capture(*argv)

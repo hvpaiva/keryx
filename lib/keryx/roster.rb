@@ -33,8 +33,11 @@ module Keryx
 
     def open_requests
       all = @store.all_messages
-      answered = all.filter_map { |_name, stored| stored.message.in_reply_to }.to_set
-      all.select { |_name, stored| stored.message.request? && !answered.include?(stored.message.id) }
+      replies = all.map { it.last.message }.select(&:reply?).group_by(&:in_reply_to)
+      all.select do |_name, stored|
+        request = stored.message
+        request.request? && replies.fetch(request.id, []).none? { it.answers?(request) }
+      end
     end
 
     private

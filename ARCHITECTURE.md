@@ -18,7 +18,7 @@ addresses/NAME/receipts/       bell results and hook reminders, one file per mes
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
 outbox/HOST/refused/           messages the other machine refused
-outbox/HOST/receipts/          forwarding attempts and results, one file per message
+outbox/HOST/receipts/          forwarding attempts and outcomes, one file each per message
 ```
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
@@ -27,9 +27,10 @@ name already exists. Since a message never leaves `mail/`, delivering it again s
 after it was read. Reading a message links it into `read/`, and the unread messages are the names in
 `mail/` missing from `read/`, found without opening the files that were read.
 
-Nothing else records state. A request is answered when some mailbox holds a reply whose
-`in_reply_to` is the request's id; it is read when its name is in `read/`. Because no operation has
-to change two files together, there are no locks and a crash leaves nothing half done.
+Nothing else records state. A request is answered when some mailbox holds a reply from its
+recipient, in its thread, whose `in_reply_to` is the request's id; it is read when its name is in
+`read/`. Because no operation has to change two files together, there are no locks and a crash
+leaves nothing half done.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
@@ -87,12 +88,16 @@ A message for an address on another host goes to `outbox/HOST/`, written in `tmp
 `ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
 message for another host, one that claims to come from its own host, and one for an address it
 lacks. It stores the rest under their ids, rings the local session and prints a receipt for each.
-The sender then moves a message to `cur/` or `refused/`. Without a receipt the message stays in
-`new/`, and its file in `receipts/` counts the attempts.
+The sender then records the outcome and moves the message to `cur/` or `refused/`. The outcome is
+written before the move and only once, so an attempt that fails after another one settled the
+message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
+Without a receipt the message stays in `new/`, and another file in `receipts/` counts the attempts.
 
-The outbox counts with the mailboxes when keryx decides what is answered, so a request and its
-reply look the same from both machines. `Courier` forwards on a schedule, rings again for bells that
-did not reach a session, and sends the deadline notices from `keryx@HOST`.
+The outbox counts with the mailboxes when keryx decides what is answered, so the machine that
+answers closes a request as soon as the reply is written, and the sender's machine once the reply
+arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
+schedule, rings again for bells that did not reach a session, and sends the deadline notices from
+`keryx@HOST`.
 
 ## Starting a session
 
@@ -129,8 +134,10 @@ Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to e
 `StopHook` tells them apart by the payload and finds the session's address from the session id in
 it and the environment. When there are unread messages or read requests without a reply, it keeps
 the turn going, with a block decision for Claude Code and Codex and a follow-up message for Cursor.
-A marker in `receipts/` records each reminder, so every message is reminded about once and the
-hook cannot hold a session in a loop.
+The hook prepares a marker in `receipts/` for each reminder before it prints the decision and keeps
+it once the decision is out. Every message is reminded about once, again only when the hook was cut
+off before it answered, and a marker the hook cannot write ends the turn with the error, so the hook
+cannot hold a session in a loop.
 
 ## The command line
 

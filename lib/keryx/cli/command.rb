@@ -59,9 +59,8 @@ module Keryx
       end
 
       def body_option(parser)
-        parser.on('-f', '--file PATH', 'Read the text from PATH, or from standard input when PATH is -') do |path|
-          options[:file] = path
-        end
+        description = 'Read the text from PATH, or from standard input when PATH or TEXT is -'
+        parser.on('-f', '--file PATH', description) { |path| options[:file] = path }
       end
 
       def body(text)

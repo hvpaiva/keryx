@@ -30,6 +30,17 @@ class ReceiverTest < Minitest::Test
     assert_equal [incoming], store.unread('port')
   end
 
+  def test_a_numeric_id_thread_or_in_reply_to_is_refused_before_it_is_stored
+    numeric = 12_345_678_901_234_567_890_123_456
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person')
+    receipts = %w[id thread in_reply_to].map do |field|
+      receiver.receive(JSON.generate(JSON.parse(incoming.to_json).merge(field => numeric)))
+    end
+
+    assert_equal(%w[refused] * 3, receipts.map { it['status'] })
+    assert_empty Dir.children(tmp('zeus', 'addresses', 'port', 'mail'))
+  end
+
   def test_a_body_over_the_limit_is_refused
     receipt = receive(build_message(to: 'port@zeus', from: 'orq@athena', body: 'x' * 65_537))
 

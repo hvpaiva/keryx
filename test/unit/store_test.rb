@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'socket'
+require 'timeout'
 
 class StoreTest < Minitest::Test
   include TempDir
@@ -162,6 +164,17 @@ class StoreTest < Minitest::Test
     assert_match(/not valid JSON/, store.problems.first)
   end
 
+  def test_an_entry_that_is_not_a_regular_file_is_skipped_without_waiting_on_it
+    store.create_address('rev-1')
+    good = build_message(to: 'rev-1@athena')
+    store.deliver('rev-1', good)
+    File.mkfifo(tmp('state', 'addresses', 'rev-1', 'mail', "#{Keryx::Ulid.generate}.json"))
+    UNIXServer.open(tmp('state', 'addresses', 'rev-1', 'mail', "#{Keryx::Ulid.generate}.json")).close
+
+    assert_equal [good], Timeout.timeout(5) { store.unread('rev-1') }
+    assert_equal(2, store.problems.count { it.match?(/skipped .*\.json: not a regular file/) })
+  end
+
   def test_a_message_with_a_field_of_the_wrong_type_is_skipped
     store.create_address('rev-1')
     typed = JSON.parse(build_message(to: 'rev-1@athena').to_json).merge('created_at' => 42)
@@ -214,6 +227,17 @@ class StoreTest < Minitest::Test
     assert_nil store.receipt('rev-1', id, 'other')
     assert store.mark_once('rev-1', id, 'nudge')
     refute store.mark_once('rev-1', id, 'nudge')
+  end
+
+  def test_an_address_file_that_is_not_an_object_or_a_regular_file_is_an_error_naming_it
+    store.create_address('rev-1')
+    File.write(tmp('state', 'addresses', 'rev-1', 'address.json'), 'true')
+
+    assert_match(/address.json is not a JSON object/, assert_raises(Keryx::Error) { store.address('rev-1') }.message)
+    File.unlink(tmp('state', 'addresses', 'rev-1', 'address.json'))
+    UNIXServer.open(tmp('state', 'addresses', 'rev-1', 'address.json')).close
+
+    assert_match(/address.json is not a regular file/, assert_raises(Keryx::Error) { store.address('rev-1') }.message)
   end
 
   def test_a_corrupt_address_file_is_an_error_naming_it

@@ -17,6 +17,10 @@ class PostmanTest < Minitest::Test
     end
   end
 
+  class FailingBell
+    def ring(*) = raise Errno::ENOSPC, 'receipts'
+  end
+
   def store = @store ||= Keryx::Store.new(tmp('state'))
 
   def bell = @bell ||= RecordingBell.new
@@ -51,6 +55,15 @@ class PostmanTest < Minitest::Test
     assert_equal posted.message.id, posted.message.thread
   end
 
+  def test_a_bell_that_fails_after_delivery_still_reports_the_message_sent
+    failing = Keryx::Postman.new(store:, bell: FailingBell.new, forwarder:, host: 'athena', clock: -> { NOW },
+                                 person: 'person')
+    posted = failing.post(sender: 'orq', recipient: address('rev-1'), kind: 'message', body: 'hello')
+
+    assert_equal [posted.message], store.unread('rev-1')
+    assert_equal ['failed', 'No space left on device - receipts'], [posted.bell.status, posted.bell.detail]
+  end
+
   def test_a_reply_joins_the_thread_of_the_message_it_answers
     request = postman.post(sender: 'orq', recipient: address('rev-1'), kind: 'request', body: 'Review it').message
     reply = postman.post(sender: 'rev-1', recipient: address('orq'), kind: 'reply', body: 'Done',
@@ -83,6 +96,69 @@ class PostmanTest < Minitest::Test
     assert_equal [posted.message], zeus.unread('port')
     assert_equal([[posted.message, :forwarded]], store.outbox.outgoing.map { [it.message, it.state] })
     assert_empty bell.rung
+  end
+
+  def courier_forwarding_after_queue(outbox)
+    courier = Keryx::Forwarder.new(store: Keryx::Store.new(tmp('state')), remote:, clock: -> { NOW })
+    outbox.define_singleton_method(:queue) do |host, message|
+      super(host, message).tap { courier.forward(host) }
+    end
+  end
+
+  def test_a_message_the_courier_forwards_first_is_still_reported_as_forwarded
+    zeus.create_address('port')
+    courier_forwarding_after_queue(store.outbox)
+    posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'request', body: 'Port it')
+
+    assert_equal %w[forwarded rung], [posted.forward.status, posted.forward.bell['status']]
+    assert_equal [posted.message], zeus.unread('port')
+    assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
+  end
+
+  def test_a_message_the_courier_saw_refused_first_still_fails
+    courier_forwarding_after_queue(store.outbox)
+    error = assert_raises(Keryx::Error) do
+      postman.post(sender: 'orq', recipient: address('ghost@zeus'), kind: 'message', body: 'x')
+    end
+
+    assert_equal 'zeus refused the message; no address ghost@zeus', error.message
+    assert_empty store.outbox.outgoing
+  end
+
+  def failing_after(during)
+    Object.new.tap do |slow|
+      slow.define_singleton_method(:deliver) do |host, _messages|
+        during.call(host)
+        Keryx::Remote::Answer.new(receipts: {}, error: 'ssh: connection reset')
+      end
+    end
+  end
+
+  def courier = Keryx::Forwarder.new(store: Keryx::Store.new(tmp('state')), remote:, clock: -> { NOW })
+
+  def test_an_attempt_that_fails_after_the_courier_delivered_keeps_the_delivery
+    zeus.create_address('port')
+    late = Keryx::Forwarder.new(store:, remote: failing_after(->(host) { courier.forward(host) }), clock: -> { NOW })
+    posted = Keryx::Postman.new(store:, bell:, forwarder: late, host: 'athena', clock: -> { NOW }, person: 'person')
+                           .post(sender: 'orq', recipient: address('port@zeus'), kind: 'message', body: 'once')
+
+    assert_equal %w[forwarded rung], [posted.forward.status, posted.forward.bell['status']]
+    assert_equal 'forwarded', store.outbox.receipt('zeus', posted.message.id)['status']
+    assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
+    assert_equal 1, zeus.unread('port').size
+  end
+
+  def test_a_late_failed_attempt_by_another_process_does_not_fool_the_sender
+    zeus.create_address('port')
+    late = Keryx::Forwarder.new(store: Keryx::Store.new(tmp('state')),
+                                remote: failing_after(->(host) { courier.forward(host) }), clock: -> { NOW })
+    store.outbox.define_singleton_method(:queue) do |host, message|
+      super(host, message).tap { late.forward(host) }
+    end
+    posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'message', body: 'once')
+
+    assert_equal 'forwarded', posted.forward.status
+    assert_equal 'forwarded', store.outbox.receipt('zeus', posted.message.id)['status']
   end
 
   def test_a_message_the_other_machine_refuses_is_not_kept

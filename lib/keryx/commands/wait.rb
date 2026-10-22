@@ -52,7 +52,7 @@ module Keryx
 
       def poll(name, request, deadline)
         loop do
-          reply = app.store.mailbox(name).map(&:message).find { it.in_reply_to == request.id }
+          reply = app.store.mailbox(name).map(&:message).find { it.answers?(request) }
           return reply if reply
           raise WaitTimeout, "no reply to #{request.id} from #{request.to} yet" if deadline && app.now >= deadline
 

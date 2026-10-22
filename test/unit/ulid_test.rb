@@ -33,4 +33,8 @@ class UlidTest < Minitest::Test
     refute Keryx::Ulid.valid?('01ARYZ6S41')
     refute Keryx::Ulid.valid?(nil)
   end
+
+  def test_valid_rejects_a_number_that_prints_like_an_id
+    refute Keryx::Ulid.valid?(12_345_678_901_234_567_890_123_456)
+  end
 end

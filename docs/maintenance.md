@@ -58,6 +58,10 @@ unpublished gem in Sigstore's public log for good. It cannot check the trusted p
 
 ## Recover
 
+If `bin/release tag` signs the tag but cannot push it, the tag stays in your clone and the next
+run refuses it. Delete it with `git tag -d vX.Y.Z` and run `bin/release tag` again, which signs it
+anew on the `main` it checked.
+
 If the workflow fails before the gem reaches RubyGems, fix the cause and re-run the failed jobs.
 When the tagged commit itself is wrong, an administrator deletes the tag, and `bin/release tag`
 runs again once the fix is on `main`.

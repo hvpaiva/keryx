@@ -106,6 +106,19 @@ class MailTest < Minitest::Test
     assert_equal 90, clock.now - started
   end
 
+  def test_a_message_that_only_points_at_a_request_does_not_answer_it
+    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    id = last_id(@rev)
+    keryx('read', id, env: @rev)
+    forged = build_message(to: 'orq@athena', from: 'peer@zeus', in_reply_to: id, body: 'not a reply')
+    received = keryx('__receive', input: "#{forged.to_json}\n")
+
+    assert_equal 'delivered', JSON.parse(received.out)['status']
+    assert_equal(['not a reply'], JSON.parse(keryx('inbox', '-o', 'json', env: @orq).out).map { it['body'] })
+    assert_equal([id], JSON.parse(keryx('status', '-o', 'json').out)['open_requests'].map { it['id'] })
+    assert_equal 3, keryx('wait', id, '--timeout', '1s', env: @orq).status
+  end
+
   def test_wait_only_follows_requests_the_caller_sent
     keryx('send', 'rev-1', 'not a request', env: @orq)
 
@@ -161,6 +174,28 @@ class MailTest < Minitest::Test
     assert_equal 0, result.status
     assert_match(%r{The bell failed \(socket /tmp/cc-222.sock: .*\); the message waits}, result.out)
     assert_equal 1, JSON.parse(keryx('inbox', '-o', 'json', env: @rev).out).size
+  end
+
+  def test_a_bell_that_cannot_read_the_session_still_reports_the_message_sent
+    File.write(tmp('state', 'addresses', 'rev-1', 'occupant.json'), '{}')
+    result = keryx('send', 'rev-1', 'hello', env: @orq)
+    ids = Dir.children(tmp('state', 'addresses', 'rev-1', 'mail')).map { File.basename(it, '.json') }
+
+    assert_equal 0, result.status, result.err
+    assert_equal 1, ids.size
+    assert_match(/\ASent #{ids.first} to rev-1@athena\. The bell failed \(.*occupant.json is damaged\)/, result.out)
+  end
+
+  def test_inbox_opens_only_the_unread_messages
+    keryx('send', 'rev-1', 'read already', env: @orq)
+    id = last_id(@rev)
+    keryx('read', id, env: @rev)
+    File.write(tmp('state', 'addresses', 'rev-1', 'mail', "#{id}.json"), '{')
+    keryx('send', 'rev-1', 'still waiting', env: @orq)
+    unread = keryx('inbox', '-o', 'json', env: @rev)
+
+    assert_equal [['still waiting'], ''], [JSON.parse(unread.out).map { it['body'] }, unread.err]
+    assert_match(/skipped .*#{id}\.json: not valid JSON/, keryx('inbox', '--all', env: @rev).err)
   end
 
   def test_inbox_all_shows_read_messages_with_their_state

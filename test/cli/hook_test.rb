@@ -7,10 +7,21 @@ class HookTest < Minitest::Test
   include Factory
   include CLIHelpers
 
+  class BrokenPipe < StringIO
+    def write(*) = raise(Errno::EPIPE)
+  end
+
   def setup
     super
     @orq = join_claude('orq', 111)
     @rev = join_claude('rev-1', 222)
+  end
+
+  def read_only(dir)
+    File.chmod(0o500, dir)
+    yield
+  ensure
+    File.chmod(0o700, dir)
   end
 
   def stop(env, session_id: env['CLAUDE_CODE_SESSION_ID'])
@@ -32,6 +43,38 @@ class HookTest < Minitest::Test
     assert_equal 'block', decision['decision']
     assert_match(/\Akeryx: rev-1 has 1 unread message \(#{id}\)\. Open each with 'keryx read ID'/, decision['reason'])
     assert_empty stop(@rev).out
+  end
+
+  def test_a_reminder_cut_off_before_it_reaches_the_harness_is_given_again
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    payload = JSON.generate('session_id' => 'session-222', 'hook_event_name' => 'Stop')
+    cut = keryx('hook', 'stop', env: @rev, input: payload, out: BrokenPipe.new)
+    again = stop(@rev).out
+
+    assert_equal 0, cut.status
+    refute_empty again
+    assert_equal 'block', JSON.parse(again)['decision']
+  end
+
+  def test_a_reminder_that_cannot_be_recorded_lets_the_turn_end
+    skip 'root writes to a read-only directory' if Process.uid.zero?
+
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    runs = read_only(tmp('state', 'addresses', 'rev-1', 'receipts')) { Array.new(3) { stop(@rev) } }
+
+    assert_equal([[0, '']] * 3, runs.map { [it.status, it.out] })
+    assert(runs.all? { it.err.start_with?('keryx hook stop: Permission denied') })
+  end
+
+  def test_a_reminder_whose_mark_cannot_be_written_never_goes_out
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    full = store
+    full.define_singleton_method(:prepare_mark) { |*| raise Errno::ENOSPC, 'receipts' }
+    hook = Keryx::StopHook.new(store: full, herdr:, caller: Keryx::Caller.from_env(@rev, cwd: '/work', herdr:))
+    given = []
+
+    assert_raises(Errno::ENOSPC) { hook.decide('session_id' => 'session-222') { given << it } }
+    assert_empty given
   end
 
   def test_a_request_read_but_not_answered_blocks_once
@@ -92,6 +135,22 @@ class HookTest < Minitest::Test
 
     assert_equal 0, result.status
     assert_match(/keryx hook stop: /, result.err)
+  end
+
+  def test_a_payload_that_is_not_an_object_never_fails_the_session
+    ['[]', 'null', 'true', '1', '"stop"'].each do |payload|
+      result = keryx('hook', 'stop', env: @rev, input: payload)
+
+      assert_equal [0, ''], [result.status, result.out], payload
+      assert_equal "keryx hook stop: the payload is not a JSON object\n", result.err
+    end
+  end
+
+  def test_fields_of_unexpected_types_never_fail_the_session
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    payload = JSON.generate('session_id' => 42, 'turn_id' => [], 'conversation_id' => {})
+
+    assert_equal [0, '', ''], keryx('hook', 'stop', input: payload).to_h.values_at(:status, :out, :err)
   end
 
   def test_an_unknown_event_is_a_usage_error

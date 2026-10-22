@@ -32,8 +32,9 @@ module Keryx
       def nothing = "No #{'unread ' unless options[:all]}messages for #{app.full(app.me)}."
 
       def listed
-        stored = app.store.mailbox(app.me)
-        options[:all] ? stored : stored.select { it.state == :unread }
+        return app.store.mailbox(app.me) if options[:all]
+
+        app.store.unread(app.me).map { StoredMessage.new(it, :unread) }
       end
 
       def headers = %w[ID KIND FROM AGE DUE] + (options[:all] ? ['STATE'] : []) + ['SUMMARY']

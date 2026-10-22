@@ -14,8 +14,9 @@ module Keryx
                        description: 'Show what is pending on this machine, for a person keeping an eye on the ' \
                                     "sessions.\n\n" \
                                     'ADDRESSES lists each address with its session, its unread messages and the ' \
-                                    'requests waiting for its answer. OPEN REQUESTS lists every request no reply ' \
-                                    'points at yet, with its deadline, including those sent to another machine. ' \
+                                    'requests waiting for its answer. OPEN REQUESTS lists every request its ' \
+                                    'recipient has not replied to yet, with its deadline, including those sent to ' \
+                                    'another machine. ' \
                                     'NOT RUNG lists unread messages whose bell did not reach a session, and why; ' \
                                     'keryx ring tries those again. NOT FORWARDED lists messages for another ' \
                                     'machine that are still queued or that it refused; keryx courier forwards the ' \

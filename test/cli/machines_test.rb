@@ -42,6 +42,21 @@ class MachinesTest < Minitest::Test
     assert_equal [[], []], [open.call({}), open.call(@port)]
   end
 
+  def test_a_read_and_a_queued_reply_show_only_on_the_machine_where_they_happen
+    keryx('ask', 'port@zeus', 'Port it', env: @orq)
+    id = last_id(@port)
+    keryx('read', id, env: @port)
+    open = lambda do |env|
+      JSON.parse(keryx('status', '-o', 'json', env:).out)['open_requests'].to_h { it.values_at('id', 'state') }
+    end
+
+    assert_equal [{ id => 'forwarded' }, { id => 'read' }], [open.call({}), open.call(@port)]
+    remote.down << 'athena'
+    keryx('reply', id, 'Done', env: @port)
+
+    assert_equal [{ id => 'forwarded' }, {}], [open.call({}), open.call(@port)]
+  end
+
   def test_a_machine_that_is_down_gets_the_message_once_it_is_back
     remote.down << 'zeus'
     sent = keryx('send', 'port@zeus', 'Are you there?', env: @orq)
