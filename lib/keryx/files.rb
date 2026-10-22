@@ -94,6 +94,14 @@ module Keryx
       FileUtils.rm_f(temporary) if temporary
     end
 
+    def write_once(path, content)
+      temporary = "#{path}.#{Process.pid}.#{SecureRandom.hex(4)}.tmp"
+      write_file(temporary, content)
+      link(temporary, path)
+    ensure
+      FileUtils.rm_f(temporary) if temporary
+    end
+
     def write_file(path, content)
       File.open(path, File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) do |file|
         file.write(content)

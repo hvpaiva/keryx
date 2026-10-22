@@ -18,7 +18,7 @@ addresses/NAME/receipts/       bell results and hook reminders, one file per mes
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
 outbox/HOST/refused/           messages the other machine refused
-outbox/HOST/receipts/          forwarding attempts and results, one file per message
+outbox/HOST/receipts/          forwarding attempts and outcomes, one file each per message
 ```
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
@@ -88,8 +88,10 @@ A message for an address on another host goes to `outbox/HOST/`, written in `tmp
 `ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
 message for another host, one that claims to come from its own host, and one for an address it
 lacks. It stores the rest under their ids, rings the local session and prints a receipt for each.
-The sender then moves a message to `cur/` or `refused/`. Without a receipt the message stays in
-`new/`, and its file in `receipts/` counts the attempts.
+The sender then records the outcome and moves the message to `cur/` or `refused/`. The outcome is
+written before the move and only once, so an attempt that fails after another one settled the
+message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
+Without a receipt the message stays in `new/`, and another file in `receipts/` counts the attempts.
 
 The outbox counts with the mailboxes when keryx decides what is answered, so the machine that
 answers closes a request as soon as the reply is written, and the sender's machine once the reply

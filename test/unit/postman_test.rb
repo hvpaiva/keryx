@@ -125,6 +125,42 @@ class PostmanTest < Minitest::Test
     assert_empty store.outbox.outgoing
   end
 
+  def failing_after(during)
+    Object.new.tap do |slow|
+      slow.define_singleton_method(:deliver) do |host, _messages|
+        during.call(host)
+        Keryx::Remote::Answer.new(receipts: {}, error: 'ssh: connection reset')
+      end
+    end
+  end
+
+  def courier = Keryx::Forwarder.new(store: Keryx::Store.new(tmp('state')), remote:, clock: -> { NOW })
+
+  def test_an_attempt_that_fails_after_the_courier_delivered_keeps_the_delivery
+    zeus.create_address('port')
+    late = Keryx::Forwarder.new(store:, remote: failing_after(->(host) { courier.forward(host) }), clock: -> { NOW })
+    posted = Keryx::Postman.new(store:, bell:, forwarder: late, host: 'athena', clock: -> { NOW }, person: 'person')
+                           .post(sender: 'orq', recipient: address('port@zeus'), kind: 'message', body: 'once')
+
+    assert_equal %w[forwarded rung], [posted.forward.status, posted.forward.bell['status']]
+    assert_equal 'forwarded', store.outbox.receipt('zeus', posted.message.id)['status']
+    assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
+    assert_equal 1, zeus.unread('port').size
+  end
+
+  def test_a_late_failed_attempt_by_another_process_does_not_fool_the_sender
+    zeus.create_address('port')
+    late = Keryx::Forwarder.new(store: Keryx::Store.new(tmp('state')),
+                                remote: failing_after(->(host) { courier.forward(host) }), clock: -> { NOW })
+    store.outbox.define_singleton_method(:queue) do |host, message|
+      super(host, message).tap { late.forward(host) }
+    end
+    posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'message', body: 'once')
+
+    assert_equal 'forwarded', posted.forward.status
+    assert_equal 'forwarded', store.outbox.receipt('zeus', posted.message.id)['status']
+  end
+
   def test_a_message_the_other_machine_refuses_is_not_kept
     error = assert_raises(Keryx::Error) do
       postman.post(sender: 'orq', recipient: address('ghost@zeus'), kind: 'message', body: 'x')

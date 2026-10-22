@@ -53,12 +53,17 @@ module Keryx
 
     def discard(host, id)
       STATES.each_value { FileUtils.rm_f(File.join(dir(host), it, "#{id}.json")) }
-      FileUtils.rm_f(receipt_file(host, id))
+      [receipt_file(host, id), outcome_file(host, id)].each { FileUtils.rm_f(it) }
     end
 
     def write_receipt(host, id, data) = write_atomic(receipt_file(host, id), JSON.generate(data))
 
-    def receipt(host, id) = read_receipt(receipt_file(host, id))
+    # The first outcome stays, so an attempt that fails after another one settled the message cannot undo it.
+    def write_outcome(host, id, data) = write_once(outcome_file(host, id), JSON.generate(data))
+
+    def outcome(host, id) = read_receipt(outcome_file(host, id))
+
+    def receipt(host, id) = outcome(host, id) || read_receipt(receipt_file(host, id))
 
     private
 
@@ -69,5 +74,7 @@ module Keryx
     end
 
     def receipt_file(host, id) = File.join(dir(host), 'receipts', "#{id}.forward")
+
+    def outcome_file(host, id) = File.join(dir(host), 'receipts', "#{id}.outcome")
   end
 end

@@ -27,8 +27,8 @@ module Keryx
     end
 
     def settled(host, id)
-      receipt = @store.outbox.receipt(host, id) or return nil
-      Result.new(status: receipt['status'], detail: receipt['detail'], bell: receipt['bell'])
+      outcome = @store.outbox.outcome(host, id) or return nil
+      Result.new(status: outcome['status'], detail: outcome['detail'], bell: outcome['bell'])
     end
 
     private
@@ -40,16 +40,20 @@ module Keryx
       elsif receipt && receipt['status'] == REFUSED
         finish(host, message, REFUSED, receipt['detail'].to_s)
       else
-        record(host, message, QUEUED, waiting_reason(host, message, receipt, answer),
-               attempts: attempts(host, message) + 1)
+        wait(host, message, waiting_reason(host, message, receipt, answer))
       end
     end
 
-    # The receipt comes first, so a sender that finds the message gone from new/ can read how it settled.
+    # The outcome comes first, so a sender that finds the message gone from new/ can read how it settled.
     def finish(host, message, status, detail, bell: nil)
-      result = record(host, message, status, detail, bell:)
+      @store.outbox.write_outcome(host, message.id, data(status, detail, bell:))
       @store.outbox.settle(host, message.id, status.to_sym)
-      result
+      settled(host, message.id)
+    end
+
+    def wait(host, message, reason)
+      @store.outbox.write_receipt(host, message.id, data(QUEUED, reason, attempts: attempts(host, message) + 1))
+      settled(host, message.id) || Result.new(status: QUEUED, detail: reason, bell: nil)
     end
 
     def waiting_reason(host, message, receipt, answer)
@@ -60,11 +64,9 @@ module Keryx
 
     def attempts(host, message) = @store.outbox.receipt(host, message.id)&.fetch('attempts', 0).to_i
 
-    def record(host, message, status, detail, bell: nil, attempts: nil)
-      data = { 'status' => status, 'detail' => detail, 'bell' => bell, 'attempts' => attempts,
-               'at' => @clock.call.utc.iso8601 }
-      @store.outbox.write_receipt(host, message.id, data.compact)
-      Result.new(status:, detail:, bell:)
+    def data(status, detail, bell: nil, attempts: nil)
+      { 'status' => status, 'detail' => detail, 'bell' => bell, 'attempts' => attempts,
+        'at' => @clock.call.utc.iso8601 }.compact
     end
   end
 end
