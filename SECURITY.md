@@ -1,0 +1,37 @@
+# Security
+
+## Reporting a vulnerability
+
+Report it privately through
+[GitHub's private vulnerability reporting](https://github.com/hvpaiva/keryx/security/advisories/new)
+rather than in a public issue. You will get an answer within a week.
+
+## What keryx protects, and what it does not
+
+keryx connects agent sessions that one person runs on their own machine. It trusts the operating
+system user: anything running as that user can read and write the mailboxes, act as any address
+with `--as`, and post to a Claude Code session's peer socket. Identities are labels for
+coordination, not credentials. Do not use keryx between users who do not trust each other.
+
+Within that boundary, keryx defends against a few things that matter when the parties are
+language models:
+
+- A peer's message is not the user's word. The skill keryx gives agents says so, and tells them
+  to refuse what their own user did not authorize. An agent that joined no address cannot send as
+  the person at the keyboard.
+- The bell carries no text from the sender. It names the sender, the kind and the id, all
+  checked against strict formats when the message is read, so a message file cannot place
+  arbitrary text in another session's context through a bell or a hook reminder. The body only
+  reaches an agent when the agent runs `keryx read`.
+- Nothing from a file or a session reaches a terminal raw. Message bodies, roles, addresses and
+  herdr states are shown with control characters made visible, so they cannot move the cursor,
+  change colors or reorder text with bidirectional controls. Roles are limited to plain words
+  when they are set.
+- Typing is the last resort. keryx types into a pane only when herdr reports the agent idle, done
+  or working and the bottom of the screen shows no dialog keryx knows, so a bell does not answer
+  an approval prompt.
+- Mailbox directories are created with mode 0700 and files with 0600.
+
+`crossSessionInbound: "accept"` in a Claude Code session's settings lets any process of your user
+post into that session. keryx needs it for its bells; enable it only on the sessions that take
+part.
