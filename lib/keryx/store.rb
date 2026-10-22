@@ -136,6 +136,16 @@ module Keryx
       false
     end
 
+    # Preparing writes and renames in the receipts as keeping does, so a mark that could not be kept fails here.
+    def prepare_mark(name, id, kind) = write_atomic(pending_mark(name, id, kind), '')
+
+    def keep_mark(name, id, kind)
+      File.rename(pending_mark(name, id, kind), receipt_file(name, id, kind))
+      sync_directory(File.join(box(name), 'receipts'))
+    rescue Errno::ENOENT
+      nil
+    end
+
     private
 
     def box(name) = File.join(root, ADDRESSES, Address.validate_name(name))
@@ -145,6 +155,8 @@ module Keryx
     def occupant_file(name) = File.join(box(name), 'occupant.json')
 
     def receipt_file(name, id, kind) = File.join(box(name), 'receipts', "#{id}.#{kind}")
+
+    def pending_mark(name, id, kind) = "#{receipt_file(name, id, kind)}.pending"
 
     def require_address(name)
       raise Error, "no address #{name}" unless address?(name)

@@ -17,6 +17,13 @@ class HookTest < Minitest::Test
     @rev = join_claude('rev-1', 222)
   end
 
+  def read_only(dir)
+    File.chmod(0o500, dir)
+    yield
+  ensure
+    File.chmod(0o700, dir)
+  end
+
   def stop(env, session_id: env['CLAUDE_CODE_SESSION_ID'])
     keryx('hook', 'stop', env:, input: JSON.generate('session_id' => session_id, 'hook_event_name' => 'Stop'))
   end
@@ -47,6 +54,27 @@ class HookTest < Minitest::Test
     assert_equal 0, cut.status
     refute_empty again
     assert_equal 'block', JSON.parse(again)['decision']
+  end
+
+  def test_a_reminder_that_cannot_be_recorded_lets_the_turn_end
+    skip 'root writes to a read-only directory' if Process.uid.zero?
+
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    runs = read_only(tmp('state', 'addresses', 'rev-1', 'receipts')) { Array.new(3) { stop(@rev) } }
+
+    assert_equal([[0, '']] * 3, runs.map { [it.status, it.out] })
+    assert(runs.all? { it.err.start_with?('keryx hook stop: Permission denied') })
+  end
+
+  def test_a_reminder_whose_mark_cannot_be_written_never_goes_out
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    full = store
+    full.define_singleton_method(:prepare_mark) { |*| raise Errno::ENOSPC, 'receipts' }
+    hook = Keryx::StopHook.new(store: full, herdr:, caller: Keryx::Caller.from_env(@rev, cwd: '/work', herdr:))
+    given = []
+
+    assert_raises(Errno::ENOSPC) { hook.decide('session_id' => 'session-222') { given << it } }
+    assert_empty given
   end
 
   def test_a_request_read_but_not_answered_blocks_once

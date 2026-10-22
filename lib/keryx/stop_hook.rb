@@ -14,15 +14,17 @@ module Keryx
       @caller = caller
     end
 
-    # Marks reminders only after the block passed the decision on, so a hook cut off before then reminds again.
+    # Prepares the marks before the block and keeps them after it, so a hook cut off in between reminds again.
     def decide(payload)
       harness = harness_of(payload)
       name = Identity.new(store: @store, caller: session_caller(harness, payload), env: {}).held
       pending = name ? pending(name) : {}
       decision = decision(harness, reminder(name, pending)) or return
 
+      marks = pending.flat_map { |mark, messages| messages.map { [it.id, mark] } }
+      marks.each { |id, mark| @store.prepare_mark(name, id, mark) }
       yield decision
-      pending.each { |mark, messages| messages.each { @store.mark_once(name, it.id, mark) } }
+      marks.each { |id, mark| @store.keep_mark(name, id, mark) }
     end
 
     private

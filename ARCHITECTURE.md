@@ -103,9 +103,10 @@ Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to e
 `StopHook` tells them apart by the payload and finds the session's address from the session id in
 it and the environment. When there are unread messages or read requests without a reply, it keeps
 the turn going, with a block decision for Claude Code and Codex and a follow-up message for Cursor.
-A marker in `receipts/` records each reminder once the decision is printed, so every message is
-reminded about once, again only when the hook was cut off before it answered, and the hook cannot
-hold a session in a loop.
+The hook prepares a marker in `receipts/` for each reminder before it prints the decision and keeps
+it once the decision is out. Every message is reminded about once, again only when the hook was cut
+off before it answered, and a marker the hook cannot write ends the turn with the error, so the hook
+cannot hold a session in a loop.
 
 ## The command line
 
