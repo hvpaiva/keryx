@@ -9,6 +9,7 @@ module Keryx
     FORWARDED = 'forwarded'
     QUEUED = 'queued'
     REFUSED = 'refused'
+    FAILED = 'failed'
     ARRIVED = %w[delivered duplicate].freeze
 
     def initialize(store:, remote:, clock:)
@@ -36,9 +37,15 @@ module Keryx
         @store.outbox.settle(host, message.id, :refused)
         record(host, message, REFUSED, receipt['detail'].to_s)
       else
-        record(host, message, QUEUED, answer.error || "#{host} sent no receipt for #{message.id}",
+        record(host, message, QUEUED, waiting_reason(host, message, receipt, answer),
                attempts: attempts(host, message) + 1)
       end
+    end
+
+    def waiting_reason(host, message, receipt, answer)
+      return "#{host} could not store it; #{receipt['detail']}" if receipt && receipt['status'] == FAILED
+
+      answer.error || "#{host} sent no receipt for #{message.id}"
     end
 
     def attempts(host, message) = @store.outbox.receipt(host, message.id)&.fetch('attempts', 0).to_i

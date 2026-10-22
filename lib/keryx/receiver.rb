@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative 'address'
+require_relative 'bell'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'message'
@@ -24,13 +25,20 @@ module Keryx
 
       @store.create_address(to.name, role: Identity::HUMAN_ROLE) unless @store.address?(to.name)
       status = @store.deliver(to.name, message)
-      bell = @bell.ring(to.name, [message]).record if status == :delivered
-      receipt(message.id, status.to_s, bell:)
-    rescue Error, SystemCallError => e
+      receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
+    rescue Error => e
       receipt(claimed_id(line), 'refused', detail: e.message)
+    rescue StandardError => e
+      receipt(claimed_id(line), 'failed', detail: e.message)
     end
 
     private
+
+    def ring(name, message)
+      @bell.ring(name, [message]).record
+    rescue StandardError => e
+      { 'status' => Bell::FAILED, 'detail' => e.message }
+    end
 
     def refusal(message, to)
       return "#{message.to} is not on #{@host}" unless to.local?(@host)
