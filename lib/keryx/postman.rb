@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'bell'
 require_relative 'error'
 require_relative 'forwarder'
 require_relative 'identity'
@@ -28,11 +29,17 @@ module Keryx
 
       @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
       @store.deliver(recipient.name, message)
-      bell = @bell.ring(recipient.name, [message]) unless recipient.name == sender
+      bell = ring(recipient.name, message) unless recipient.name == sender
       Posted.new(message:, bell:, forward: nil)
     end
 
     private
+
+    def ring(name, message)
+      @bell.ring(name, [message])
+    rescue StandardError => e
+      Bell::Result.new(status: Bell::FAILED, channel: nil, detail: e.message, at: @clock.call)
+    end
 
     def forward(message, host)
       @store.outbox.queue(host, message)

@@ -163,6 +163,16 @@ class MailTest < Minitest::Test
     assert_equal 1, JSON.parse(keryx('inbox', '-o', 'json', env: @rev).out).size
   end
 
+  def test_a_bell_that_cannot_read_the_session_still_reports_the_message_sent
+    File.write(tmp('state', 'addresses', 'rev-1', 'occupant.json'), '{}')
+    result = keryx('send', 'rev-1', 'hello', env: @orq)
+    ids = Dir.children(tmp('state', 'addresses', 'rev-1', 'mail')).map { File.basename(it, '.json') }
+
+    assert_equal 0, result.status, result.err
+    assert_equal 1, ids.size
+    assert_match(/\ASent #{ids.first} to rev-1@athena\. The bell failed \(.*occupant.json is damaged\)/, result.out)
+  end
+
   def test_inbox_all_shows_read_messages_with_their_state
     keryx('send', 'rev-1', 'one', env: @orq)
     keryx('read', env: @rev)

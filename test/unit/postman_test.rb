@@ -17,6 +17,10 @@ class PostmanTest < Minitest::Test
     end
   end
 
+  class FailingBell
+    def ring(*) = raise Errno::ENOSPC, 'receipts'
+  end
+
   def store = @store ||= Keryx::Store.new(tmp('state'))
 
   def bell = @bell ||= RecordingBell.new
@@ -49,6 +53,15 @@ class PostmanTest < Minitest::Test
     assert_equal [['rev-1', [posted.message.id]]], bell.rung
     assert_equal %w[orq@athena rev-1@athena request], [posted.message.from, posted.message.to, posted.message.kind]
     assert_equal posted.message.id, posted.message.thread
+  end
+
+  def test_a_bell_that_fails_after_delivery_still_reports_the_message_sent
+    failing = Keryx::Postman.new(store:, bell: FailingBell.new, forwarder:, host: 'athena', clock: -> { NOW },
+                                 person: 'person')
+    posted = failing.post(sender: 'orq', recipient: address('rev-1'), kind: 'message', body: 'hello')
+
+    assert_equal [posted.message], store.unread('rev-1')
+    assert_equal ['failed', 'No space left on device - receipts'], [posted.bell.status, posted.bell.detail]
   end
 
   def test_a_reply_joins_the_thread_of_the_message_it_answers
