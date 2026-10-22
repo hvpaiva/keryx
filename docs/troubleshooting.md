@@ -54,7 +54,9 @@ other hooks as they were.
 Codex passes its commands only the environment its `shell_environment_policy` allows. With
 `inherit = "core"` or `"none"`, a `KERYX_HOME` or `KERYX_HOST` you exported does not reach keryx
 inside Codex, so keryx reads another store or names another host. Codex still sets the thread id
-keryx uses to identify the session. Set the variables for Codex in `~/.codex/config.toml`.
+keryx uses to identify the session. Name the machine with `host` in keryx's config file, as
+[Between machines](machines.md) shows, since every keryx process reads it whatever its environment,
+and set `KERYX_HOME` for Codex in `~/.codex/config.toml`.
 
 ```toml
 [shell_environment_policy.set]

@@ -100,6 +100,14 @@ each message, and `keryx status` reads the receipts to list what did not ring.
 
 ## Between machines
 
+A machine's name is the host part of its addresses. `App#host` takes it from `KERYX_HOST`, then
+from `host` in `$XDG_CONFIG_HOME/keryx/config`, then from the machine's own name, and keeps it for
+the life of the process. That file is the only one keryx reads outside the store, and only `Config`
+reads it, when the host is needed and `KERYX_HOST` is empty. A line it cannot use is a warning,
+while an invalid host or a file it cannot read is an error, since falling back to the machine's
+name would name the machine wrongly. spawn passes `KERYX_HOST` to the new pane only when it is set,
+never the host read from the file, because the new session reads the same file.
+
 A message for an address on another host goes to `outbox/HOST/`, written in `tmp/` and linked into
 `new/` like a delivery. `Forwarder` sends what waits in `new/` through `Remote`, which runs
 `ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
