@@ -42,7 +42,8 @@ module Keryx
                                    'A dialog in the new pane, such as a folder trust or permission question, is ' \
                                    'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
-                                   'gave up. spawn exits with status 3 when --timeout passes first.',
+                                   'gave up. --timeout counts from the moment spawn starts, and spawn exits with ' \
+                                   'status 3 when it passes before the join.',
                       examples: [['Start a reviewer in Claude Code with its first request',
                                   'spawn rev-1 --harness claude --role reviewer "Review PR #448"'],
                                  ['Start Codex in the agents tab with a brief from a file and a deadline',
@@ -67,6 +68,7 @@ module Keryx
       end
 
       def call(arguments)
+        @started = app.now
         name = Address.validate_name(arguments[0])
         text = request_text(arguments[1])
         check(name, text)
@@ -224,7 +226,7 @@ module Keryx
       end
 
       def launch(name, before)
-        deadline = app.now + timeout
+        deadline = @started + timeout
         @pane = place
         @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
                                                              arguments: harness_arguments(name, @pane))

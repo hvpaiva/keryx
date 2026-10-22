@@ -163,6 +163,18 @@ class SpawnTest < Minitest::Test
     assert herdr.starts.first[:starting].stopped
   end
 
+  def test_a_join_after_the_timeout_is_a_timeout
+    herdr.on_start = lambda do |socket, pane, name, kind|
+      clock.advance(2)
+      herdr.put(socket, pane, agent(pane, kind, 'working'))
+      keryx('join', name, env: claude(600).merge(in_pane(socket, pane)).tap { alive << 600 })
+    end
+    result = spawn('rev-1', '--harness', 'claude', '--timeout', '1s')
+
+    assert_equal 3, result.status
+    assert_match(/rev-1@athena joined only after the timeout passed; its session runs in pane w1:p2$/, result.err)
+  end
+
   def test_a_slow_start_still_waits_for_the_join
     herdr.start_outcome = Keryx::Herdr::Outcome.new(ok: false, code: 'timeout', detail: 'timed out waiting')
     session_joins

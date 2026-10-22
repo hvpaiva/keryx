@@ -117,7 +117,8 @@ socket and pane it started it in. Any other session that joins the address meanw
 reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
 `agent_not_ready`, a `blocked` agent or a screen that matches the bell's dialog patterns count as a
 dialog, which spawn reports once while it keeps waiting. It stops when the pane has no agent of that
-harness left or `--timeout` passes.
+harness left or `--timeout`, counted from the moment spawn starts, passes. A join recorded after
+that moment counts as too late, however soon spawn notices it.
 
 ## The stop hook
 

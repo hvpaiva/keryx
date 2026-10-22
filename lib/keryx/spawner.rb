@@ -39,7 +39,7 @@ module Keryx
       starting = @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: deadline - @clock.call)
       loop do
         occupant = @store.occupant(name)
-        return occupant if occupant && started?(occupant, pane, kind)
+        return on_time(occupant, address, pane, deadline) if occupant && started?(occupant, pane, kind)
         raise Error, conflict(address, occupant, pane) if occupant && occupant != before
 
         watch(address, pane, kind, ready?(starting, pane, kind))
@@ -63,6 +63,12 @@ module Keryx
 
       dialog(pane)
       true
+    end
+
+    def on_time(occupant, address, pane, deadline)
+      return occupant if occupant.joined_at <= deadline
+
+      raise WaitTimeout, "#{address} joined only after the timeout passed; its session runs in pane #{pane}"
     end
 
     def started?(occupant, pane, kind)
