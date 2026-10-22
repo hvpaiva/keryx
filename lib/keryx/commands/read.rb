@@ -1,0 +1,34 @@
+# frozen_string_literal: true
+
+require_relative '../cli/command'
+require_relative '../cli/message_view'
+
+module Keryx
+  module Commands
+    class Read < CLI::Command
+      define 'read', section: 'Mail Commands', arguments: '[ID]', max: 1,
+                     summary: 'Show a message and mark it as read',
+                     description: "Show a message in full and mark it as read.\n\n" \
+                                  'Without ID it opens the oldest unread message. ID may be the whole id or its ' \
+                                  'first characters, at least four, as long as they match one message. Marking a ' \
+                                  'message read is how the sender learns you saw it, so read it with this command ' \
+                                  'rather than through the files.',
+                     examples: [['Open the next unread message', 'read'], ['Open one message', 'read 01JB8Y2Q']]
+
+      def define_options(parser) = output_option(parser)
+
+      def call(arguments)
+        name = app.me
+        message = pick(name, arguments.first)
+        return terminal.puts("No unread messages for #{app.full(name)}.") unless message
+
+        app.store.mark_read(name, message.id)
+        show_message(message)
+      end
+
+      private
+
+      def pick(name, reference) = reference ? app.store.find(name, reference).message : app.store.unread(name).first
+    end
+  end
+end

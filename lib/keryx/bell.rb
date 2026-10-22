@@ -65,7 +65,7 @@ module Keryx
       @claude_socket.post(path, text)
       outcome(RUNG, 'claude', nil)
     rescue SystemCallError, IOError => e
-      outcome(FAILED, 'claude', "socket #{path}: #{e.message}")
+      outcome(FAILED, 'claude', "socket #{path}: #{e.message.split(' - ').first}")
     end
 
     def through_herdr(occupant, text)

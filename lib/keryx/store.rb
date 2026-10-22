@@ -37,6 +37,14 @@ module Keryx
 
     attr_reader :root, :problems
 
+    # A typed id, uppercased, once it is long enough to stand for one message.
+    def self.reference(text)
+      reference = text.to_s.upcase
+      return reference if reference.size >= MINIMUM_PREFIX
+
+      raise Error, "message id #{reference.inspect} is too short; give at least #{MINIMUM_PREFIX} characters"
+    end
+
     def initialize(root)
       @root = root
       @problems = []
@@ -104,11 +112,7 @@ module Keryx
 
     # By full id or by a prefix of at least four characters that matches one message.
     def find(name, reference)
-      reference = reference.to_s.upcase
-      if reference.size < MINIMUM_PREFIX
-        raise Error, "message id #{reference.inspect} is too short; give at least #{MINIMUM_PREFIX} characters"
-      end
-
+      reference = Store.reference(reference)
       matches = mailbox(name).select { it.message.id.start_with?(reference) }
       return matches.first if matches.one?
 
