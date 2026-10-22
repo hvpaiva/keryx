@@ -28,17 +28,23 @@ module Keryx
       raise Error, "invalid name #{name.to_s.inspect}: #{NAME_RULE}"
     end
 
-    def self.local_host(env, hostname: Socket.gethostname)
+    def self.local_host(env, config: nil, hostname: Socket.gethostname)
       configured = env['KERYX_HOST'].to_s
-      unless configured.empty?
-        raise Error, "KERYX_HOST #{configured.inspect} is not a valid host name" unless HOST.match?(configured)
+      return valid_host(configured, 'KERYX_HOST') unless configured.empty?
 
-        return configured
-      end
+      setting = config&.host
+      return valid_host(setting.value, "#{config.path}:#{setting.line}: host") if setting
 
       derived = hostname.to_s.split('.').first.to_s.downcase.gsub(/[^a-z0-9-]/, '-').sub(/\A-+/, '')
       derived.empty? ? 'localhost' : derived[0, 63]
     end
+
+    def self.valid_host(host, source)
+      return host if HOST.match?(host)
+
+      raise Error, "#{source} #{host.inspect} is not a valid host name"
+    end
+    private_class_method :valid_host
 
     def to_s = "#{name}@#{host}"
 

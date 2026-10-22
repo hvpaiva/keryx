@@ -72,11 +72,23 @@ module CLIHelpers
 
   def remote = @remote ||= FakeRemote.new { |host, input| keryx('__receive', env: machine(host), input:).out }
 
-  def machine(host) = host == 'athena' ? {} : { 'KERYX_HOME' => tmp(host), 'KERYX_HOST' => host }
+  def machine(host)
+    return {} if host == 'athena'
+
+    write_config("host = #{host}\n", home: tmp("#{host}-config"))
+    { 'KERYX_HOME' => tmp(host), 'KERYX_HOST' => '', 'XDG_CONFIG_HOME' => tmp("#{host}-config") }
+  end
+
+  def write_config(text, home: tmp('config'))
+    FileUtils.mkdir_p(File.join(home, 'keryx'))
+    File.write(File.join(home, 'keryx', 'config'), text)
+  end
 
   def alive = @alive ||= []
 
-  def base_env = { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'USER' => 'person' }
+  def base_env
+    { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person' }
+  end
 
   def claude(pid)
     { 'CLAUDECODE' => '1', 'CLAUDE_PID' => pid.to_s, 'CLAUDE_CODE_SESSION_ID' => "session-#{pid}",

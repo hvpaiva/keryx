@@ -4,6 +4,8 @@ module Keryx
   class Paths
     APP = 'keryx'
     STATE_DEFAULT = File.join('.local', 'state').freeze
+    CONFIG_DEFAULT = '.config'
+    CONFIG_FILE = 'config'
 
     def initialize(env)
       @env = env
@@ -12,6 +14,8 @@ module Keryx
     def root
       absolute(@env['KERYX_HOME']) || File.join(absolute(@env['XDG_STATE_HOME']) || default_state, APP)
     end
+
+    def config = File.join(absolute(@env['XDG_CONFIG_HOME']) || File.join(home, CONFIG_DEFAULT), APP, CONFIG_FILE)
 
     private
 

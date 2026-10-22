@@ -3,6 +3,7 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'caller'
+require_relative 'config'
 require_relative 'courier'
 require_relative 'forwarder'
 require_relative 'herdr'
@@ -38,7 +39,9 @@ module Keryx
 
     def store = @store ||= Store.new(Paths.new(env).root, clock:, sleeper:)
 
-    def host = @host ||= Address.local_host(env)
+    def config = @config ||= Config.new(Paths.new(env).config)
+
+    def host = @host ||= Address.local_host(env, config:)
 
     def herdr = @herdr ||= Herdr.new(runner: Runner.new)
 
@@ -73,7 +76,7 @@ module Keryx
 
     def full(name) = "#{name}@#{host}"
 
-    def problems = @store ? @store.problems : []
+    def problems = [*@config&.problems, *@store&.problems]
 
     private
 

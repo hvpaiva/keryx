@@ -14,7 +14,7 @@ class ExecutableTest < Minitest::Test
 
   def run_keryx(*argv, env: {}, input: '')
     base = INHERITED.to_h { [it, nil] }.merge('KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena',
-                                              'USER' => 'person')
+                                              'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person')
     Open3.capture3(base.merge(env), RbConfig.ruby, EXE, *argv, stdin_data: input)
   end
 
@@ -42,6 +42,25 @@ class ExecutableTest < Minitest::Test
     assert_predicate sent, :success?
     assert_predicate waited, :success?
     assert_match(/\n\nApproved\n\z/, reply)
+  end
+
+  def test_the_host_comes_from_the_config_file_under_xdg_config_home
+    FileUtils.mkdir_p(tmp('config', 'keryx'))
+    File.write(tmp('config', 'keryx', 'config'), "host = zeus\n")
+    out, err, status = run_keryx('whoami', '-o', 'json', env: { 'KERYX_HOST' => nil })
+
+    assert_predicate status, :success?
+    assert_equal 'person@zeus', JSON.parse(out)['address']
+    assert_empty err
+  end
+
+  def test_the_config_file_reads_as_utf8_without_a_locale
+    FileUtils.mkdir_p(tmp('config', 'keryx'))
+    File.write(tmp('config', 'keryx', 'config'), "# m#{[0xE1].pack('U')}quina\nhost = zeus\n")
+    out, err, = run_keryx('whoami', '-o', 'json', env: { 'KERYX_HOST' => nil, 'LANG' => nil, 'LC_ALL' => 'C' })
+
+    assert_equal 'person@zeus', JSON.parse(out)['address']
+    assert_empty err
   end
 
   def test_errors_go_to_stderr_with_a_status
