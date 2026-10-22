@@ -11,8 +11,9 @@ module Keryx
                      description: "Show a message in full and mark it as read.\n\n" \
                                   'Without ID it opens the oldest unread message. ID may be the whole id or its ' \
                                   'first characters, at least four, as long as they match one message. Marking a ' \
-                                  'message read is how the sender learns you saw it, so read it with this command ' \
-                                  'rather than through the files.',
+                                  'message read is how a sender on the same machine learns you saw it, so read it ' \
+                                  'with this command rather than through the files; a sender on another machine ' \
+                                  'sees only that it arrived.',
                      examples: [['Open the next unread message', 'read'], ['Open one message', 'read 01JB8Y2Q']]
 
       def define_options(parser) = output_option(parser)

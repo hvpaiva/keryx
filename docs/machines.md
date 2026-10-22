@@ -62,10 +62,14 @@ deadline reported, and a host's waiting line only when it changes.
 ## What each machine sees
 
 A request sent to another machine stays in the sender's outbox after it goes out, so both machines
-list it under OPEN REQUESTS in `keryx status` until the reply arrives. Mail that has not gone out
-yet is under NOT FORWARDED, with the number of attempts and the last error. A message reaches the
-other machine at most once, since that machine stores it under its id and answers a second copy as
-a duplicate.
+list it under OPEN REQUESTS in `keryx status`. Each machine closes it once it holds the reply. The
+machine that answers does so as soon as the reply is written, even while the reply still waits in
+its outbox, and the sender's machine when the reply arrives. Mail that has not gone out yet is
+under NOT FORWARDED, with the number of attempts and the last error.
+
+Only messages cross between machines. Reading a request marks it read on the machine that holds
+it, and the sender's machine keeps showing it as forwarded. A message reaches the other machine at
+most once, since that machine stores it under its id and answers a second copy as a duplicate.
 
 When the other machine refuses a message, for example because the address does not exist there,
 `keryx send` fails with its reason. A message the courier forwards later and the other machine

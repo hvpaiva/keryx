@@ -41,6 +41,12 @@ class HelpTest < Minitest::Test
     assert_match(/and from standard\s+input when either is -\./, keryx('send', '--help').out)
   end
 
+  def test_the_help_of_read_says_that_a_read_stays_on_its_machine
+    prose = keryx('read', '--help').out.gsub(/\s+/, ' ')
+
+    assert_includes prose, 'a sender on another machine sees only that it arrived'
+  end
+
   def test_help_command_matches_the_flag
     assert_equal keryx('reply', '--help').out, keryx('help', 'reply').out
     assert_equal keryx.out, keryx('help').out

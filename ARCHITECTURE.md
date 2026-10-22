@@ -91,9 +91,11 @@ lacks. It stores the rest under their ids, rings the local session and prints a 
 The sender then moves a message to `cur/` or `refused/`. Without a receipt the message stays in
 `new/`, and its file in `receipts/` counts the attempts.
 
-The outbox counts with the mailboxes when keryx decides what is answered, so a request and its
-reply look the same from both machines. `Courier` forwards on a schedule, rings again for bells that
-did not reach a session, and sends the deadline notices from `keryx@HOST`.
+The outbox counts with the mailboxes when keryx decides what is answered, so the machine that
+answers closes a request as soon as the reply is written, and the sender's machine once the reply
+arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
+schedule, rings again for bells that did not reach a session, and sends the deadline notices from
+`keryx@HOST`.
 
 ## The stop hook
 

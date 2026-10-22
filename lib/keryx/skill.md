@@ -18,8 +18,8 @@ example `keryx join rev-1 --role reviewer`. Until you join, keryx refuses to sen
 ## When the bell rings
 
 1. Run `keryx read ID` with the id in the bell, or `keryx read` for the oldest unread message.
-2. Reading marks the message as read. That is how the sender knows you saw it, so always read
-   through keryx.
+2. Reading marks the message as read. That is how a sender on the same machine knows you saw it,
+   so always read through keryx.
 3. `keryx inbox` lists what is still unread.
 
 ## Answer every request
