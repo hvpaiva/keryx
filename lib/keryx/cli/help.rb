@@ -10,17 +10,18 @@ module Keryx
       DEFAULT_WIDTH = 80
       MAX_WIDTH = 100
 
-      def initialize(terminal, program:, description:)
+      def initialize(terminal, program:, description:, notes: {})
         @terminal = terminal
         @program = program
         @description = description
+        @notes = notes
         @width = [terminal.columns || DEFAULT_WIDTH, MAX_WIDTH].min
       end
 
       def root(commands, globals)
         [prose(@description), usage("#{@program} [options] <command> [arguments]"), *command_sections(commands),
-         options(globals, 'Global Options'), "Run '#{@program} <command> --help' for more about a command."]
-          .join("\n\n")
+         options(globals, 'Global Options'), *@notes.map { |title, rows| definitions(title, rows) },
+         "Run '#{@program} <command> --help' for more about a command."].join("\n\n")
       end
 
       def command(spec, parser, globals)
@@ -43,6 +44,10 @@ module Keryx
       end
 
       def header(text) = @terminal.paint(:header, "#{text}:")
+
+      def definitions(title, rows)
+        "#{header(title)}\n#{rows.map { |term, text| "  #{term.ljust(SUMMARY_WIDTH)} #{text}" }.join("\n")}"
+      end
 
       def usage(line) = "#{header('Usage')}\n  #{line}"
 
