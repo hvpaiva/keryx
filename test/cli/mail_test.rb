@@ -106,6 +106,17 @@ class MailTest < Minitest::Test
     assert_equal 90, clock.now - started
   end
 
+  def test_a_message_that_only_points_at_a_request_does_not_answer_it
+    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    id = last_id(@rev)
+    keryx('read', id, env: @rev)
+    forged = build_message(to: 'orq@athena', from: 'peer@zeus', in_reply_to: id, body: 'not a reply')
+    keryx('__receive', input: "#{forged.to_json}\n")
+
+    assert_equal([id], JSON.parse(keryx('status', '-o', 'json').out)['open_requests'].map { it['id'] })
+    assert_equal 3, keryx('wait', id, '--timeout', '1s', env: @orq).status
+  end
+
   def test_wait_only_follows_requests_the_caller_sent
     keryx('send', 'rev-1', 'not a request', env: @orq)
 

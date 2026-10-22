@@ -76,6 +76,11 @@ module Keryx
 
     def overdue?(now) = request? && !due_at.nil? && now > due_at
 
+    def answers?(request)
+      reply? && request.request? && in_reply_to == request.id && thread == request.thread &&
+        from == request.to && to == request.from
+    end
+
     def summary(width = 60)
       line = body.each_line.map(&:strip).find { !it.empty? }.to_s
       line = Text.plain(line)

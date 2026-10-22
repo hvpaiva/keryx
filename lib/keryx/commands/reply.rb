@@ -9,7 +9,7 @@ module Keryx
       define 'reply', section: 'Mail Commands', arguments: 'ID [TEXT]', min: 1, max: 2,
                       summary: 'Answer a message',
                       description: 'Answer a message in your mailbox. The reply goes to its sender in the same ' \
-                                   "thread, and a request counts as answered once a reply points at it.\n\n" \
+                                   "thread, and a request counts as answered once its recipient replies to it.\n\n" \
                                    'Replying also marks the message as read.',
                       examples: [['Answer a request', 'reply 01JB8Y2Q "Approved, with two comments on the PR"'],
                                  ['Answer with a file', 'reply 01JB8Y2Q --file review.md']]
