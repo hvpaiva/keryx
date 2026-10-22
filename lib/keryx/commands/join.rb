@@ -56,14 +56,18 @@ module Keryx
         caller = app.caller
         raise Error, NOT_AN_AGENT unless caller.agent?
 
-        refuse_taken(name, caller)
-        release_others(name, caller)
-        app.store.create_address(name, role: options[:role])
-        app.store.bind(name, caller.occupant(app.now))
+        app.store.with_occupants_lock { claim(name, caller) }
         report(name, caller)
       end
 
       private
+
+      def claim(name, caller)
+        refuse_taken(name, caller)
+        release_others(name, caller)
+        app.store.create_address(name, role: options[:role])
+        app.store.bind(name, caller.occupant(app.now))
+      end
 
       def refuse_taken(name, caller)
         Join.refuse_taken(app, name, 'pass --force to take it over', caller:) unless options[:force]

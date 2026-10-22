@@ -22,6 +22,7 @@ module Keryx
     READ = 'read'
     BOX_DIRS = ['tmp', MAIL, READ, 'receipts'].freeze
     MINIMUM_PREFIX = 4
+    OCCUPANTS_LOCK = 'occupants.lock'
 
     attr_reader :root, :problems
 
@@ -77,6 +78,15 @@ module Keryx
     end
 
     def unbind(name) = FileUtils.rm_f(occupant_file(name))
+
+    # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
+    def with_occupants_lock
+      FileUtils.mkdir_p(root, mode: DIR_MODE)
+      File.open(File.join(root, OCCUPANTS_LOCK), File::RDWR | File::CREAT, FILE_MODE) do |file|
+        file.flock(File::LOCK_EX)
+        yield
+      end
+    end
 
     def deliver(name, message)
       require_address(name)
