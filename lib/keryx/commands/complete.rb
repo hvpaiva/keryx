@@ -5,7 +5,8 @@ require_relative '../cli/command'
 module Keryx
   module Commands
     class Complete < CLI::Command
-      VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role].freeze
+      VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
+                         --effort --prompt].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
@@ -29,6 +30,7 @@ module Keryx
       private
 
       def candidates(before, current)
+        return [] if before.include?('--')
         return value_candidates(before.last) if VALUE_OPTIONS.include?(before.last)
 
         command, positionals = parse(before)
@@ -61,6 +63,8 @@ module Keryx
         case option
         when '--as' then app.store.address_names
         when '-o', '--output' then OUTPUTS
+        when '--harness' then Harness::KINDS
+        when '--split' then Spawn::DIRECTIONS
         else []
         end
       end

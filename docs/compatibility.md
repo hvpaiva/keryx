@@ -12,7 +12,9 @@
 | Other agents | Any agent that herdr recognizes in its pane. |
 
 CI runs Ruby 3.4 and 4.0 on Linux and Ruby 4.0 on macOS. The stop hooks were last checked against
-real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19.
+real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19. `keryx spawn`,
+which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Code 2.1.308, Codex
+0.163.0 and Cursor Agent 2026.10.22.
 
 ## Limits
 
@@ -27,5 +29,9 @@ real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19.
   screen for the common ones, but an unknown dialog can still take the typed bell.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
   recognizes.
+- `keryx spawn` hands herdr the rest of its `--timeout`, up to five minutes, and herdr 0.9.5 drops
+  the agent's name if the agent has not been idle or blocked since it started when that time runs
+  out. keryx finds the session by its pane, so only herdr commands that take the agent's name
+  notice.
 - A Cursor session outside a herdr pane gets no bell. Its stop hook tells it about new mail when
   its turn ends, but an idle session waits until someone types to it.

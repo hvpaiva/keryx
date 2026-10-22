@@ -35,6 +35,10 @@ language models.
 - Typing is the last resort. keryx types into a pane only when herdr reports the agent idle, done
   or working and the bottom of the screen shows no dialog keryx knows, so a bell does not answer
   an approval prompt.
+- `keryx spawn` types nothing into an agent. herdr types the harness command, each argument quoted,
+  into the shell of the pane spawn just created, and the first prompt travels as an argument of
+  that command. spawn refuses harness arguments that hold control characters, makes those in
+  `--prompt` visible, and leaves every dialog in the new pane for you to answer.
 - Mailbox directories are created with mode 0700 and files with 0600.
 
 `crossSessionInbound: "accept"` in a Claude Code session's settings lets any process of your user

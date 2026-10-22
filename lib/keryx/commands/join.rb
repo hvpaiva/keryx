@@ -28,6 +28,21 @@ module Keryx
         parts.empty? ? 'no pid, thread or pane known' : parts.join(', ')
       end
 
+      def self.check_role(role)
+        return if role.nil? || ROLE.match?(role)
+
+        raise UsageError, "invalid role #{role.inspect}: up to 40 letters, digits, spaces, dots, hyphens or underscores"
+      end
+
+      def self.refuse_taken(app, name, advice, caller: nil)
+        occupant = app.store.occupant(name)
+        return if occupant.nil? || caller&.holds?(occupant)
+        return unless LIVE_SESSIONS.include?(app.roster.session(occupant))
+
+        raise Error, "#{app.full(name)} is held by another live #{occupant.harness} session " \
+                     "(#{where(occupant)}); #{advice}"
+      end
+
       def define_options(parser)
         parser.on('--role ROLE', 'Say what the session does, such as reviewer or implementer') do |role|
           options[:role] = role
@@ -37,7 +52,7 @@ module Keryx
 
       def call(arguments)
         name = Address.validate_name(arguments.first)
-        check_role(options[:role])
+        Join.check_role(options[:role])
         caller = app.caller
         raise Error, NOT_AN_AGENT unless caller.agent?
 
@@ -50,19 +65,8 @@ module Keryx
 
       private
 
-      def check_role(role)
-        return if role.nil? || ROLE.match?(role)
-
-        raise UsageError, "invalid role #{role.inspect}: up to 40 letters, digits, spaces, dots, hyphens or underscores"
-      end
-
       def refuse_taken(name, caller)
-        occupant = app.store.occupant(name)
-        return if occupant.nil? || caller.holds?(occupant) || options[:force]
-        return unless LIVE_SESSIONS.include?(app.roster.session(occupant))
-
-        raise Error, "#{app.full(name)} is held by another live #{occupant.harness} session " \
-                     "(#{Join.where(occupant)}); pass --force to take it over"
+        Join.refuse_taken(app, name, 'pass --force to take it over', caller:) unless options[:force]
       end
 
       def release_others(name, caller)

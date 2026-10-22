@@ -1,13 +1,22 @@
 # frozen_string_literal: true
 
 class FakeRunner
-  attr_reader :calls, :inputs
+  Job = Struct.new(:result, :stopped) do
+    def done?(**) = true
+
+    def stop = self.stopped = true
+  end
+
+  attr_reader :calls, :inputs, :jobs
 
   def initialize(responses = {})
     @responses = responses
     @calls = []
     @inputs = []
+    @jobs = []
   end
+
+  def start(argv, env: {}, input: nil) = Job.new(call(argv, env:, input:), false).tap { @jobs << it }
 
   def call(argv, env: {}, input: nil)
     @calls << [argv, env]
@@ -43,23 +52,83 @@ class FakeRemote
 end
 
 class FakeHerdr
-  attr_reader :prompts
+  OK = Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil)
 
-  def initialize(agents = {}, screens: {}, prompt_outcome: Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil))
+  # Polls before herdr agent start returns; Float::INFINITY keeps it waiting until spawn stops it.
+  class Starting
+    attr_reader :stopped
+
+    def initialize(outcome, polls)
+      @outcome = outcome
+      @polls = polls
+    end
+
+    def outcome = (@polls -= 1).negative? ? @outcome : nil
+
+    def stop = @stopped = true
+  end
+
+  attr_reader :prompts, :splits, :created_tabs, :starts
+  attr_accessor :start_outcome, :start_polls, :on_start
+
+  def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
     @agents = agents
     @screens = screens
     @prompt_outcome = prompt_outcome
     @prompts = []
+    @panes = panes
+    @tabs = tabs
+    @splits = []
+    @created_tabs = []
+    @starts = []
+    @start_outcome = OK
+    @start_polls = 0
   end
 
-  def agent(socket, pane) = @agents[[socket, pane]]
+  def agent(socket, pane) = @agents[[socket, pane]].then { it.respond_to?(:call) ? it.call : it }
 
   def agents(socket) = @agents.filter_map { |(server, _pane), agent| agent if server == socket }
+
+  def put(socket, pane, agent) = @agents[[socket, pane]] = agent
+
+  def show(socket, pane, screen) = @screens[[socket, pane]] = screen
 
   def screen(socket, pane) = @screens.fetch([socket, pane], '> ')
 
   def prompt(socket, pane, text)
     @prompts << [socket, pane, text]
     @prompt_outcome
+  end
+
+  def pane(_socket, id) = @panes.find { it.id == id } || raise(Keryx::Error, "herdr pane get failed: no pane #{id}")
+
+  def panes(_socket, workspace) = @panes.select { it.workspace == workspace }
+
+  def tabs(_socket, workspace) = @tabs.fetch(workspace, [])
+
+  def split(socket, from, direction:, cwd:, env: {})
+    @splits << [from, direction, cwd, env]
+    parent = pane(socket, from)
+    add_pane(parent.workspace, parent.tab)
+  end
+
+  def create_tab(_socket, workspace, label:, cwd:, env: {})
+    @created_tabs << [workspace, label, cwd, env]
+    tab = Keryx::Herdr::Tab.new(id: "#{workspace}:t#{tabs(nil, workspace).size + 1}", label:)
+    (@tabs[workspace] ||= []) << tab
+    add_pane(workspace, tab.id)
+  end
+
+  def start(socket, pane, name:, kind:, arguments:, timeout:)
+    starting = Starting.new(@start_outcome, @start_polls)
+    @starts << { pane:, name:, kind:, arguments:, timeout:, starting: }
+    @on_start&.call(socket, pane, name, kind)
+    starting
+  end
+
+  private
+
+  def add_pane(workspace, tab)
+    Keryx::Herdr::Pane.new(id: "#{workspace}:p#{@panes.size + 1}", tab:, workspace:).tap { @panes << it }
   end
 end

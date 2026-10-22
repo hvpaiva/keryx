@@ -8,7 +8,8 @@ require_relative 'message_view'
 module Keryx
   module CLI
     class Command
-      Spec = Data.define(:name, :summary, :section, :arguments, :description, :min, :max, :examples, :hidden)
+      Spec = Data.define(:name, :summary, :section, :arguments, :description, :min, :max, :examples, :hidden,
+                         :passthrough)
       Example = Data.define(:comment, :line)
       FORMATS = %w[table json].freeze
 
@@ -18,18 +19,20 @@ module Keryx
         def raw? = false
 
         def define(name, summary:, section:, arguments: '', description: nil, min: 0, max: 0, examples: [],
-                   hidden: false)
+                   hidden: false, passthrough: false)
           @spec = Spec.new(name:, summary:, section:, arguments:, description: description || "#{summary}.",
-                           min:, max:, examples: examples.map { Example.new(*it) }, hidden:)
+                           min:, max:, examples: examples.map { Example.new(*it) }, hidden:, passthrough:)
         end
       end
 
       attr_reader :options
+      attr_accessor :passthrough
 
       def initialize(terminal, &app)
         @terminal = terminal
         @app_factory = app
         @options = {}
+        @passthrough = []
       end
 
       def spec = self.class.spec

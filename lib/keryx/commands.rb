@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'commands/join'
+require_relative 'commands/spawn'
 require_relative 'commands/leave'
 require_relative 'commands/whoami'
 require_relative 'commands/who'
@@ -23,7 +24,7 @@ require_relative 'commands/receive'
 
 module Keryx
   module Commands
-    ALL = [Join, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Courier, Hook, Skill,
-           Completion, Version, Help, Complete, Receive].freeze
+    ALL = [Join, Spawn, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Courier, Hook,
+           Skill, Completion, Version, Help, Complete, Receive].freeze
   end
 end
