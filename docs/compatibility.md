@@ -16,8 +16,10 @@ real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19.
 
 ## Limits
 
-- keryx delivers on one machine. Addresses carry the host name, and a message to an address on
-  another host is refused.
+- `who` and `status` show the machine they run on. A request sent to another machine is listed on
+  both, but the addresses and sessions of the other machine are not.
+- Mail between machines goes through SSH with keys and OpenSSH options, and one machine forwards
+  only to machines it can reach by the host part of the address.
 - Identities are not authenticated. Any process running as your user can act as any address with
   `--as`. keryx coordinates sessions you run and is not a security boundary, as the
   [security policy](../SECURITY.md) explains.
