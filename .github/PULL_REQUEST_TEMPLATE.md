@@ -9,6 +9,6 @@
 ## Checklist
 
 - [ ] Tests added or updated
-- [ ] Documentation updated where a reader would look for the change (README, the command's help, `ARCHITECTURE.md`, `SECURITY.md`)
+- [ ] Documentation updated where a reader would look for the change (README, `docs/`, the command's help, `ARCHITECTURE.md`, `SECURITY.md`)
 - [ ] `bundle exec rake check` passes
 - [ ] `CHANGELOG.md` has a line under `## [Unreleased]` for user-visible changes
