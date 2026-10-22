@@ -5,8 +5,9 @@ require_relative '../cli/command'
 module Keryx
   module Commands
     class Join < CLI::Command
-      NOT_AN_AGENT = 'join binds the agent session that runs it; run it from inside a Claude Code or Codex ' \
-                     'session, or from an agent running in a herdr pane'
+      NOT_AN_AGENT = 'join binds the agent session that runs it; run it from inside a Claude Code, Codex or ' \
+                     'Cursor session, or from an agent running in a herdr pane'
+      SESSION_LABEL = { 'codex' => 'thread', 'cursor' => 'conversation' }.freeze
       LIVE_SESSIONS = %w[live idle working blocked done].freeze
       ROLE = /\A[[:alnum:]][[:alnum:] ._-]{0,39}\z/
 
@@ -21,8 +22,8 @@ module Keryx
                                 ['Take an address over from a session that is still running', 'join rev-1 --force']]
 
       def self.where(session)
-        thread = session.session_id if session.harness == 'codex'
-        parts = [session.pid && "pid #{session.pid}", thread && "thread #{thread}",
+        label = SESSION_LABEL[session.harness]
+        parts = [session.pid && "pid #{session.pid}", label && session.session_id && "#{label} #{session.session_id}",
                  session.herdr_pane && "pane #{session.herdr_pane}"].compact
         parts.empty? ? 'no pid, thread or pane known' : parts.join(', ')
       end

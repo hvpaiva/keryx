@@ -43,7 +43,7 @@ module Keryx
 
     def bell = @bell ||= Bell.new(store:, herdr:, clock:, claude_socket: @claude_socket, codex: @codex)
 
-    def postman = @postman ||= Postman.new(store:, bell:, host:, clock:)
+    def postman = @postman ||= Postman.new(store:, bell:, host:, clock:, person: identity.human_name)
 
     def roster = @roster ||= Roster.new(store:, herdr:, process:)
 

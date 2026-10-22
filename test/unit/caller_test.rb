@@ -39,6 +39,22 @@ class CallerTest < Minitest::Test
     assert caller.holds?(build_occupant(harness: 'codex', session_id: 'thread-1'))
   end
 
+  def test_a_cursor_session_is_named_by_its_conversation
+    caller = caller_from({ 'CURSOR_CONVERSATION_ID' => 'conversation-1' })
+
+    assert_equal %w[cursor conversation-1], [caller.harness, caller.session_id]
+    assert caller.holds?(build_occupant(harness: 'cursor', session_id: 'conversation-1'))
+  end
+
+  def test_a_harness_started_from_claude_code_is_not_taken_for_it
+    cursor = caller_from(CLAUDE_ENV.merge('CURSOR_CONVERSATION_ID' => 'conversation-1'))
+    codex = caller_from(CLAUDE_ENV.merge('CODEX_THREAD_ID' => 'thread-1'))
+
+    assert_equal([%w[cursor conversation-1], %w[codex thread-1]], [cursor, codex].map { [it.harness, it.session_id] })
+    assert_equal [nil, nil], [cursor.pid, codex.claude_socket]
+    refute cursor.holds?(build_occupant(pid: 4242, session_id: 'session-1'))
+  end
+
   def test_a_plain_terminal_is_not_an_agent
     refute_predicate caller_from({}), :agent?
     refute_predicate caller_from({ 'HERDR_SOCKET_PATH' => HERDR_SOCKET, 'HERDR_PANE_ID' => 'w1:p3' }), :agent?

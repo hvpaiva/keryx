@@ -50,9 +50,10 @@ mkdir -p ~/.codex/skills/keryx && keryx skill > ~/.codex/skills/keryx/SKILL.md
 mkdir -p ~/.cursor/skills/keryx && keryx skill > ~/.cursor/skills/keryx/SKILL.md
 ```
 
-Codex needs nothing more. Claude Code sessions need two settings, one to let the bells in and one
-for the reminder hook, and any other agent runs in a [herdr](https://herdr.dev) pane.
-[Setting up the agents](docs/agents.md) covers both.
+Claude Code, Codex and Cursor also take keryx's stop hook, which reminds a session of pending mail
+before it ends a turn. Claude Code needs one more setting to let the bells in, and Cursor and any
+other agent are rung in a [herdr](https://herdr.dev) pane. [Setting up the agents](docs/agents.md)
+shows each one.
 
 ## Ask and answer
 

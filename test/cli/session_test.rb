@@ -57,6 +57,13 @@ class SessionTest < Minitest::Test
     assert_equal(%w[codex thread-1], store.occupant('impl').then { [it.harness, it.session_id] })
   end
 
+  def test_join_in_cursor_records_its_conversation
+    result = keryx('join', 'audit', env: { 'CURSOR_CONVERSATION_ID' => 'conversation-1' })
+
+    assert_equal "Joined audit@athena as a cursor session (conversation conversation-1).\n", result.out
+    assert_equal(%w[cursor conversation-1], store.occupant('audit').then { [it.harness, it.session_id] })
+  end
+
   def test_join_refuses_an_address_a_live_session_holds_unless_forced
     join_claude('rev-1', 111)
     alive << 222

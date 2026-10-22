@@ -29,6 +29,12 @@ reason.
 - `the session has no Claude Code socket, Codex thread or herdr pane` means keryx has no way to
   ring that session. Run the agent in a herdr pane.
 
+## Codex ends its turn with unread mail
+
+Codex skips a hook nobody has trusted yet, and says so when it starts with "Hooks need review".
+Open `/hooks`, find `keryx hook stop` under Stop and trust it. Trusting only that hook leaves your
+other hooks as they were.
+
 ## Sessions inside Codex do not see the other sessions' mail
 
 Codex passes its commands only the environment its `shell_environment_policy` allows. With

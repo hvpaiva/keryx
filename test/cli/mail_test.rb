@@ -132,6 +132,14 @@ class MailTest < Minitest::Test
     assert_match(/rev-1@zeus is on another machine/, keryx('send', 'rev-1@zeus', 'x', env: @orq).err)
   end
 
+  def test_an_agent_can_write_to_the_person_before_they_use_keryx
+    result = keryx('send', 'person', 'Both reviews are in', env: @orq)
+
+    assert_equal 0, result.status
+    assert_equal 'human', store.address('person').role
+    assert_equal(['Both reviews are in'], JSON.parse(keryx('inbox', '-o', 'json').out).map { it['body'] })
+  end
+
   def test_a_person_at_a_terminal_sends_as_their_own_address
     result = keryx('send', 'rev-1', 'Please also check the docs')
 

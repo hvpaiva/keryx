@@ -21,7 +21,7 @@ class PostmanTest < Minitest::Test
 
   def bell = @bell ||= RecordingBell.new
 
-  def postman = Keryx::Postman.new(store:, bell:, host: 'athena', clock: -> { NOW })
+  def postman = Keryx::Postman.new(store:, bell:, host: 'athena', clock: -> { NOW }, person: 'person')
 
   def address(text) = Keryx::Address.parse(text, local_host: 'athena')
 

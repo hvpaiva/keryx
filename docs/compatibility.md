@@ -8,9 +8,11 @@
 | Operating system | Linux and macOS. |
 | Claude Code | 2.1.224 or later, for its peer sockets. |
 | Codex | CLI 0.149 or later, for `codex queue`, with the TUI on Codex's shared background server (the default, which `--no-daemon` turns off). |
+| Cursor | The Cursor Agent CLI, in a herdr pane for bells. |
 | Other agents | Any agent that herdr recognizes in its pane. |
 
-CI runs Ruby 3.4 and 4.0 on Linux and Ruby 4.0 on macOS.
+CI runs Ruby 3.4 and 4.0 on Linux and Ruby 4.0 on macOS. The stop hooks were last checked against
+real sessions of Claude Code 2.1.308, Codex 0.163.0 and Cursor Agent 2026.10.19.
 
 ## Limits
 
@@ -23,3 +25,5 @@ CI runs Ruby 3.4 and 4.0 on Linux and Ruby 4.0 on macOS.
   screen for the common ones, but an unknown dialog can still take the typed bell.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
   recognizes.
+- A Cursor session outside a herdr pane gets no bell. Its stop hook tells it about new mail when
+  its turn ends, but an idle session waits until someone types to it.

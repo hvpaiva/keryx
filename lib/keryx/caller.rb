@@ -15,12 +15,14 @@ module Keryx
     end
 
     def self.harness_fields(env)
-      if env['CLAUDECODE'] == '1'
+      if value(env, 'CURSOR_CONVERSATION_ID')
+        { harness: 'cursor', session_id: value(env, 'CURSOR_CONVERSATION_ID') }
+      elsif value(env, 'CODEX_THREAD_ID')
+        { harness: 'codex', session_id: value(env, 'CODEX_THREAD_ID') }
+      elsif env['CLAUDECODE'] == '1'
         { harness: 'claude', session_id: value(env, 'CLAUDE_CODE_SESSION_ID'),
           pid: Integer(env['CLAUDE_PID'].to_s, 10, exception: false),
           claude_socket: value(env, 'CLAUDE_CODE_MESSAGING_SOCKET') }
-      elsif value(env, 'CODEX_THREAD_ID')
-        { harness: 'codex', session_id: value(env, 'CODEX_THREAD_ID') }
       end
     end
 

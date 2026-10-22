@@ -51,6 +51,36 @@ class HookTest < Minitest::Test
     assert_equal 'block', JSON.parse(stop(env, session_id: 'session-222').out)['decision']
   end
 
+  def test_cursor_gets_the_reminder_as_a_follow_up_message
+    keryx('join', 'audit', env: { 'CURSOR_CONVERSATION_ID' => 'conversation-1' })
+    keryx('send', 'audit', 'hello', env: @orq)
+    id = last_id({ 'CURSOR_CONVERSATION_ID' => 'conversation-1' })
+    payload = JSON.generate('conversation_id' => 'conversation-1', 'cursor_version' => '2026.10.19',
+                            'hook_event_name' => 'stop', 'status' => 'completed', 'loop_count' => 0)
+    first = keryx('hook', 'stop', input: payload).out
+
+    assert_match(/\Akeryx: audit has 1 unread message \(#{id}\)\./, JSON.parse(first)['followup_message'])
+    assert_equal "{}\n", keryx('hook', 'stop', input: payload).out
+  end
+
+  def test_a_cursor_hook_inside_claude_code_is_not_taken_for_it
+    keryx('send', 'orq', 'hello', env: @rev)
+    payload = JSON.generate('conversation_id' => 'conversation-1', 'cursor_version' => '2026.10.19')
+
+    assert_equal "{}\n", keryx('hook', 'stop', env: @orq, input: payload).out
+    assert_equal 'block', JSON.parse(stop(@orq).out)['decision']
+  end
+
+  def test_codex_gets_the_reminder_as_a_block_decision
+    keryx('join', 'impl', env: { 'CODEX_THREAD_ID' => 'thread-1' })
+    keryx('send', 'impl', 'hello', env: @orq)
+    payload = JSON.generate('session_id' => 'thread-1', 'turn_id' => 'turn-1', 'hook_event_name' => 'Stop')
+    decision = JSON.parse(keryx('hook', 'stop', input: payload).out)
+
+    assert_equal 'block', decision['decision']
+    assert_match(/\Akeryx: impl has 1 unread message/, decision['reason'])
+  end
+
   def test_a_session_with_no_address_is_left_alone
     alive << 333
 
