@@ -105,7 +105,10 @@ initial prompt. A harness that stops at a folder trust or hooks dialog keeps tha
 it once the dialog is answered, so nothing is ever typed into the session itself. herdr's start
 waits while the agent works, and the session starts working on that prompt at once, so it runs in
 the background through `Runner#start` while spawn watches the store, and spawn stops it when it is
-done.
+done. herdr names the agent when the start begins and keeps the name once the agent is idle or
+blocked, but drops it if the agent is still working when the timeout spawn passed to herdr runs
+out, so a session busy with its first request can lose its herdr name. keryx does not use that
+name, since the occupant records the pane.
 
 The new pane gets `KERYX_HOME`, and `KERYX_HOST` when it is set, through herdr, so the session joins
 the store spawn watches. Codex passes its commands only the variables its `shell_environment_policy`
