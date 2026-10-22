@@ -6,4 +6,7 @@ $LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 require 'keryx'
 
+# Without a locale, as under ssh or systemd, Ruby reads UTF-8 messages as US-ASCII and fails on them.
+Encoding.default_external = Encoding::UTF_8
+
 exit Keryx.run(ARGV)
