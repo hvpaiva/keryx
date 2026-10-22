@@ -9,7 +9,8 @@ module Keryx
       define 'send', section: 'Mail Commands', arguments: 'ADDRESS [TEXT]', min: 1, max: 2,
                      summary: 'Send a message that needs no reply',
                      description: "Send a message that needs no reply, such as a status update or a heads-up.\n\n" \
-                                  'The text comes from the argument, or from a file or standard input with --file. ' \
+                                  'The text comes from the argument or from a file with --file, and from standard ' \
+                                  'input when either is -. ' \
                                   'Use ask instead when you need an answer.',
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md']]

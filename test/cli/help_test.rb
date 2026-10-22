@@ -33,6 +33,14 @@ class HelpTest < Minitest::Test
     assert_match(/^Examples:\n  # Ask for a review/, result.out)
   end
 
+  def test_the_help_says_that_a_text_of_a_dash_reads_standard_input
+    %w[send ask reply].each do |name|
+      assert_match(/--file PATH +Read the text from PATH, or from standard input when PATH or TEXT is -$/,
+                   keryx(name, '--help').out, name)
+    end
+    assert_match(/and from standard\s+input when either is -\./, keryx('send', '--help').out)
+  end
+
   def test_help_command_matches_the_flag
     assert_equal keryx('reply', '--help').out, keryx('help', 'reply').out
     assert_equal keryx.out, keryx('help').out
