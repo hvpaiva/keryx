@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'test_helper'
+require 'timeout'
 
 class StoreTest < Minitest::Test
   include TempDir
@@ -160,6 +161,25 @@ class StoreTest < Minitest::Test
     assert_equal [good], store.unread('rev-1')
     assert_equal 1, store.problems.size
     assert_match(/not valid JSON/, store.problems.first)
+  end
+
+  def test_an_entry_that_is_not_a_regular_file_is_skipped_without_waiting_on_it
+    store.create_address('rev-1')
+    good = build_message(to: 'rev-1@athena')
+    store.deliver('rev-1', good)
+    File.mkfifo(tmp('state', 'addresses', 'rev-1', 'mail', "#{Keryx::Ulid.generate}.json"))
+
+    assert_equal [good], Timeout.timeout(5) { store.unread('rev-1') }
+    assert_match(/skipped .*\.json: not a regular file/, store.problems.first)
+  end
+
+  def test_a_json_file_that_is_not_a_regular_file_is_an_error_naming_it
+    store.create_address('rev-1')
+    id = Keryx::Ulid.generate
+    File.mkfifo(tmp('state', 'addresses', 'rev-1', 'receipts', "#{id}.bell"))
+    error = assert_raises(Keryx::Error) { Timeout.timeout(5) { store.receipt('rev-1', id, 'bell') } }
+
+    assert_match(/#{id}\.bell is not a regular file/, error.message)
   end
 
   def test_a_message_with_a_field_of_the_wrong_type_is_skipped

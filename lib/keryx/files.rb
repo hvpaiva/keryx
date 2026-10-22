@@ -43,7 +43,8 @@ module Keryx
     end
 
     def read_message(path)
-      message = Message.from_json(File.read(path))
+      text = read_regular(path) or raise Error, 'not a regular file'
+      message = Message.from_json(text)
       return message if File.basename(path, '.json') == message.id
 
       raise Error, "the file name does not match the message id #{message.id}"
@@ -55,11 +56,17 @@ module Keryx
     end
 
     def read_json(path)
-      JSON.parse(File.read(path))
+      text = read_regular(path) or raise Error, "#{path} is not a regular file"
+      JSON.parse(text)
     rescue Errno::ENOENT
       nil
     rescue JSON::ParserError => e
       raise Error, "#{path} is not valid JSON (#{e.message.lines.first.strip})"
+    end
+
+    # Opening a named pipe without O_NONBLOCK waits for a writer, and the type is checked on the open file.
+    def read_regular(path)
+      File.open(path, File::RDONLY | File::NONBLOCK) { |file| file.read if file.stat.file? }
     end
 
     def write_atomic(path, content)
