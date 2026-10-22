@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative '../tool/release'
+
+USAGE = <<~TEXT
+  usage: bin/release prepare          open the pull request that releases lib/keryx/version.rb
+         bin/release tag              after it merges, sign and push the version's tag from main
+         bin/release notes VERSION    print the CHANGELOG.md section of VERSION
+TEXT
+
+root = File.expand_path('..', __dir__)
+release = Release.new(root:, runner: Release::Runner.new(chdir: root))
+command, *args = ARGV
+
+begin
+  case [command, args.size]
+  in ['prepare', 0] then release.prepare
+  in ['tag', 0] then release.tag
+  in ['notes', 1] then puts release.notes(args.first)
+  in ['-h' | '--help', 0] then puts USAGE
+  else
+    warn USAGE
+    exit 2
+  end
+rescue Release::Error => e
+  warn "bin/release: #{e.message}"
+  exit 1
+end
