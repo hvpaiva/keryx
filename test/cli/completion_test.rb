@@ -44,6 +44,16 @@ class CompletionTest < Minitest::Test
     assert_equal [id], complete('wait', '', env: orq)
   end
 
+  def test_ids_complete_from_the_mailbox_named_by_as
+    join_claude('rev-1', 222)
+    keryx('send', 'rev-1', 'for rev-1')
+    keryx('send', 'person', 'for person')
+    theirs = JSON.parse(keryx('--as', 'rev-1', 'inbox', '-o', 'json').out).map { it['id'] }
+
+    assert_equal theirs, complete('--as', 'rev-1', 'read', '')
+    assert_equal theirs, complete('read', '--as=rev-1', '')
+  end
+
   def test_flags_and_values_complete
     assert_includes complete('ask', '--'), '--within'
     assert_includes complete('ask', '--'), '--as'

@@ -20,7 +20,9 @@ module Keryx
       # Never fails: an error here would print inside the user's command line.
       def call(words)
         current = words.last.to_s
-        terminal.puts(candidates(words[0...-1], current).select { matches?(it, current) }.uniq)
+        before = words[0...-1]
+        @as = acting_as(before)
+        terminal.puts(candidates(before, current).select { matches?(it, current) }.uniq)
         nil
       rescue StandardError
         nil
@@ -49,6 +51,17 @@ module Keryx
         [command, positionals]
       end
 
+      def acting_as(words)
+        name = nil
+        words.each_with_index do |word, index|
+          name = words[index + 1] if word == '--as'
+          name = word.delete_prefix('--as=') if word.start_with?('--as=')
+        end
+        name
+      end
+
+      def me = @as || app.me
+
       def flags(command)
         return GLOBAL_FLAGS unless command
 
@@ -73,11 +86,11 @@ module Keryx
       def addresses = app.store.address_names
 
       def my_messages
-        app.store.mailbox(app.me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }
+        app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }
       end
 
       def my_open_requests
-        app.roster.open_requests.map { it.last.message }.select { it.from == app.full(app.me) }.map(&:id)
+        app.roster.open_requests.map { it.last.message }.select { it.from == app.full(me) }.map(&:id)
       end
 
       def shells = Completion::SHELLS
