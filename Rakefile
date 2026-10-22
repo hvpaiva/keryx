@@ -60,6 +60,12 @@ namespace :lint do
   end
 end
 
+Rake::Task['release'].clear
+desc 'Refuse: releases go through bin/release (docs/maintenance.md)'
+task :release do
+  abort 'keryx releases through bin/release; see docs/maintenance.md'
+end
+
 desc 'Run what CI runs: RuboCop, shellcheck, the tests with coverage and the advisory audit'
 task check: %w[rubocop lint:shell test:cov audit]
 
