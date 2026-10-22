@@ -6,8 +6,8 @@ Every agent first needs the skill that `keryx skill` prints, installed as the
 
 All three harnesses also run `keryx hook stop` when a session is about to end its turn. If the
 session has unread mail, or read a request without answering it, the hook keeps the turn going once
-and says what is pending. Each message is reminded about once, so the hook never holds a session in
-a loop.
+and says what is pending. Each message is reminded about once, and again only when the hook was cut
+off before it answered, so the hook never holds a session in a loop.
 
 ## Claude Code
 
