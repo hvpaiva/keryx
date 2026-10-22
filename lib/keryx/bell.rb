@@ -42,20 +42,31 @@ module Keryx
 
     def attempt(occupant, text)
       return outcome(ABSENT, nil, 'no session holds the address') unless occupant
-
-      native = through_harness(occupant, text)
-      return native if native && !(native.status == FAILED && occupant.herdr?)
+      return codex_thread(occupant, text) if occupant.harness == 'codex' && occupant.session_id
+      return claude_session(occupant, text) if occupant.claude_socket
       return through_herdr(occupant, text) if occupant.herdr?
 
-      native || outcome(ABSENT, nil, 'the session has no Claude Code socket, Codex thread or herdr pane')
+      outcome(ABSENT, nil, 'the session has no Claude Code socket, Codex thread or herdr pane')
     end
 
-    def through_harness(occupant, text)
-      if occupant.claude_socket
-        through_claude(occupant.claude_socket, text)
-      elsif occupant.harness == 'codex' && occupant.session_id
-        through_codex(occupant.session_id, text)
+    def claude_session(occupant, text)
+      posted = through_claude(occupant.claude_socket, text)
+      posted.status == FAILED && occupant.herdr? ? through_herdr(occupant, text) : posted
+    end
+
+    # Codex runs what is queued for any thread it has loaded, and its shared server keeps a thread loaded after
+    # the TUI quits, so only a thread herdr shows open in its pane is queued.
+    def codex_thread(occupant, text)
+      thread = occupant.session_id
+      agent = occupant.herdr? && @herdr.agent(occupant.herdr_socket, occupant.herdr_pane)
+      return outcome(ABSENT, nil, "thread #{thread} is not open in a herdr pane") unless agent && agent.kind == 'codex'
+      return through_herdr(occupant, text, agent) if agent.session.nil?
+      if agent.session != thread
+        return outcome(ABSENT, nil, "pane #{occupant.herdr_pane} runs thread #{agent.session}, not #{thread}")
       end
+
+      queued = through_codex(thread, text)
+      queued.status == FAILED ? through_herdr(occupant, text, agent) : queued
     end
 
     def through_claude(path, text)
@@ -72,10 +83,9 @@ module Keryx
       outcome(FAILED, 'codex', result.err.lines.first.to_s.strip)
     end
 
-    def through_herdr(occupant, text)
+    def through_herdr(occupant, text, agent = @herdr.agent(occupant.herdr_socket, occupant.herdr_pane))
       socket = occupant.herdr_socket
       pane = occupant.herdr_pane
-      agent = @herdr.agent(socket, pane)
       return outcome(FAILED, 'herdr', "no agent in pane #{pane}") unless agent
       return outcome(DEFERRED, 'herdr', "the agent is #{agent.status}") unless TYPABLE.include?(agent.status)
 

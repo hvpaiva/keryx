@@ -95,6 +95,14 @@ and the id, never the body. It tries two ways, in order.
 
 Cursor has no channel of its own, so it is always rung by typing.
 
+A Codex thread is queued only while herdr shows it open in the session's pane, by the session id
+herdr's Codex integration reports for that pane. `codex queue` hands the message to whichever Codex
+app-server has the thread loaded, and Codex's shared server keeps a thread loaded for 30 minutes
+after its TUI quits, then runs what was queued with no pane and no one watching. When herdr shows
+Codex in the pane without a session id, which is how a session whose hooks are not trusted looks,
+the bell is typed into the pane instead. When herdr shows another thread there, no Codex at all, or
+the session has no pane, the bell is absent and the message waits in the mailbox.
+
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
 each message, and `keryx status` reads the receipts to list what did not ring.
 

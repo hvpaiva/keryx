@@ -5,8 +5,9 @@ require 'test_helper'
 class HerdrTest < Minitest::Test
   SOCKET = '/run/user/1000/herdr.sock'
 
-  def agent_json(pane, kind, status)
-    JSON.generate('result' => { 'agent' => { 'pane_id' => pane, 'agent' => kind, 'agent_status' => status } })
+  def agent_json(pane, kind, status, session: nil)
+    agent = { 'pane_id' => pane, 'agent' => kind, 'agent_status' => status, 'agent_session' => session }.compact
+    JSON.generate('result' => { 'agent' => agent })
   end
 
   def test_agent_reads_kind_and_status_through_the_named_server
@@ -15,6 +16,17 @@ class HerdrTest < Minitest::Test
 
     assert_equal Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'codex', status: 'idle'), agent
     assert_equal [%w[herdr agent get w1:p2], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
+  end
+
+  def test_agent_reads_the_session_id_herdr_was_told
+    told = { 'agent' => 'codex', 'kind' => 'id', 'source' => 'herdr:codex', 'value' => 'thread-1' }
+    path = told.merge('kind' => 'path', 'value' => '/home/u/.codex/sessions/rollout.jsonl')
+    sessions = [told, path, nil].map do |session|
+      runner = FakeRunner.new(%w[herdr agent get] => { out: agent_json('w1:p2', 'codex', 'idle', session:) })
+      Keryx::Herdr.new(runner:).agent(SOCKET, 'w1:p2').session
+    end
+
+    assert_equal ['thread-1', nil, nil], sessions
   end
 
   def test_agent_is_nil_for_an_empty_pane_or_an_unreachable_server
@@ -27,10 +39,12 @@ class HerdrTest < Minitest::Test
 
   def test_agents_lists_every_agent_or_nothing
     list = JSON.generate('result' => { 'agents' => [{ 'pane_id' => 'w1:p1', 'agent' => 'claude',
-                                                      'agent_status' => 'working' }] })
+                                                      'agent_status' => 'working',
+                                                      'agent_session' => { 'kind' => 'id', 'value' => 's-1' } }] })
 
-    assert_equal ['claude'], Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent list] => { out: list }))
-                                         .agents(SOCKET).map(&:kind)
+    agents = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent list] => { out: list })).agents(SOCKET)
+
+    assert_equal([%w[claude s-1]], agents.map { [it.kind, it.session] })
     assert_empty Keryx::Herdr.new(runner: FakeRunner.new).agents(SOCKET)
   end
 

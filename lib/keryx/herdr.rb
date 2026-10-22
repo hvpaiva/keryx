@@ -6,7 +6,9 @@ require_relative 'runner'
 
 module Keryx
   class Herdr
-    Agent = Data.define(:pane, :kind, :status)
+    Agent = Data.define(:pane, :kind, :status, :session) do
+      def initialize(pane:, kind:, status:, session: nil) = super
+    end
     Outcome = Data.define(:ok, :code, :detail)
     Pane = Data.define(:id, :tab, :workspace)
     Tab = Data.define(:id, :label)
@@ -48,14 +50,12 @@ module Keryx
     def agent(socket, pane)
       data = Herdr.json(run(socket, 'agent', 'get', pane))
       agent = data&.dig('result', 'agent') or return nil
-      Agent.new(pane: agent['pane_id'], kind: agent['agent'], status: agent['agent_status'])
+      agent_of(agent)
     end
 
     def agents(socket)
       data = Herdr.json(run(socket, 'agent', 'list'))
-      Array(data&.dig('result', 'agents')).map do |agent|
-        Agent.new(pane: agent['pane_id'], kind: agent['agent'], status: agent['agent_status'])
-      end
+      Array(data&.dig('result', 'agents')).map { agent_of(it) }
     end
 
     def screen(socket, pane)
@@ -107,6 +107,12 @@ module Keryx
 
       reason = Herdr.error_of(data)['message'] || result.err.strip.lines.first&.strip
       raise Error, "herdr #{arguments.first(2).join(' ')} failed: #{reason.to_s.empty? ? 'no answer' : reason}"
+    end
+
+    def agent_of(data)
+      session = data['agent_session']
+      Agent.new(pane: data['pane_id'], kind: data['agent'], status: data['agent_status'],
+                session: (session['value'] if session.is_a?(Hash) && session['kind'] == 'id'))
     end
 
     def pane_of(data)
