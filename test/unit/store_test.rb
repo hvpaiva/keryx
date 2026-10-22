@@ -139,6 +139,32 @@ class StoreTest < Minitest::Test
     assert(store.problems.any? { it.include?('does not match the message id') })
   end
 
+  def test_the_outbox_queues_once_and_settles_each_message
+    first = build_message(to: 'port@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
+    second = build_message(to: 'port@zeus', id: Keryx::Ulid.generate(NOW + 1))
+
+    assert_equal %i[delivered duplicate delivered], [store.queue('zeus', first), store.queue('zeus', first),
+                                                     store.queue('zeus', second)]
+    assert store.settle('zeus', first.id, :forwarded)
+    refute store.settle('zeus', first.id, :forwarded)
+    store.settle('zeus', second.id, :refused)
+
+    assert_equal([%w[zeus forwarded], %w[zeus refused]], store.outgoing.map { [it.host, it.state.to_s] })
+    assert_equal([first.id], store.all_messages.map { it.last.message.id })
+    assert_equal 0o700, File.stat(tmp('state', 'outbox', 'zeus', 'new')).mode & 0o777
+  end
+
+  def test_discard_removes_a_message_and_its_receipt_from_the_outbox
+    message = build_message(to: 'port@zeus')
+    store.queue('zeus', message)
+    store.write_forward_receipt('zeus', message.id, { 'status' => 'queued', 'attempts' => 1 })
+    store.discard('zeus', message.id)
+
+    assert_empty store.outgoing
+    assert_nil store.forward_receipt('zeus', message.id)
+    assert_raises(Keryx::Error) { store.queue('../etc', message) }
+  end
+
   def test_bind_and_unbind_an_occupant
     store.create_address('rev-1')
     occupant = build_occupant(pid: 42, herdr_socket: '/run/herdr.sock', herdr_pane: 'w1:p2')

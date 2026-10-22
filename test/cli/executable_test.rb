@@ -8,8 +8,9 @@ class ExecutableTest < Minitest::Test
   include TempDir
 
   EXE = File.expand_path('../../exe/keryx', __dir__)
-  INHERITED = %w[CLAUDECODE CLAUDE_PID CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET HERDR_SOCKET_PATH
-                 HERDR_PANE_ID CODEX_THREAD_ID KERYX_AS KERYX_COLOR NO_COLOR FORCE_COLOR].freeze
+  INHERITED = %w[CLAUDECODE CLAUDE_PID CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET HERDR_SOCKET_PATH KERYX_SSH
+                 HERDR_PANE_ID CODEX_THREAD_ID CURSOR_CONVERSATION_ID KERYX_AS KERYX_COLOR KERYX_REMOTE_COMMAND NO_COLOR
+                 FORCE_COLOR].freeze
 
   def run_keryx(*argv, env: {}, input: '')
     base = INHERITED.to_h { [it, nil] }.merge('KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena',

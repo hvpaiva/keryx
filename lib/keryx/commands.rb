@@ -18,10 +18,11 @@ require_relative 'commands/completion'
 require_relative 'commands/version'
 require_relative 'commands/help'
 require_relative 'commands/complete'
+require_relative 'commands/receive'
 
 module Keryx
   module Commands
-    ALL = [Join, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Hook, Skill, Completion,
-           Version, Help, Complete].freeze
+    ALL = [Join, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Hook, Skill,
+           Completion, Version, Help, Complete, Receive].freeze
   end
 end

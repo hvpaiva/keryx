@@ -70,6 +70,10 @@ module CLIHelpers
 
   def herdr = @herdr ||= FakeHerdr.new
 
+  def remote = @remote ||= FakeRemote.new { |host, input| keryx('__receive', env: machine(host), input:).out }
+
+  def machine(host) = host == 'athena' ? {} : { 'KERYX_HOME' => tmp(host), 'KERYX_HOST' => host }
+
   def alive = @alive ||= []
 
   def base_env = { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'USER' => 'person' }
@@ -85,7 +89,7 @@ module CLIHelpers
     terminal = Keryx::CLI::Terminal.new(out:, err:, input: StringIO.new(input), env: base_env.merge(env))
     factory = lambda do |globals|
       Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets, codex:,
-                     sleeper: ->(seconds) { clock.advance(seconds) }, process: FakeProcesses.new(alive))
+                     remote:, sleeper: ->(seconds) { clock.advance(seconds) }, process: FakeProcesses.new(alive))
     end
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)
   end
