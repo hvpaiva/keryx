@@ -50,6 +50,32 @@ class RunnerTest < Minitest::Test
     FileUtils.rm_f(marker)
   end
 
+  def test_a_started_command_can_be_polled_and_stopped
+    job = Keryx::Runner.new.start([RUBY, '-e', 'sleep 30'])
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    refute_predicate job, :done?
+    job.stop
+
+    assert job.done?(within: 5)
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 5
+  end
+
+  def test_a_started_command_gives_its_result_once_it_ends
+    job = Keryx::Runner.new.start([RUBY, '-e', 'print $stdin.read.upcase'], input: 'done')
+
+    assert job.done?(within: 10)
+    assert_equal Keryx::Runner::Result.new(out: 'DONE', err: '', success: true), job.result
+  end
+
+  def test_a_program_that_cannot_start_is_a_finished_job
+    job = Keryx::Runner.new.start(['keryx-no-such-program'])
+
+    assert_predicate job, :done?
+    assert_nil job.stop
+    assert_match(/keryx-no-such-program/, job.result.err)
+  end
+
   def test_a_missing_program_is_a_failed_result
     result = Keryx::Runner.new.call(['keryx-no-such-program'])
 

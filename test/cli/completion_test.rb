@@ -72,6 +72,13 @@ class CompletionTest < Minitest::Test
     assert_equal %w[bash zsh fish], complete('completion', '')
   end
 
+  def test_spawn_completes_harnesses_and_directions_and_nothing_for_the_harness
+    assert_equal %w[claude codex cursor], complete('spawn', 'rev-1', '--harness', '')
+    assert_equal %w[right down], complete('spawn', '--split', '')
+    assert_includes complete('spawn', '--'), '--harness'
+    assert_empty complete('spawn', 'rev-1', '--', '--')
+  end
+
   def test_completion_never_fails
     alive << 999
     result = keryx('__complete', 'read', '', env: claude(999))

@@ -33,7 +33,7 @@ module Keryx
         ['0', 'Success'],
         ['1', 'An error, such as an unknown address or a damaged file'],
         ['2', 'A usage error, such as an unknown command or flag or a missing argument'],
-        ['3', 'keryx wait gave up before the reply arrived'],
+        ['3', 'keryx wait or keryx spawn gave up before the reply or the join'],
         [SIGINT_STATUS.to_s, 'Interrupted']
       ].freeze
 
@@ -81,6 +81,7 @@ module Keryx
         command = command_class.new(@terminal) { app(globals) }
         return command.call(argv) || 0 if command_class.raw?
 
+        argv, command.passthrough = split_passthrough(argv) if command.spec.passthrough
         arguments = parse(argv, command_parser(command, globals), :permute!)
         return command_help(command) if globals[:help]
 
@@ -94,6 +95,11 @@ module Keryx
         return root_help if arguments.empty?
 
         command_help(find(arguments.first).new(@terminal) { raise Error, 'help reads no mailbox' })
+      end
+
+      def split_passthrough(argv)
+        index = argv.index('--') or return [argv, []]
+        [argv[0...index], argv[(index + 1)..]]
       end
 
       def app(globals) = @app ||= @app_factory.call(globals)

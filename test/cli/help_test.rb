@@ -20,7 +20,7 @@ class HelpTest < Minitest::Test
 
     assert_match(/^Environment:\n  KERYX_HOME +Where the mailboxes live/, result.out)
     assert_match(/^Exit Status:\n  0 +Success\n/, result.out)
-    assert_match(/^  3 +keryx wait gave up before the reply arrived$/, result.out)
+    assert_match(/^  3 +keryx wait or keryx spawn gave up before the reply or the join$/, result.out)
   end
 
   def test_command_help_lists_its_own_options_apart_from_the_global_ones
@@ -45,6 +45,13 @@ class HelpTest < Minitest::Test
     prose = keryx('read', '--help').out.gsub(/\s+/, ' ')
 
     assert_includes prose, 'a sender on another machine sees only that it arrived'
+  end
+
+  def test_spawn_help_shows_the_harness_arguments_after_the_separator
+    out = keryx('spawn', '--help').out
+
+    assert_match(/^Usage:\n  keryx spawn \[options\] NAME \[TEXT\] \[-- HARNESS_ARGS\.\.\.\]$/, out)
+    assert_match(/^      --harness HARNESS +Start claude, codex or cursor \(required\)$/, out)
   end
 
   def test_help_command_matches_the_flag

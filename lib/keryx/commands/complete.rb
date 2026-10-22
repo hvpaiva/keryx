@@ -5,9 +5,11 @@ require_relative '../cli/command'
 module Keryx
   module Commands
     class Complete < CLI::Command
-      VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role].freeze
+      VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
+                         --effort --prompt].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
+      OPTION_NAME = /\A--[a-z][a-z-]*\z/
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
                       'read' => :my_messages, 'reply' => :my_messages, 'wait' => :my_open_requests,
                       'completion' => :shells, 'hook' => :events, 'help' => :command_names }.freeze
@@ -31,6 +33,8 @@ module Keryx
       private
 
       def candidates(before, current)
+        return [] if before.include?('--')
+
         option = before.last.to_s.delete_suffix('=')
         return value_candidates(option) if VALUE_OPTIONS.include?(option)
 
@@ -55,12 +59,18 @@ module Keryx
       # Bash breaks --as=NAME into --as, = and NAME, as COMP_WORDBREAKS says, so the pieces are joined again.
       def joined(words)
         words.each_with_object([]) do |word, joined|
-          if (word == '=' && joined.last.to_s.start_with?('--')) || joined.last.to_s.match?(/\A--[a-z-]+=\z/)
+          if glued?(joined.last.to_s, word)
             joined[-1] += word
           else
             joined << word
           end
         end
+      end
+
+      def glued?(last, word)
+        return OPTION_NAME.match?(last) if word == '='
+
+        last.end_with?('=') && OPTION_NAME.match?(last.chomp('='))
       end
 
       def acting_as(words)
@@ -86,6 +96,8 @@ module Keryx
         case option
         when '--as' then app.store.address_names
         when '-o', '--output' then OUTPUTS
+        when '--harness' then Harness::KINDS
+        when '--split' then Spawn::DIRECTIONS
         else []
         end
       end
