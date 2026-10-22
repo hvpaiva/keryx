@@ -4,12 +4,11 @@ require 'test_helper'
 require 'open3'
 require 'rbconfig'
 
-# Runs exe/keryx as its own process, the way an agent's shell does.
 class ExecutableTest < Minitest::Test
   include TempDir
 
   EXE = File.expand_path('../../exe/keryx', __dir__)
-  # Cleared so a test run inside an agent session or a herdr pane never reaches the real one.
+  # Cleared so a run inside an agent session or a herdr pane never reaches the real one.
   INHERITED = %w[CLAUDECODE CLAUDE_PID CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET HERDR_SOCKET_PATH
                  HERDR_PANE_ID KERYX_AS KERYX_COLOR NO_COLOR FORCE_COLOR].freeze
 
@@ -19,8 +18,6 @@ class ExecutableTest < Minitest::Test
     Open3.capture3(base.merge(env), RbConfig.ruby, EXE, *argv, stdin_data: input)
   end
 
-  # The test process stands in for a Claude Code session: its pid is alive, and its socket path
-  # leads nowhere.
   def session_env
     { 'CLAUDECODE' => '1', 'CLAUDE_PID' => Process.pid.to_s, 'CLAUDE_CODE_SESSION_ID' => 'session-exe',
       'CLAUDE_CODE_MESSAGING_SOCKET' => tmp('nobody.sock') }

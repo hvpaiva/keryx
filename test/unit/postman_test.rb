@@ -6,7 +6,6 @@ class PostmanTest < Minitest::Test
   include TempDir
   include Factory
 
-  # Records what would be rung instead of reaching a session.
   class RecordingBell
     attr_reader :rung
 

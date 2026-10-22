@@ -3,8 +3,6 @@
 require_relative 'error'
 
 module Keryx
-  # The durations --within and --timeout take, such as 90s, 30m or 1h30m, and the ages listings
-  # print.
   module Duration
     UNITS = { 'd' => 86_400, 'h' => 3600, 'm' => 60, 's' => 1 }.freeze
     FORMAT = /\A(?:\d+[dhms])+\z/
@@ -23,8 +21,6 @@ module Keryx
       seconds
     end
 
-    # One unit, rounded down, the way kubectl prints ages: 45s, 12m, 5h, 3d. A negative span
-    # prints as 0s.
     def short(seconds)
       seconds = [seconds.to_i, 0].max
       return "#{seconds}s" if seconds < 120

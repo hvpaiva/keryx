@@ -23,10 +23,7 @@ require_relative 'keryx/cli/terminal'
 require_relative 'keryx/cli/dispatcher'
 require_relative 'keryx/commands'
 
-# Reliable messaging between AI coding agent sessions.
 module Keryx
-  # Shared by exe/keryx and the tests, so it returns the exit status instead of exiting.
-  # `app_factory` is called with the parsed global options the first time a command needs it.
   def self.run(argv, terminal: CLI::Terminal.system,
                app_factory: ->(globals) { App.new(env: terminal.env, as: globals[:as]) })
     CLI::Dispatcher.new(terminal, commands: Commands::ALL, app_factory:).run(argv)

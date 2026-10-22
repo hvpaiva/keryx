@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-# Answers Runner#call from a table of argv prefixes, and records every call.
 class FakeRunner
   attr_reader :calls
 
@@ -21,7 +20,6 @@ class FakeRunner
   def argvs = calls.map(&:first)
 end
 
-# Stands in for Keryx::Herdr where a test only needs agents to exist.
 class FakeHerdr
   attr_reader :prompts
 

@@ -7,7 +7,6 @@ module Keryx
     class Join < CLI::Command
       NOT_AN_AGENT = 'join binds the agent session that runs it; run it from inside a Claude Code session, or ' \
                      'from an agent running in a herdr pane'
-      # The Roster's session states in which the holder is still running.
       LIVE_SESSIONS = %w[live idle working blocked done].freeze
 
       define 'join', section: 'Session Commands', arguments: 'NAME', min: 1, max: 1,
@@ -20,7 +19,6 @@ module Keryx
                      examples: [['Join as the first reviewer', 'join rev-1 --role reviewer'],
                                 ['Take an address over from a session that is still running', 'join rev-1 --force']]
 
-      # How a session is pointed at in messages: its process, its pane, or both.
       def self.where(session)
         parts = [session.pid && "pid #{session.pid}", session.herdr_pane && "pane #{session.herdr_pane}"].compact
         parts.empty? ? 'no pid or pane known' : parts.join(', ')

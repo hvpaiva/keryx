@@ -2,8 +2,6 @@
 
 module Keryx
   module CLI
-    # Colors for one stream. --color decides; in auto mode NO_COLOR, FORCE_COLOR, CLICOLOR_FORCE
-    # and TERM=dumb are honored before asking whether the stream is a terminal.
     class Style
       MODES = %w[auto always never].freeze
       ROLES = {

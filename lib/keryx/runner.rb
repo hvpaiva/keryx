@@ -3,7 +3,6 @@
 require 'open3'
 
 module Keryx
-  # Runs helper programs such as herdr with a deadline, so a hung server cannot hang keryx.
   class Runner
     Result = Data.define(:out, :err, :success)
     DEFAULT_TIMEOUT = 10

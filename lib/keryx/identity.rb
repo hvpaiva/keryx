@@ -4,9 +4,6 @@ require_relative 'address'
 require_relative 'error'
 
 module Keryx
-  # Decides which address the caller acts as. An agent session acts as the address it joined. A
-  # person at a plain terminal acts as their own address, named after USER and created on first
-  # use. An agent that joined nothing is refused rather than allowed to speak as the person.
   class Identity
     HUMAN_ROLE = 'human'
     NOT_JOINED = "this %s session holds no address; run 'keryx join NAME' in it first"
@@ -17,7 +14,6 @@ module Keryx
       @env = env
     end
 
-    # `as` comes from --as or KERYX_AS and names an existing address.
     def current(as: nil)
       return existing(as) if as
 
@@ -28,7 +24,6 @@ module Keryx
       @store.create_address(human_name, role: HUMAN_ROLE).name
     end
 
-    # The address this session holds, or nil.
     def held
       @store.address_names.find do |name|
         occupant = @store.occupant(name)

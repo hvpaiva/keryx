@@ -4,10 +4,6 @@ require_relative 'identity'
 require_relative 'roster'
 
 module Keryx
-  # Claude Code runs its Stop hook when a session is about to end its turn. If mail arrived that
-  # the session never read, or it read a request and never answered, the hook keeps the turn
-  # going once and says what is pending. Each message is reminded about once, so the hook cannot
-  # hold a session in a loop.
   class StopHook
     UNREAD_MARK = 'nudge'
     UNANSWERED_MARK = 'reply-nudge'
@@ -18,7 +14,6 @@ module Keryx
       @caller = caller
     end
 
-    # The JSON object Claude Code reads from the hook's output, or nil to let the turn end.
     def decide(payload)
       caller = @caller.with(harness: 'claude', session_id: payload['session_id'] || @caller.session_id)
       name = Identity.new(store: @store, caller:, env: {}).held or return nil

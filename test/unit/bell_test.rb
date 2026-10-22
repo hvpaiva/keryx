@@ -29,7 +29,6 @@ class BellTest < Minitest::Test
                   screens: { [HERDR_SOCKET, 'w1:p2'] => screen }, prompt_outcome: outcome)
   end
 
-  # A listening socket standing in for a Claude Code session; returns the lines it received.
   def with_claude_socket
     path = tmp('cc.sock')
     server = UNIXServer.new(path)

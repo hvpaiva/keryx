@@ -10,8 +10,6 @@ require_relative 'style'
 
 module Keryx
   module CLI
-    # Parses the command line, runs one command and turns every outcome into an exit status, so
-    # no exception reaches the user as a backtrace.
     class Dispatcher
       PROGRAM = 'keryx'
       DESCRIPTION = "keryx carries messages between AI coding agent sessions.\n\n" \
@@ -22,8 +20,6 @@ module Keryx
       DEBUG_VARIABLE = 'KERYX_DEBUG'
       COLOR_VARIABLE = 'KERYX_COLOR'
 
-      # `app_factory` is called with the parsed global options the first time a command needs
-      # the mailboxes.
       def initialize(terminal, commands:, app_factory:)
         @terminal = terminal
         @commands = commands
@@ -53,7 +49,6 @@ module Keryx
         warn_problems
       end
 
-      # Color is settled before the command is looked up, so even that error is painted as asked.
       def route(argv)
         globals = {}
         parse(argv, global_parser(globals), :order!)
@@ -78,7 +73,6 @@ module Keryx
         command.call(arguments) || 0
       end
 
-      # `keryx help ask` prints what `keryx ask --help` does.
       def help_command(arguments)
         return root_help if arguments.empty?
 
@@ -143,7 +137,6 @@ module Keryx
         0
       end
 
-      # The command's own options and the global ones are listed apart.
       def command_help(command)
         own = OptionParser.new
         command.define_options(own)
@@ -168,7 +161,6 @@ module Keryx
         1
       end
 
-      # A damaged message file is skipped, never fatal, and said once at the end.
       def warn_problems
         Array(@app&.problems).uniq.each do |problem|
           @terminal.warn("#{@terminal.paint_err(:warning, 'warning:')} #{Text.plain(problem)}")

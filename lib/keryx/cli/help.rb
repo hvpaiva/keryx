@@ -4,8 +4,6 @@ require 'optparse'
 
 module Keryx
   module CLI
-    # The help pages, laid out like kubectl's: a description, the usage line, the commands or the
-    # options, and examples. Prose wraps at the terminal's width, at most 100 columns.
     class Help
       SECTIONS = ['Session Commands', 'Mail Commands', 'Overview Commands', 'Other Commands'].freeze
       SUMMARY_WIDTH = 26
@@ -66,8 +64,6 @@ module Keryx
         "#{header('Examples')}\n#{blocks.join("\n\n")}"
       end
 
-      # Paragraphs are separated by a blank line; a line indented by two spaces, such as a
-      # snippet to copy, is kept as written.
       def prose(text)
         text.split("\n\n").map do |paragraph|
           paragraph.start_with?('  ') ? paragraph : wrap(paragraph.tr("\n", ' '))

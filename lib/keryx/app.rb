@@ -12,8 +12,6 @@ require_relative 'runner'
 require_relative 'store'
 
 module Keryx
-  # The services commands share, each built on first use from the environment, so a command that
-  # never reads the mailboxes never creates them. Tests pass their own clock, herdr and sockets.
   class App
     attr_reader :env, :cwd, :clock, :sleeper, :process
 
@@ -47,8 +45,6 @@ module Keryx
 
     def roster = @roster ||= Roster.new(store:, herdr:, process:)
 
-    # The address the caller acts as. A session that restarted in the pane it held keeps the
-    # address, and its new process and socket are written down here.
     def me
       @me ||= identity.current(as: @as).tap { refresh(it) unless @as }
     end

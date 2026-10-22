@@ -7,9 +7,6 @@ require_relative 'message_view'
 
 module Keryx
   module CLI
-    # A command declares its name, arguments and options; the Dispatcher parses the line, prints
-    # help and calls `call` with the positional arguments. `call` returns the exit status, or nil
-    # for success, and raises Keryx::Error to fail.
     class Command
       Spec = Data.define(:name, :summary, :section, :arguments, :description, :min, :max, :examples, :hidden)
       Example = Data.define(:comment, :line)
@@ -18,7 +15,6 @@ module Keryx
       class << self
         attr_reader :spec
 
-        # A raw command receives the words after its name untouched, with no option parsing.
         def raw? = false
 
         def define(name, summary:, section:, arguments: '', description: nil, min: 0, max: 0, examples: [],
@@ -30,7 +26,6 @@ module Keryx
 
       attr_reader :options
 
-      # `app` is a block so a command that never needs the mailboxes never builds them.
       def initialize(terminal, &app)
         @terminal = terminal
         @app_factory = app
@@ -39,7 +34,6 @@ module Keryx
 
       def spec = self.class.spec
 
-      # Subclasses add their switches here, storing values in `options`.
       def define_options(parser); end
 
       private
@@ -67,7 +61,6 @@ module Keryx
         end
       end
 
-      # The text comes from the argument, from --file, or from standard input when either is "-".
       def body(text)
         raise UsageError, 'give the text as an argument or with --file, not both' if text && options[:file]
 

@@ -6,7 +6,6 @@ require_relative 'error'
 module Keryx
   Address = Data.define(:name, :host)
 
-  # A mailbox address, NAME@HOST. A bare NAME means the local host.
   class Address
     NAME = /\A[a-z][a-z0-9-]{0,31}\z/
     HOST = /\A[a-z0-9][a-z0-9-]{0,62}\z/
@@ -29,8 +28,6 @@ module Keryx
       raise Error, "invalid name #{name.to_s.inspect}: #{NAME_RULE}"
     end
 
-    # The local host name: KERYX_HOST when set, otherwise the first label of the machine's host
-    # name, lowercased, with anything outside [a-z0-9-] turned into a hyphen.
     def self.local_host(env, hostname: Socket.gethostname)
       configured = env['KERYX_HOST'].to_s
       unless configured.empty?

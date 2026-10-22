@@ -13,19 +13,6 @@ module Keryx
   AddressRecord = Data.define(:name, :role, :created_at)
   StoredMessage = Data.define(:message, :state)
 
-  # The mailboxes of one machine, in the layout Maildir made common:
-  #
-  #   ROOT/addresses/NAME/address.json   the address: its role and when it was created
-  #   ROOT/addresses/NAME/occupant.json  the session holding it, while one does
-  #   ROOT/addresses/NAME/tmp/           messages being written
-  #   ROOT/addresses/NAME/new/           unread messages
-  #   ROOT/addresses/NAME/cur/           read messages
-  #   ROOT/addresses/NAME/receipts/      bell results and hook reminders, by message id
-  #
-  # A message is written whole under tmp/ and then linked into new/, so a reader never sees half
-  # of one, and linking fails rather than overwrite a message that already arrived. Reading moves
-  # it to cur/. Nothing else records state: a request is answered when a reply pointing at it
-  # exists, so no operation has to change two files together.
   class Store
     ADDRESSES = 'addresses'
     STATE_DIRS = { unread: 'new', read: 'cur' }.freeze
@@ -37,7 +24,6 @@ module Keryx
 
     attr_reader :root, :problems
 
-    # A typed id, uppercased, once it is long enough to stand for one message.
     def self.reference(text)
       reference = text.to_s.upcase
       return reference if reference.size >= MINIMUM_PREFIX
@@ -64,8 +50,6 @@ module Keryx
       AddressRecord.new(name: data['name'], role: data['role'], created_at: Time.iso8601(data['created_at']))
     end
 
-    # Idempotent: an existing address keeps its creation time and takes a new role only when one
-    # is given.
     def create_address(name, role: nil, now: Time.now.utc)
       Address.validate_name(name)
       BOX_DIRS.each { FileUtils.mkdir_p(File.join(box(name), it), mode: DIR_MODE) }
@@ -89,8 +73,6 @@ module Keryx
 
     def unbind(name) = FileUtils.rm_f(occupant_file(name))
 
-    # :delivered, or :duplicate when a message with this id is already in the mailbox, which
-    # makes delivering twice harmless.
     def deliver(name, message)
       require_address(name)
       file = "#{message.id}.json"
@@ -110,7 +92,6 @@ module Keryx
 
     def unread(name) = mailbox(name).select { it.state == :unread }.map(&:message)
 
-    # By full id or by a prefix of at least four characters that matches one message.
     def find(name, reference)
       reference = Store.reference(reference)
       matches = mailbox(name).select { it.message.id.start_with?(reference) }
@@ -121,7 +102,6 @@ module Keryx
       raise Error, "no message #{reference} in the mailbox of #{name}"
     end
 
-    # true when this call moved the message to cur/, false when it was already there.
     def mark_read(name, id)
       File.rename(File.join(box(name), 'new', "#{id}.json"), File.join(box(name), 'cur', "#{id}.json"))
       true
@@ -131,7 +111,6 @@ module Keryx
       raise Error, "no message #{id} in the mailbox of #{name}"
     end
 
-    # Every message on this machine, as [address name, StoredMessage].
     def all_messages = address_names.flat_map { |name| mailbox(name).map { [name, it] } }
 
     def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
@@ -142,7 +121,6 @@ module Keryx
 
     def receipt(name, id, kind) = read_json(receipt_file(name, id, kind))
 
-    # true the first time it is called for this message and kind, false after that.
     def mark_once(name, id, kind)
       File.open(receipt_file(name, id, kind), File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) { true }
     rescue Errno::EEXIST
@@ -151,7 +129,6 @@ module Keryx
 
     private
 
-    # Every path goes through here, so a name can never point outside the store.
     def box(name) = File.join(root, ADDRESSES, Address.validate_name(name))
 
     def address_file(name) = File.join(box(name), 'address.json')
@@ -182,7 +159,6 @@ module Keryx
       end
     end
 
-    # A damaged file is reported once and skipped, so one bad message never hides the others.
     def read_message(path)
       Message.from_json(File.read(path))
     rescue Errno::ENOENT
@@ -220,8 +196,6 @@ module Keryx
       end
     end
 
-    # Makes the new directory entry itself survive a crash. Not every platform can fsync a
-    # directory, and the message is already safe in tmp/ when it cannot.
     def sync_directory(dir)
       File.open(dir, &:fsync)
     rescue SystemCallError

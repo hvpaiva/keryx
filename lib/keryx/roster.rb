@@ -1,12 +1,9 @@
 # frozen_string_literal: true
 
 module Keryx
-  # What is known about each address and the session holding it, and which requests are still
-  # waiting for a reply. Built from one pass over the mailboxes and one herdr call per server.
   class Roster
     Entry = Data.define(:name, :role, :occupant, :session, :unread)
 
-    # `process` answers kill(0, pid), so tests decide which sessions are alive.
     def initialize(store:, herdr:, process: Process)
       @store = store
       @herdr = herdr
@@ -22,8 +19,6 @@ module Keryx
       end
     end
 
-    # none, gone, live or unknown, or the herdr state (idle, working, blocked, done) when herdr
-    # sees the session's agent in its pane.
     def session(occupant)
       return 'none' unless occupant
 
@@ -36,7 +31,6 @@ module Keryx
       presence.to_s
     end
 
-    # Requests on this machine that no reply points at, as [address name, StoredMessage].
     def open_requests
       all = @store.all_messages
       answered = all.filter_map { |_name, stored| stored.message.in_reply_to }.to_set

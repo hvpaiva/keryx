@@ -4,9 +4,6 @@ require_relative '../cli/command'
 
 module Keryx
   module Commands
-    # The endpoint the completion scripts call: the words typed after the program, the last one
-    # being completed, in; one candidate per line, out. It never fails, since a completion error
-    # would print inside the user's command line.
     class Complete < CLI::Command
       VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
@@ -20,6 +17,7 @@ module Keryx
 
       def self.raw? = true
 
+      # Never fails: an error here would print inside the user's command line.
       def call(words)
         current = words.last.to_s
         terminal.puts(candidates(words[0...-1], current).select { matches?(it, current) }.uniq)
@@ -40,7 +38,6 @@ module Keryx
         positional_candidates(command.spec.name, positionals.size)
       end
 
-      # The command class and the positional words given to it so far.
       def parse(words)
         command = nil
         positionals = []
@@ -68,7 +65,6 @@ module Keryx
         end
       end
 
-      # Only ring takes several addresses; every other command completes its first argument alone.
       def positional_candidates(name, index)
         source = POSITIONALS[name]
         source && (index.zero? || name == 'ring') ? send(source) : []

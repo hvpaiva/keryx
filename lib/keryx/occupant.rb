@@ -5,9 +5,6 @@ require 'time'
 module Keryx
   Occupant = Data.define(:harness, :session_id, :pid, :claude_socket, :herdr_socket, :herdr_pane, :cwd, :joined_at)
 
-  # The session that holds an address. `claude_socket` is the Claude Code peer socket the
-  # session listens on; `herdr_socket` and `herdr_pane` locate its pane, whatever the harness.
-  # `pid` is the harness process when it is known.
   class Occupant
     FIELDS = %w[harness session_id pid claude_socket herdr_socket herdr_pane cwd joined_at].freeze
 
@@ -19,7 +16,6 @@ module Keryx
 
     def herdr? = !herdr_socket.to_s.empty? && !herdr_pane.to_s.empty?
 
-    # :live or :gone when the harness process is known, :unknown when only herdr can tell.
     def presence(process: Process)
       return :unknown unless pid
 

@@ -12,9 +12,7 @@ require 'tempfile'
 MINIMUM_LINE_COVERAGE = 97
 MINIMUM_BRANCH_COVERAGE = 87
 
-# Minitest joins the prelude into one shell string, so it stays on one line without quotes of its
-# own. Bundler loads version.rb through the gemspec before SimpleCov starts, so that file is left
-# out instead of counting as never run.
+# Minitest puts the prelude in a single-quoted shell string, so it is one line without quotes of its own.
 COVERAGE_PRELUDE = [
   'require "simplecov"',
   'SimpleCov.start do',

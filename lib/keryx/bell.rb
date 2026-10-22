@@ -6,14 +6,6 @@ require 'time'
 require_relative 'herdr'
 
 module Keryx
-  # Tells the session holding an address that mail arrived. The message itself stays in the
-  # mailbox; the bell only says it is there, so ringing twice is harmless and a bell lost on the
-  # way loses nothing. It carries no part of the body, so a sender cannot use it to type
-  # instructions into another session.
-  #
-  # Claude Code sessions are rung through their peer socket, which delivers between tool calls
-  # without touching the keyboard. Anything else in a herdr pane is rung by typing into it, and
-  # only when nothing on the screen looks like a dialog the typing could answer.
   class Bell
     Result = Data.define(:status, :channel, :detail, :at) do
       def record = { 'status' => status, 'channel' => channel, 'detail' => detail, 'at' => at.utc.iso8601 }
@@ -23,8 +15,7 @@ module Keryx
     DEFERRED = 'deferred'
     FAILED = 'failed'
     ABSENT = 'absent'
-    # herdr states in which typed text reaches the agent's input: Claude Code queues it for the
-    # end of the current step and Codex steers the running turn with it.
+    # Claude Code holds typed text until its current step ends, and Codex steers the running turn with it.
     TYPABLE = %w[idle done working].freeze
     DIALOG = Regexp.union(
       /held (peer )?message/i, /deliver this message/i, /hooks need review/i, /trust (this|the) (workspace|folder)/i,
@@ -39,8 +30,6 @@ module Keryx
       @claude_socket = claude_socket
     end
 
-    # Rings once for `messages`, all unread in the mailbox of `name`, and records the result
-    # against each of them.
     def ring(name, messages)
       result = attempt(@store.occupant(name), text(messages))
       messages.each { @store.write_receipt(name, it.id, 'bell', result.record) }
@@ -99,7 +88,6 @@ module Keryx
       end
     end
 
-    # Claude Code accepts one JSON line per connection on its peer socket.
     class ClaudeSocket
       def post(path, text)
         UNIXSocket.open(path) do |socket|

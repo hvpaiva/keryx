@@ -5,10 +5,6 @@ require_relative 'occupant'
 module Keryx
   Caller = Data.define(:harness, :session_id, :pid, :claude_socket, :herdr_socket, :herdr_pane, :cwd)
 
-  # The session running keryx, read from the variables its harness and herdr export to the
-  # commands it runs. Claude Code names its process, session and peer socket. Codex and Cursor
-  # name nothing of their own, so inside them the herdr pane is what identifies the session, and
-  # herdr says which harness occupies it.
   class Caller
     def self.from_env(env, cwd:, herdr:)
       socket = value(env, 'HERDR_SOCKET_PATH')
@@ -34,9 +30,6 @@ module Keryx
 
     def agent? = !harness.nil?
 
-    # The same Claude process or session, or the same harness in the same herdr pane. The pane
-    # rule keeps an address with a session restarted in its pane, and the harness check keeps a
-    # different agent that took the pane over from inheriting it.
     def holds?(occupant) = same_claude?(occupant) || same_pane?(occupant)
 
     def same_claude?(occupant)

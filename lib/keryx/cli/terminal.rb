@@ -6,9 +6,6 @@ require_relative 'style'
 
 module Keryx
   module CLI
-    # The process streams and environment, passed in so tests use StringIO and a Hash. A stream
-    # whose reader went away, as when output is piped into head, is remembered and its later
-    # output dropped.
     class Terminal
       attr_reader :out, :err, :input, :env, :style, :err_style
 
@@ -42,7 +39,6 @@ module Keryx
 
       def interactive_input? = tty?(input)
 
-      # COLUMNS, or the terminal's width, or nil when output is not a terminal.
       def columns
         from_env = Integer(env['COLUMNS'].to_s, 10, exception: false)
         return from_env if from_env&.positive?

@@ -3,9 +3,6 @@
 require 'securerandom'
 
 module Keryx
-  # Message ids. A ULID is 26 characters of Crockford base32: 48 bits of milliseconds, then 80
-  # random bits. Ids sort by creation time, so a directory listing is already in order, and they
-  # are safe as file names.
   module Ulid
     ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'
     TIME_LENGTH = 10

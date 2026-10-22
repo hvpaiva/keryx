@@ -8,10 +8,6 @@ require_relative 'text'
 module Keryx
   Message = Data.define(:id, :kind, :from, :to, :thread, :in_reply_to, :created_at, :due_at, :body)
 
-  # One message as written to a mailbox. `from` and `to` are full addresses, `thread` is the id
-  # of the message that opened the conversation, and `due_at` is set on requests asked with a
-  # deadline. A message never changes once written; what happened to it is read from where its
-  # file is and from the replies that point at it.
   class Message
     KINDS = %w[message request reply].freeze
     FORMAT_VERSION = 1
@@ -50,14 +46,12 @@ module Keryx
 
     def overdue?(now) = request? && !due_at.nil? && now > due_at
 
-    # The first line with text, made safe for a terminal and cut to `width` characters.
     def summary(width = 60)
       line = body.each_line.map(&:strip).find { !it.empty? }.to_s
       line = Text.plain(line)
       line.size > width ? "#{line[0, width - 3]}..." : line
     end
 
-    # The fields as JSON writes them, with string keys and ISO 8601 times.
     def record
       FIELDS.to_h { [it, public_send(it)] }.merge('created_at' => created_at.utc.iso8601,
                                                   'due_at' => due_at&.utc&.iso8601)

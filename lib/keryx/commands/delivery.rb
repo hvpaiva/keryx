@@ -2,7 +2,6 @@
 
 module Keryx
   module Commands
-    # What the commands that post a message say about its bell.
     module Delivery
       module_function
 

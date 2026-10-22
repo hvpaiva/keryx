@@ -3,9 +3,8 @@
 require 'fileutils'
 require 'tmpdir'
 
-# A fresh directory per test, removed afterwards. UNIX socket paths are limited to about 100
-# bytes and macOS puts Dir.tmpdir deep under /var/folders, so tests that bind sockets use /tmp.
 module TempDir
+  # UNIX socket paths are limited to about 100 bytes, and macOS's Dir.tmpdir is too deep for them.
   def setup
     super
     @tmp = Dir.mktmpdir('keryx-', File.directory?('/tmp') ? '/tmp' : Dir.tmpdir)

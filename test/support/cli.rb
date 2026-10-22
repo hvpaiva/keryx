@@ -2,8 +2,6 @@
 
 require 'stringio'
 
-# Runs keryx in process against a temporary store, with a clock, sockets, herdr and a process
-# table the test controls.
 module CLIHelpers
   Run = Data.define(:status, :out, :err)
 
@@ -21,7 +19,6 @@ module CLIHelpers
     end
   end
 
-  # Records what a Claude Code peer socket would receive; paths listed in `gone` refuse.
   class FakeClaudeSockets
     attr_reader :posts, :gone
 
@@ -37,7 +34,6 @@ module CLIHelpers
     end
   end
 
-  # Answers kill(0, pid) for the pids the test calls alive.
   class FakeProcesses
     def initialize(alive)
       @alive = alive
@@ -76,7 +72,6 @@ module CLIHelpers
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)
   end
 
-  # Joins `name` as a live Claude Code session with `pid` and returns that session's env.
   def join_claude(name, pid, role: nil)
     alive << pid
     env = claude(pid)

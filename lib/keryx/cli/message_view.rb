@@ -5,7 +5,6 @@ require_relative '../text'
 
 module Keryx
   module CLI
-    # A message shown in full, as read and wait print it, and its deadline as listings show it.
     module MessageView
       LABEL_WIDTH = 9
       TIME_FORMAT = '%Y-%m-%d %H:%M:%S UTC'

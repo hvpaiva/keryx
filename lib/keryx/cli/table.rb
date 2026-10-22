@@ -2,9 +2,6 @@
 
 module Keryx
   module CLI
-    # Aligned columns in the kubectl manner: an uppercase header and three spaces between
-    # columns. Cells are padded as plain text and painted afterwards, so escape sequences never
-    # skew the alignment. A cell is a String or a [role, String] pair.
     module Table
       GAP = '   '
 

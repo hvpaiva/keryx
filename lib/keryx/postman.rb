@@ -5,8 +5,6 @@ require_relative 'message'
 require_relative 'ulid'
 
 module Keryx
-  # Writes a message into the recipient's mailbox and only then rings the bell, so whatever
-  # happens to the bell the message is already safe.
   class Postman
     Posted = Data.define(:message, :bell)
 
@@ -17,7 +15,6 @@ module Keryx
       @clock = clock
     end
 
-    # `recipient` is an Address; `reply_to` is the Message being answered.
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil)
       check_recipient(recipient)
       check_body(body)

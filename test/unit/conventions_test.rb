@@ -4,8 +4,7 @@ require 'test_helper'
 
 class ConventionsTest < Minitest::Test
   ROOT = File.expand_path('../..', __dir__)
-  # A non-ASCII byte in code can hide a bidirectional control that shows the reader one program
-  # and runs another, so code, scripts and tests build such text from code points instead.
+  # A non-ASCII byte can hide a bidirectional control that makes code read differently than it runs.
   ASCII_TREES = %w[lib exe bin test].freeze
 
   def test_code_scripts_and_tests_are_ascii
