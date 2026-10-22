@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+
+cd "$(dirname "$0")/.." || exit 1
+
+bundle install || exit 1
+
+if command -v mise >/dev/null 2>&1; then
+  mise install shellcheck || printf 'mise install shellcheck failed; the report below says what is missing\n'
+fi
+
+printf '\nTools:\n'
+
+wanted_ruby=$(sed -n 's/^ruby = "\(.*\)"$/\1/p' mise.toml)
+current_ruby=$(ruby -e 'print RUBY_VERSION')
+if [[ "$current_ruby" = "$wanted_ruby" ]]; then
+  printf '  ruby         %s, as mise.toml pins\n' "$current_ruby"
+else
+  printf '  ruby         %s, while mise.toml pins %s; keryx supports 3.4 and later\n' "$current_ruby" "$wanted_ruby"
+fi
+
+report() {
+  local tool=$1 without=$2
+  if command -v "$tool" >/dev/null 2>&1; then
+    printf '  %-12s found\n' "$tool"
+  else
+    printf '  %-12s missing: %s\n' "$tool" "$without"
+  fi
+}
+
+report shellcheck 'rake lint:shell and rake check fail; install it with: mise install shellcheck'
+report bash 'the bash completion test skips'
+report herdr 'keryx cannot ring agents through herdr panes'
+
+printf '\nReady. Run "bundle exec rake" for the tests and RuboCop, or "bundle exec rake check" for what CI runs.\n'

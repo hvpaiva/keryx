@@ -43,11 +43,12 @@ desc 'Update the advisory database, then check Gemfile.lock'
 task audit: %w[bundle:audit:update bundle:audit:check]
 
 namespace :lint do
-  desc 'Run shellcheck on the bash completion script keryx prints'
+  desc 'Run shellcheck on bin/setup and on the bash completion script keryx prints'
   task :shell do
     abort 'shellcheck is not installed; install it with: mise install shellcheck' unless
       system('shellcheck', '--version', out: File::NULL, err: File::NULL)
 
+    sh 'shellcheck', '-s', 'bash', 'bin/setup'
     script, status = Open3.capture2(RbConfig.ruby, '-Ilib', 'exe/keryx', 'completion', 'bash')
     abort 'keryx completion bash failed' unless status.success?
 
