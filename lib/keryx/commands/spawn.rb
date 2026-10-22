@@ -4,6 +4,7 @@ require 'shellwords'
 require_relative '../cli/command'
 require_relative '../duration'
 require_relative '../harness'
+require_relative '../postman'
 require_relative '../spawner'
 require_relative '../text'
 require_relative 'ask'
@@ -68,7 +69,7 @@ module Keryx
       def call(arguments)
         name = Address.validate_name(arguments[0])
         text = request_text(arguments[1])
-        check(name)
+        check(name, text)
         sender = app.me if text
         claim(name)
         before = app.store.occupant(name)
@@ -109,9 +110,11 @@ module Keryx
         nil
       end
 
-      def check(name)
+      def check(name, text)
         Join.check_role(options[:role])
         raise UsageError, 'missing --harness: give claude, codex or cursor' unless options[:harness]
+
+        Postman.check_body(text) if text
 
         %i[model effort].each { check_setting(it) }
         check_label

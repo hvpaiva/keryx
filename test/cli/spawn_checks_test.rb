@@ -19,7 +19,8 @@ class SpawnChecksTest < Minitest::Test
     ['rev-1', '--harness', 'claude', '--', "--x\ry"] => [2, /control character/],
     %w[rev-1 --harness bash] => [2, /invalid argument: --harness bash/],
     %w[rev-1 --harness claude --split left] => [2, /invalid argument: --split left/],
-    %w[rev-1 --harness claude --timeout soon] => [2, /invalid duration/]
+    %w[rev-1 --harness claude --timeout soon] => [2, /invalid duration/],
+    ['rev-1', '--harness', 'claude', ' '] => [2, /the message is empty/]
   }.freeze
 
   def test_spawn_runs_only_in_a_herdr_pane
@@ -38,6 +39,14 @@ class SpawnChecksTest < Minitest::Test
     end
     refute store.address?('rev-1')
     assert_empty herdr.splits
+  end
+
+  def test_an_empty_request_leaves_an_existing_address_as_it_was
+    store.create_address('rev-1', role: 'reviewer')
+    result = spawn('rev-1', '--harness', 'claude', '--role', 'implementer', ' ')
+
+    assert_equal 2, result.status
+    assert_equal 'reviewer', store.address('rev-1').role
   end
 
   def test_spawn_refuses_an_address_a_live_session_holds

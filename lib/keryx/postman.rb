@@ -19,9 +19,18 @@ module Keryx
       @person = person
     end
 
+    def self.check_body(body)
+      raise UsageError, 'the message is empty' if body.to_s.strip.empty?
+      raise Error, 'the message is not valid UTF-8' unless body.dup.force_encoding(Encoding::UTF_8).valid_encoding?
+      return if body.bytesize <= Message::MAX_BODY_BYTES
+
+      raise Error, "the message is #{body.bytesize} bytes and the limit is #{Message::MAX_BODY_BYTES}; " \
+                   'write long content to a file and send its path'
+    end
+
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil)
       check_recipient(recipient)
-      check_body(body)
+      Postman.check_body(body)
       message = compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
       return forward(message, recipient.host) unless recipient.local?(@host)
 
@@ -54,15 +63,6 @@ module Keryx
       return if @store.address?(recipient.name) || recipient.name == @person
 
       raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"
-    end
-
-    def check_body(body)
-      raise UsageError, 'the message is empty' if body.to_s.strip.empty?
-      raise Error, 'the message is not valid UTF-8' unless body.dup.force_encoding(Encoding::UTF_8).valid_encoding?
-      return if body.bytesize <= Message::MAX_BODY_BYTES
-
-      raise Error, "the message is #{body.bytesize} bytes and the limit is #{Message::MAX_BODY_BYTES}; " \
-                   'write long content to a file and send its path'
     end
   end
 end
