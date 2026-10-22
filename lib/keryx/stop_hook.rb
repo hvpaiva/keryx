@@ -15,17 +15,36 @@ module Keryx
     end
 
     def decide(payload)
-      caller = @caller.with(harness: 'claude', session_id: payload['session_id'] || @caller.session_id)
+      harness = harness_of(payload)
+      reminder = reminder(session_caller(harness, payload))
+      return { 'followup_message' => reminder }.compact if harness == 'cursor'
+
+      { 'decision' => 'block', 'reason' => reminder } if reminder
+    end
+
+    private
+
+    def harness_of(payload)
+      if payload.key?('cursor_version') then 'cursor'
+      elsif payload.key?('turn_id') then 'codex'
+      else 'claude'
+      end
+    end
+
+    def session_caller(harness, payload)
+      return @caller.with(harness:, session_id: payload['session_id'] || @caller.session_id) if harness == 'claude'
+
+      session = payload[harness == 'cursor' ? 'conversation_id' : 'session_id']
+      @caller.with(harness:, session_id: session, pid: nil, claude_socket: nil)
+    end
+
+    def reminder(caller)
       name = Identity.new(store: @store, caller:, env: {}).held or return nil
 
       unread = @store.unread(name).select { @store.mark_once(name, it.id, UNREAD_MARK) }
       unanswered = unanswered_requests(name).select { @store.mark_once(name, it.id, UNANSWERED_MARK) }
-      return nil if unread.empty? && unanswered.empty?
-
-      { 'decision' => 'block', 'reason' => reason(name, unread, unanswered) }
+      reason(name, unread, unanswered) unless unread.empty? && unanswered.empty?
     end
-
-    private
 
     def unanswered_requests(name)
       Roster.new(store: @store, herdr: @herdr).open_requests.filter_map do |holder, stored|

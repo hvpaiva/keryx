@@ -16,7 +16,7 @@ module Keryx
     DEFERRED = 'deferred'
     FAILED = 'failed'
     ABSENT = 'absent'
-    # Claude Code holds typed text until its current step ends, and Codex steers the running turn with it.
+    # Claude Code holds typed text until its current step ends, Codex steers the turn with it, Cursor queues it.
     TYPABLE = %w[idle done working].freeze
     DIALOG = Regexp.union(
       /held (peer )?message/i, /deliver this message/i, /hooks need review/i, /trust (this|the) (workspace|folder)/i,
