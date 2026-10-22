@@ -12,16 +12,16 @@ module Keryx
       @timeout = timeout
     end
 
-    def call(argv, env: {}, input: nil)
-      Open3.popen3(env, *argv, pgroup: true) { |*streams| run(argv.first, input, streams) }
+    def call(argv, env: {}, input: nil, timeout: @timeout)
+      Open3.popen3(env, *argv, pgroup: true) { |*streams| run(argv.first, input, timeout, streams) }
     rescue SystemCallError => e
       Result.new(out: '', err: "#{argv.first}: #{e.message}", success: false)
     end
 
     private
 
-    def run(program, input, (stdin, stdout, stderr, waiter))
-      deadline = now + @timeout
+    def run(program, input, timeout, (stdin, stdout, stderr, waiter))
+      deadline = now + timeout
       out = reader(stdout)
       err = reader(stderr)
       writer(stdin, input)
@@ -30,7 +30,7 @@ module Keryx
       end
 
       stop(waiter, stdout, stderr)
-      Result.new(out: '', err: "#{program} did not finish within #{@timeout}s", success: false)
+      Result.new(out: '', err: "#{program} did not finish within #{timeout}s", success: false)
     rescue Interrupt
       stop(waiter, stdout, stderr)
       raise

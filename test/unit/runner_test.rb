@@ -36,6 +36,13 @@ class RunnerTest < Minitest::Test
     assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 5
   end
 
+  def test_a_call_can_set_its_own_deadline
+    result = Keryx::Runner.new(timeout: 30).call([RUBY, '-e', 'sleep 30'], timeout: 0.3)
+
+    refute result.success
+    assert_match(/did not finish within 0.3s/, result.err)
+  end
+
   def test_the_deadline_covers_a_child_that_keeps_the_output_open
     marker = File.join(Dir.tmpdir, "keryx-runner-#{Process.pid}-#{rand(1_000_000)}")
     script = "fork { sleep 2; File.write(#{marker.inspect}, 'survived') }; exit!(0)"
