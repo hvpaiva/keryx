@@ -1,4 +1,9 @@
-# keryx
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/keryx-logo-on-dark.png">
+    <img src="assets/brand/keryx-logo-on-light.png" alt="keryx" width="420">
+  </picture>
+</h1>
 
 Reliable messaging between AI coding agent sessions.
 
