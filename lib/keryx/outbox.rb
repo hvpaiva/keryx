@@ -20,7 +20,9 @@ module Keryx
 
     def queue(host, message)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
-      drop_in(dir(host), message, STATES.values)
+      return :duplicate if STATES.values.any? { File.exist?(File.join(dir(host), it, "#{message.id}.json")) }
+
+      drop_in(dir(host), 'new', message)
     end
 
     def hosts

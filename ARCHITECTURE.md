@@ -12,8 +12,8 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 addresses/NAME/address.json    the address: its role and when it was created
 addresses/NAME/occupant.json   the session holding it, while one does
 addresses/NAME/tmp/            messages being written
-addresses/NAME/new/            unread messages
-addresses/NAME/cur/            read messages
+addresses/NAME/mail/           every message, under its id, never moved
+addresses/NAME/read/           a hard link for each message read
 addresses/NAME/receipts/       bell results and hook reminders, one file per message
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
@@ -22,19 +22,20 @@ outbox/HOST/receipts/          forwarding attempts and results, one file per mes
 ```
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
-linked into `new/`. Linking is atomic, so a reader never sees half a message, and it fails when the
-name already exists, so delivering the same message twice stores it once. Reading a message moves
-it to `cur/`.
+linked into `mail/`. Linking is atomic, so a reader never sees half a message, and it fails when the
+name already exists. Since a message never leaves `mail/`, delivering it again stores it once even
+after it was read. Reading a message links it into `read/`, and the unread messages are the names in
+`mail/` missing from `read/`, found without opening the files that were read.
 
 Nothing else records state. A request is answered when some mailbox holds a reply whose
-`in_reply_to` is the request's id; it is read when its file is in `cur/`. Because no operation has
+`in_reply_to` is the request's id; it is read when its name is in `read/`. Because no operation has
 to change two files together, there are no locks and a crash leaves nothing half done.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
 
-`Store` is the only code that touches these paths, and it validates every address name before
-building a path from it.
+`Store` and `Outbox` are the only code that touches these paths, and they validate every address
+and host name before building a path from it.
 
 ## Identity
 

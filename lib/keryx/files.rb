@@ -16,13 +16,10 @@ module Keryx
 
     def make_dirs(base, dirs) = dirs.each { FileUtils.mkdir_p(File.join(base, it), mode: DIR_MODE) }
 
-    def drop_in(base, message, dirs)
-      file = "#{message.id}.json"
-      return :duplicate if dirs.any? { File.exist?(File.join(base, it, file)) }
-
+    def drop_in(base, dir, message)
       temporary = File.join(base, 'tmp', "#{message.id}.#{Process.pid}.#{SecureRandom.hex(4)}")
       write_file(temporary, message.to_json)
-      link(temporary, File.join(base, 'new', file))
+      link(temporary, File.join(base, dir, "#{message.id}.json"))
     ensure
       FileUtils.rm_f(temporary) if temporary
     end
@@ -35,14 +32,14 @@ module Keryx
       :duplicate
     end
 
-    def messages_in(dir)
+    def ids_in(dir)
       return [] unless File.directory?(dir)
 
-      Dir.children(dir).sort.filter_map do |file|
-        next unless MESSAGE_FILE.match?(file)
+      Dir.children(dir).filter_map { MESSAGE_FILE.match(it)&.[](:id) }.sort
+    end
 
-        read_message(File.join(dir, file))
-      end
+    def messages_in(dir)
+      ids_in(dir).filter_map { |id| read_message(File.join(dir, "#{id}.json")) if !block_given? || yield(id) }
     end
 
     def read_message(path)

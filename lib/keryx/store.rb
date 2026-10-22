@@ -18,8 +18,9 @@ module Keryx
     include Files
 
     ADDRESSES = 'addresses'
-    STATE_DIRS = { unread: 'new', read: 'cur' }.freeze
-    BOX_DIRS = %w[tmp new cur receipts].freeze
+    MAIL = 'mail'
+    READ = 'read'
+    BOX_DIRS = ['tmp', MAIL, READ, 'receipts'].freeze
     MINIMUM_PREFIX = 4
 
     attr_reader :root, :problems
@@ -75,32 +76,35 @@ module Keryx
 
     def deliver(name, message)
       require_address(name)
-      drop_in(box(name), message, STATE_DIRS.values)
+      make_dirs(box(name), BOX_DIRS)
+      drop_in(box(name), MAIL, message)
     end
 
     def mailbox(name)
-      STATE_DIRS.flat_map { |state, dir| messages_in(File.join(box(name), dir)).map { StoredMessage.new(it, state) } }
-                .sort_by { it.message.id }
+      read = read_ids(name)
+      messages_in(File.join(box(name), MAIL)).map { StoredMessage.new(it, read.include?(it.id) ? :read : :unread) }
     end
 
-    def unread(name) = mailbox(name).select { it.state == :unread }.map(&:message)
+    def unread(name)
+      read = read_ids(name)
+      messages_in(File.join(box(name), MAIL)) { !read.include?(it) }
+    end
 
     def find(name, reference)
       reference = Store.reference(reference)
-      matches = mailbox(name).select { it.message.id.start_with?(reference) }
-      return matches.first if matches.one?
+      ids = ids_in(File.join(box(name), MAIL)).select { it.start_with?(reference) }
+      raise Error, "#{reference} matches #{ids.size} messages (#{ids.join(', ')}); type more of the id" if ids.size > 1
 
-      raise Error, ambiguous(reference, matches) if matches.size > 1
+      message = ids.one? && read_message(File.join(box(name), MAIL, "#{ids.first}.json"))
+      raise Error, "no message #{reference} in the mailbox of #{name}" unless message
 
-      raise Error, "no message #{reference} in the mailbox of #{name}"
+      StoredMessage.new(message, read_ids(name).include?(message.id) ? :read : :unread)
     end
 
     def mark_read(name, id)
-      File.rename(File.join(box(name), 'new', "#{id}.json"), File.join(box(name), 'cur', "#{id}.json"))
-      true
+      make_dirs(box(name), [READ])
+      link(File.join(box(name), MAIL, "#{id}.json"), File.join(box(name), READ, "#{id}.json")) == :delivered
     rescue Errno::ENOENT
-      return false if File.exist?(File.join(box(name), 'cur', "#{id}.json"))
-
       raise Error, "no message #{id} in the mailbox of #{name}"
     end
 
@@ -140,8 +144,6 @@ module Keryx
       raise Error, "no address #{name}" unless address?(name)
     end
 
-    def ambiguous(reference, matches)
-      "#{reference} matches #{matches.size} messages (#{matches.map { it.message.id }.join(', ')}); type more of the id"
-    end
+    def read_ids(name) = ids_in(File.join(box(name), READ)).to_set
   end
 end

@@ -10,7 +10,8 @@ All notable changes to this project are documented here. The format follows
 
 - Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, for
   Claude Code, Codex and Cursor sessions and any agent in a herdr pane.
-- Maildir-style mailboxes under `$XDG_STATE_HOME/keryx`, with atomic delivery and no locks.
+- Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks, and each
+  message stored once however often it arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents
   can write to the person at the keyboard before that person has used keryx.
 - Bells through the Claude Code peer socket, `codex queue`, or typing into a herdr pane when no
