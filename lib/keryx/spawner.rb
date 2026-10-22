@@ -20,6 +20,7 @@ module Keryx
       @notice = notice
       @noticed = false
       @dialog = false
+      @seen = false
     end
 
     def place(from, split:, tab:, cwd:, env:)
@@ -83,16 +84,17 @@ module Keryx
         "'keryx who' shows it"
     end
 
-    # herdr lists the agent once it detects it, so a pane without one means something only after the start ends.
+    # herdr lists the agent once it detects it, so a pane without one counts once the start ended or the agent was seen.
     def watch(address, pane, kind, ready)
       agent = @herdr.agent(@socket, pane)
       return shown(pane, agent) if agent&.kind == kind
-      return unless ready
+      return unless ready || @seen
 
       raise Error, "no #{kind} session runs in pane #{pane}, and #{address} has not joined; look at the pane"
     end
 
     def shown(pane, agent)
+      @seen = true
       @dialog = agent.status == BLOCKED || Bell::DIALOG.match?(@herdr.screen(@socket, pane).to_s)
       dialog(pane) if @dialog
     end

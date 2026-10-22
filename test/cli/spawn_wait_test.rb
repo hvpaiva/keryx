@@ -71,6 +71,22 @@ class SpawnWaitTest < Minitest::Test
     assert herdr.starts.first[:starting].stopped
   end
 
+  def test_spawn_stops_when_the_session_leaves_the_pane_before_it_joins
+    herdr.start_polls = Float::INFINITY
+    polls = 0
+    herdr.on_start = lambda do |socket, pane, _name, kind|
+      herdr.put(socket, pane, lambda do
+        polls += 1
+        agent(pane, kind, 'working') if polls == 1
+      end)
+    end
+    result = spawn('rev-1', '--harness', 'claude', '--timeout', '5s')
+
+    assert_equal [1, 1.0], [result.status, clock.now - NOW]
+    assert_match(/no claude session runs in pane w1:p2, and rev-1@athena has not joined; look at the pane$/, result.err)
+    assert herdr.starts.first[:starting].stopped
+  end
+
   def test_spawn_stops_herdr_when_it_gives_up
     herdr.start_polls = Float::INFINITY
     session_runs
