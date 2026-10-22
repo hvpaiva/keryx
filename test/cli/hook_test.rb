@@ -109,6 +109,22 @@ class HookTest < Minitest::Test
     assert_match(/keryx hook stop: /, result.err)
   end
 
+  def test_a_payload_that_is_not_an_object_never_fails_the_session
+    ['[]', 'null', 'true', '1', '"stop"'].each do |payload|
+      result = keryx('hook', 'stop', env: @rev, input: payload)
+
+      assert_equal [0, ''], [result.status, result.out], payload
+      assert_equal "keryx hook stop: the payload is not a JSON object\n", result.err
+    end
+  end
+
+  def test_fields_of_unexpected_types_never_fail_the_session
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    payload = JSON.generate('session_id' => 42, 'turn_id' => [], 'conversation_id' => {})
+
+    assert_equal [0, '', ''], keryx('hook', 'stop', input: payload).to_h.values_at(:status, :out, :err)
+  end
+
   def test_an_unknown_event_is_a_usage_error
     assert_equal 2, keryx('hook', 'start', env: @rev).status
   end
