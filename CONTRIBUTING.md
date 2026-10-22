@@ -40,8 +40,13 @@ sockets, and the ones that start `exe/keryx` clear the variables Claude Code, Co
   imperative summary, such as `fix: keep the bell text plain`.
 - Each commit does one thing and leaves the tests passing.
 - Commits are signed.
-- User-visible changes get a line under `## [Unreleased]` in `CHANGELOG.md`.
+- User-visible changes get a line under `## [Unreleased]` in `CHANGELOG.md`. A change to something
+  not yet released rewrites its line instead of adding a `Fixed` one.
+
+`main` takes changes only through pull requests. The CI checks must pass on a branch up to date
+with `main`, and pull requests merge as merge commits, so your signed commits reach `main` as you
+signed them.
 
 ## Releases
 
-The maintainer publishes releases to RubyGems.
+The maintainer publishes releases. [docs/maintenance.md](docs/maintenance.md) describes how.
