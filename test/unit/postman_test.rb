@@ -85,6 +85,33 @@ class PostmanTest < Minitest::Test
     assert_empty bell.rung
   end
 
+  def courier_forwarding_after_queue(outbox)
+    courier = Keryx::Forwarder.new(store: Keryx::Store.new(tmp('state')), remote:, clock: -> { NOW })
+    outbox.define_singleton_method(:queue) do |host, message|
+      super(host, message).tap { courier.forward(host) }
+    end
+  end
+
+  def test_a_message_the_courier_forwards_first_is_still_reported_as_forwarded
+    zeus.create_address('port')
+    courier_forwarding_after_queue(store.outbox)
+    posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'request', body: 'Port it')
+
+    assert_equal %w[forwarded rung], [posted.forward.status, posted.forward.bell['status']]
+    assert_equal [posted.message], zeus.unread('port')
+    assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
+  end
+
+  def test_a_message_the_courier_saw_refused_first_still_fails
+    courier_forwarding_after_queue(store.outbox)
+    error = assert_raises(Keryx::Error) do
+      postman.post(sender: 'orq', recipient: address('ghost@zeus'), kind: 'message', body: 'x')
+    end
+
+    assert_equal 'zeus refused the message; no address ghost@zeus', error.message
+    assert_empty store.outbox.outgoing
+  end
+
   def test_a_message_the_other_machine_refuses_is_not_kept
     error = assert_raises(Keryx::Error) do
       postman.post(sender: 'orq', recipient: address('ghost@zeus'), kind: 'message', body: 'x')

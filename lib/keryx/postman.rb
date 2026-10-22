@@ -35,11 +35,15 @@ module Keryx
 
     def forward(message, host)
       @store.outbox.queue(host, message)
-      result = @forwarder.forward(host).fetch(message.id)
+      result = @forwarder.forward(host)[message.id] || settled(host, message.id)
       return Posted.new(message:, bell: nil, forward: result) unless result.status == Forwarder::REFUSED
 
       @store.outbox.discard(host, message.id)
       raise Error, "#{host} refused the message; #{result.detail}"
+    end
+
+    def settled(host, id)
+      @forwarder.settled(host, id) or raise Error, "#{id} left the outbox for #{host} without a receipt"
     end
 
     def compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
