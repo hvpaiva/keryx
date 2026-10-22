@@ -95,7 +95,7 @@ module Keryx
 
     def shown(pane, agent)
       @seen = true
-      @dialog = agent.status == BLOCKED || Bell::DIALOG.match?(@herdr.screen(@socket, pane).to_s)
+      @dialog = agent.status == BLOCKED || Bell.dialog?(@herdr.screen(@socket, pane))
       dialog(pane) if @dialog
     end
 

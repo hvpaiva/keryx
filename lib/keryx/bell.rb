@@ -20,9 +20,13 @@ module Keryx
     TYPABLE = %w[idle done working].freeze
     DIALOG = Regexp.union(
       /held (peer )?message/i, /deliver this message/i, /hooks need review/i, /trust (this|the) (workspace|folder)/i,
-      /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter to (select|confirm)/i, /press enter/i,
-      /allow (this|once|always)/i
+      /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter (to )?(select|confirm)/i, /press enter/i,
+      /allow (this|once|always)/i, /trust all and continue/i, /continue without trusting/i
     )
+    BOX_DRAWING = /[\u2500-\u257f]/
+
+    # A narrow pane wraps a dialog over several lines, often inside a box, so its words are matched on one line.
+    def self.dialog?(screen) = DIALOG.match?(screen.to_s.gsub(BOX_DRAWING, ' ').split.join(' '))
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)
       @store = store
@@ -92,7 +96,7 @@ module Keryx
 
       screen = @herdr.screen(socket, pane)
       return outcome(DEFERRED, 'herdr', 'the screen could not be read') if screen.nil?
-      return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if DIALOG.match?(screen)
+      return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if Bell.dialog?(screen)
 
       typed(@herdr.prompt(socket, pane, text))
     end

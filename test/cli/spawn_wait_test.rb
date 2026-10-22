@@ -47,6 +47,14 @@ class SpawnWaitTest < Minitest::Test
                  result.err)
   end
 
+  def test_a_dialog_a_narrow_pane_wraps_is_still_reported
+    session_runs(screen: Screens::NARROW_CODEX_HOOKS)
+    result = spawn('impl', '--harness', 'codex', '--timeout', '3s')
+
+    assert_equal 3, result.status
+    assert_match(/^Pane w1:p2 shows a dialog/, result.err)
+  end
+
   def test_spawn_stops_when_no_session_runs_in_the_pane
     result = spawn('rev-1', '--harness', 'claude')
 

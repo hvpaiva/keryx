@@ -92,8 +92,9 @@ and the id, never the body. It tries two ways, in order.
    `codex queue --thread ID`;
 2. when that fails or does not exist, typing into the herdr pane, if herdr shows an agent of the
    session's harness there, reports it idle, done or working, and no dialog shows on the bottom of
-   its screen. A pane that is empty or runs another harness no longer holds the session, so the
-   bell is absent there rather than typed into whoever took the pane.
+   its screen. The screen is checked with its lines joined and box borders dropped, since a narrow
+   pane wraps a dialog over several lines. A pane that is empty or runs another harness no longer
+   holds the session, so the bell is absent there rather than typed into whoever took the pane.
 
 Cursor has no channel of its own, so it is always rung by typing.
 

@@ -11,8 +11,10 @@ class BellTest < Minitest::Test
 
   def store = @store ||= Keryx::Store.new(tmp('state'))
 
-  def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new, codex: CLIHelpers::FakeCodexQueue.new)
-    Keryx::Bell.new(store:, herdr:, clock: -> { NOW }, claude_socket:, codex:)
+  def queue = @queue ||= CLIHelpers::FakeCodexQueue.new
+
+  def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new)
+    Keryx::Bell.new(store:, herdr:, clock: -> { NOW }, claude_socket:, codex: queue)
   end
 
   def deliver(kind: 'request')
@@ -109,9 +111,8 @@ class BellTest < Minitest::Test
   def test_a_codex_thread_herdr_shows_open_in_its_pane_is_rung_through_its_queue
     message = deliver
     store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    queue = CLIHelpers::FakeCodexQueue.new
     herdr = herdr_with('working', session: 'thread-1')
-    result = bell(herdr:, codex: queue).ring('rev-1', [message])
+    result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal %w[rung codex], [result.status, result.channel]
     assert_equal 'thread-1', queue.queued.first.first
@@ -122,8 +123,7 @@ class BellTest < Minitest::Test
   def test_a_codex_thread_closed_in_its_pane_is_absent_and_never_queued
     message = deliver
     store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    queue = CLIHelpers::FakeCodexQueue.new
-    result = bell(codex: queue).ring('rev-1', [message])
+    result = bell.ring('rev-1', [message])
 
     assert_equal ['absent', 'thread thread-1 is not open in a herdr pane'], [result.status, result.detail]
     assert_empty queue.queued
@@ -132,8 +132,7 @@ class BellTest < Minitest::Test
   def test_a_codex_thread_without_a_pane_is_absent_and_never_queued
     message = deliver
     store.bind('rev-1', build_occupant(harness: 'codex', session_id: 'thread-1'))
-    queue = CLIHelpers::FakeCodexQueue.new
-    result = bell(codex: queue).ring('rev-1', [message])
+    result = bell.ring('rev-1', [message])
 
     assert_equal ['absent', 'thread thread-1 is not open in a herdr pane'], [result.status, result.detail]
     assert_empty queue.queued
@@ -142,9 +141,8 @@ class BellTest < Minitest::Test
   def test_a_codex_pane_that_reports_no_session_is_typed_and_never_queued
     message = deliver
     store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    queue = CLIHelpers::FakeCodexQueue.new
     herdr = herdr_with('idle')
-    result = bell(herdr:, codex: queue).ring('rev-1', [message])
+    result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal %w[rung herdr], [result.status, result.channel]
     assert_equal 1, herdr.prompts.size
@@ -154,9 +152,8 @@ class BellTest < Minitest::Test
   def test_a_codex_pane_running_another_thread_is_absent_and_neither_typed_nor_queued
     message = deliver
     store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    queue = CLIHelpers::FakeCodexQueue.new
     herdr = herdr_with('idle', session: 'thread-2')
-    result = bell(herdr:, codex: queue).ring('rev-1', [message])
+    result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal ['absent', 'pane w1:p2 runs thread thread-2, not thread-1'], [result.status, result.detail]
     assert_empty herdr.prompts
@@ -165,10 +162,10 @@ class BellTest < Minitest::Test
 
   def test_an_open_codex_thread_whose_queue_fails_is_typed_into_its_pane
     message = deliver
-    queue = CLIHelpers::FakeCodexQueue.new.tap { it.gone << 'thread-1' }
+    queue.gone << 'thread-1'
     store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
     herdr = herdr_with('idle', session: 'thread-1')
-    result = bell(herdr:, codex: queue).ring('rev-1', [message])
+    result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal %w[rung herdr], [result.status, result.channel]
     assert_equal 1, herdr.prompts.size
@@ -197,14 +194,15 @@ class BellTest < Minitest::Test
 
   def test_herdr_defers_when_the_screen_shows_a_dialog
     ['Hooks need review', '[a] Trust this workspace', 'Held message from another session',
-     'Do you want to proceed? (y/n)'].each do |screen|
-      message = deliver
-      store.bind('rev-1', pane_occupant)
-      herdr = herdr_with('idle', screen:)
+     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::NARROW_BOX, "Hooks need\n review"]
+      .each do |screen|
+        message = deliver
+        store.bind('rev-1', pane_occupant)
+        herdr = herdr_with('idle', screen:)
 
-      assert_equal 'the screen shows a dialog', bell(herdr:).ring('rev-1', [message]).detail, screen
-      assert_empty herdr.prompts
-    end
+        assert_equal 'the screen shows a dialog', bell(herdr:).ring('rev-1', [message]).detail, screen
+        assert_empty herdr.prompts
+      end
   end
 
   def test_herdr_defers_when_the_screen_cannot_be_read
