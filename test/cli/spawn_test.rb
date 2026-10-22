@@ -229,4 +229,16 @@ class SpawnTest < Minitest::Test
 
     assert_equal 3, spawn('rev-1', '--harness', 'claude', '--timeout', '3s').status
   end
+
+  def test_a_gone_session_recorded_in_the_new_pane_is_not_taken_for_the_join
+    alive << 111
+    keryx('join', 'rev-1', env: claude(111).merge(in_pane(SOCKET, 'w1:p2')))
+    alive.delete(111)
+    clock.advance(60)
+    gone = store.occupant('rev-1')
+    session_runs
+
+    assert_equal 3, spawn('rev-1', '--harness', 'claude', '--timeout', '3s').status
+    assert_equal gone, store.occupant('rev-1')
+  end
 end

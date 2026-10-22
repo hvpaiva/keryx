@@ -38,9 +38,9 @@ module Keryx
     def run(name, address, pane, kind:, arguments:, before:, deadline:)
       starting = @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: deadline - @clock.call)
       loop do
-        occupant = @store.occupant(name)
+        occupant = arrived(name, before)
         return on_time(occupant, address, pane, deadline) if occupant && started?(occupant, pane, kind)
-        raise Error, conflict(address, occupant, pane) if occupant && occupant != before
+        raise Error, conflict(address, occupant, pane) if occupant
 
         watch(address, pane, kind, ready?(starting, pane, kind))
         raise WaitTimeout, late(address, pane) if @clock.call >= deadline
@@ -52,6 +52,9 @@ module Keryx
     end
 
     private
+
+    # A gone session's record can name the same harness, socket and pane, so only a changed one is a join.
+    def arrived(name, before) = @store.occupant(name).then { it unless it == before }
 
     def ready?(starting, pane, kind)
       outcome = starting.outcome or return false
