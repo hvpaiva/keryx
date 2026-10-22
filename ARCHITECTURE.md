@@ -1,8 +1,8 @@
 # Architecture
 
 keryx is a small command line program. Every command reads and writes the mailboxes on disk and
-exits; nothing keeps running between commands. This page describes each piece and the rules it
-follows.
+exits, except `keryx courier`, which a machine may keep running to forward mail and ring again.
+No command depends on it being there. This page describes each piece and the rules it follows.
 
 ## The store
 
