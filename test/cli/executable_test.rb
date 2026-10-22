@@ -63,4 +63,14 @@ class ExecutableTest < Minitest::Test
     assert_equal ['delivered', ''], [JSON.parse(out)['status'], err]
     assert_includes run_keryx('read', message.id, env:).first.force_encoding(Encoding::UTF_8), body
   end
+
+  def test_a_utf8_argument_is_sent_without_a_locale
+    env = { 'LANG' => nil, 'LC_ALL' => 'C', 'LC_CTYPE' => nil }
+    body = "Revis#{[0xE3].pack('U')}o conclu#{[0xED].pack('U')}da"
+    _out, err, status = run_keryx('send', 'person', body, env:)
+    inbox, = run_keryx('inbox', '-o', 'json', env:)
+
+    assert_predicate status, :success?, err
+    assert_equal([body], JSON.parse(inbox).map { it['body'] })
+  end
 end
