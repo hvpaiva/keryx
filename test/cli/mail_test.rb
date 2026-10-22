@@ -187,13 +187,15 @@ class MailTest < Minitest::Test
   end
 
   def test_inbox_opens_only_the_unread_messages
-    keryx('send', 'rev-1', 'one', env: @orq)
+    keryx('send', 'rev-1', 'read already', env: @orq)
     id = last_id(@rev)
     keryx('read', id, env: @rev)
     File.write(tmp('state', 'addresses', 'rev-1', 'mail', "#{id}.json"), '{')
-    result = keryx('inbox', env: @rev)
+    keryx('send', 'rev-1', 'still waiting', env: @orq)
+    unread = keryx('inbox', '-o', 'json', env: @rev)
 
-    assert_equal ["No unread messages for rev-1@athena.\n", ''], [result.out, result.err]
+    assert_equal [['still waiting'], ''], [JSON.parse(unread.out).map { it['body'] }, unread.err]
+    assert_match(/skipped .*#{id}\.json: not valid JSON/, keryx('inbox', '--all', env: @rev).err)
   end
 
   def test_inbox_all_shows_read_messages_with_their_state
