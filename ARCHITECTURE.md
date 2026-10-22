@@ -49,7 +49,8 @@ or session, the same Codex thread, or the same harness in the same herdr pane. T
 restarted in its pane keep its address, and `App#me` then records the new process and socket.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
-keyboard. A plain terminal acts as an address named after `USER`, created on first use.
+keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the
+first message sent to it.
 
 ## Delivery
 

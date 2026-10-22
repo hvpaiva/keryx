@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'error'
+require_relative 'identity'
 require_relative 'message'
 require_relative 'ulid'
 
@@ -8,16 +9,18 @@ module Keryx
   class Postman
     Posted = Data.define(:message, :bell)
 
-    def initialize(store:, bell:, host:, clock:)
+    def initialize(store:, bell:, host:, clock:, person:)
       @store = store
       @bell = bell
       @host = host
       @clock = clock
+      @person = person
     end
 
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil)
       check_recipient(recipient)
       check_body(body)
+      @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
       message = compose(sender, recipient, kind:, body:, due_at:, reply_to:)
       @store.deliver(recipient.name, message)
       bell = @bell.ring(recipient.name, [message]) unless recipient.name == sender
@@ -37,7 +40,7 @@ module Keryx
       unless recipient.local?(@host)
         raise Error, "#{recipient} is on another machine; this version of keryx delivers on #{@host} only"
       end
-      return if @store.address?(recipient.name)
+      return if @store.address?(recipient.name) || recipient.name == @person
 
       raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"
     end
