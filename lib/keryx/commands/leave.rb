@@ -13,10 +13,18 @@ module Keryx
                       examples: [['Release the address before handing the pane to another task', 'leave']]
 
       def call(_arguments)
-        name = app.identity.held or raise Error, 'this session holds no address'
-        app.store.unbind(name)
+        name = app.store.with_occupants_lock { release }
         terminal.puts("Left #{terminal.paint(:address, app.full(name))}. Its mailbox keeps receiving.")
         nil
+      end
+
+      private
+
+      # Finding the address and removing it under one lock keeps a join or a refresh from coming in between.
+      def release
+        name = app.identity.held or raise Error, 'this session holds no address'
+        app.store.unbind(name)
+        name
       end
     end
   end

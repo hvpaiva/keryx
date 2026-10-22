@@ -15,6 +15,7 @@ addresses/NAME/tmp/            messages being written
 addresses/NAME/mail/           every message, under its id, never moved
 addresses/NAME/read/           a hard link for each message read
 addresses/NAME/receipts/       bell results and hook reminders, one file per message
+occupants.lock                 locked while a command changes which session holds an address
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
 outbox/HOST/refused/           messages the other machine refused
@@ -29,8 +30,9 @@ after it was read. Reading a message links it into `read/`, and the unread messa
 
 Nothing else records state. A request is answered when some mailbox holds a reply from its
 recipient, in its thread, whose `in_reply_to` is the request's id; it is read when its name is in
-`read/`. Because no operation has to change two files together, there are no locks and a crash
-leaves nothing half done.
+`read/`. Because no mail operation has to change two files together, mail takes no locks and a
+crash leaves nothing half done. Only a change of occupants takes a lock, as the next section
+explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
@@ -58,6 +60,21 @@ matching the caller against the occupants (`Identity`), which means the same Cla
 or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
 pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
 records the new process and socket.
+
+A session holds one address, so join also releases any other address the session holds. It checks
+the address, releases the others and writes the occupant under an exclusive `flock` on
+`occupants.lock`, so two joins that run at once, of one session or of two, take turns. The kernel
+drops the lock when a process ends, so a crash never leaves it held, but the lock does not make
+those writes one transaction, and a join cut off between releasing and writing leaves the session
+with no address until it joins again. `App#me` records a new process or socket under the same lock,
+from the occupant it reads again there, so it never writes back an address a join released. `leave`
+finds the session's address and removes it under the lock too, so a refresh cannot write it back
+and the occupant of a session that took the address over in between is never removed.
+
+A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
+make, and then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all;
+when another command holds the lock, it leaves the record to a later command, so `wait`, `spawn`
+and every other command keep their deadlines.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
 keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the

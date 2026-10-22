@@ -17,11 +17,17 @@ module Keryx
   class Store
     include Files
 
+    class Busy < Error; end
+
     ADDRESSES = 'addresses'
     MAIL = 'mail'
     READ = 'read'
     BOX_DIRS = ['tmp', MAIL, READ, 'receipts'].freeze
     MINIMUM_PREFIX = 4
+    OCCUPANTS_LOCK = 'occupants.lock'
+    # Above the 10 s Runner gives the herdr call a holder may make while it checks an address.
+    LOCK_SECONDS = 15
+    LOCK_POLL_SECONDS = 0.05
 
     attr_reader :root, :problems
 
@@ -32,9 +38,11 @@ module Keryx
       raise Error, "message id #{reference.inspect} is too short; give at least #{MINIMUM_PREFIX} characters"
     end
 
-    def initialize(root)
+    def initialize(root, clock: -> { Time.now.utc }, sleeper: ->(seconds) { sleep(seconds) })
       @root = root
       @problems = []
+      @clock = clock
+      @sleeper = sleeper
     end
 
     def address_names
@@ -77,6 +85,15 @@ module Keryx
     end
 
     def unbind(name) = FileUtils.rm_f(occupant_file(name))
+
+    # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
+    def with_occupants_lock(within: LOCK_SECONDS)
+      FileUtils.mkdir_p(root, mode: DIR_MODE)
+      File.open(File.join(root, OCCUPANTS_LOCK), File::RDWR | File::CREAT, FILE_MODE) do |file|
+        take(file, within)
+        yield
+      end
+    end
 
     def deliver(name, message)
       require_address(name)
@@ -147,6 +164,18 @@ module Keryx
     end
 
     private
+
+    def take(lock, within)
+      deadline = @clock.call + within
+      until lock.flock(File::LOCK_EX | File::LOCK_NB)
+        if @clock.call >= deadline
+          raise Busy, "#{lock.path} stayed locked by another keryx command for #{within}s; try again, or end that " \
+                      'command if it is stuck'
+        end
+
+        @sleeper.call(LOCK_POLL_SECONDS)
+      end
+    end
 
     def box(name) = File.join(root, ADDRESSES, Address.validate_name(name))
 
