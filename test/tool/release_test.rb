@@ -136,6 +136,23 @@ class ReleaseTest < Minitest::Test
     assert_match(/\APushed v0\.1\.0\. The release workflow publishes it/, @out.string)
   end
 
+  def test_tag_explains_how_to_resume_after_its_push_failed
+    runner = FakeRunner.new(%w[git rev-parse --quiet --verify refs/tags/v0.1.0] => ['abc', true])
+    error = assert_raises(Release::Error) { release(runner, changelog: RELEASED).tag }
+
+    assert_equal 'v0.1.0 is in this clone but not on origin, as when pushing it failed; delete it with ' \
+                 'git tag -d v0.1.0 and run bin/release tag again', error.message
+    refute(runner.commands.any? { it.first(2) == %w[git push] })
+  end
+
+  def test_tag_never_moves_a_tag_origin_has
+    runner = FakeRunner.new(%w[git ls-remote origin refs/tags/v0.1.0] => ["abc\trefs/tags/v0.1.0", true])
+    error = assert_raises(Release::Error) { release(runner, changelog: RELEASED).tag }
+
+    assert_equal 'v0.1.0 already exists', error.message
+    refute(runner.commands.any? { it.first(2) == %w[git tag] })
+  end
+
   def test_tag_waits_for_the_release_pull_request
     runner = FakeRunner.new
     error = assert_raises(Release::Error) { release(runner).tag }
