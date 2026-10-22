@@ -14,6 +14,8 @@ require_relative 'keryx/runner'
 require_relative 'keryx/herdr'
 require_relative 'keryx/caller'
 require_relative 'keryx/identity'
+require_relative 'keryx/bell'
+require_relative 'keryx/postman'
 
 # Reliable messaging between AI coding agent sessions.
 module Keryx
