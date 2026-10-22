@@ -54,6 +54,17 @@ class CompletionTest < Minitest::Test
     assert_equal theirs, complete('read', '--as=rev-1', '')
   end
 
+  def test_words_bash_splits_at_an_equals_sign_complete_as_one
+    join_claude('rev-1', 222)
+    keryx('send', 'rev-1', 'for rev-1')
+    keryx('send', 'person', 'for person')
+    theirs = JSON.parse(keryx('--as', 'rev-1', 'inbox', '-o', 'json').out).map { it['id'] }
+
+    assert_equal theirs, complete('--as', '=', 'rev-1', 'read', '')
+    assert_equal %w[person rev-1], complete('--as', '=', '')
+    assert_equal %w[json], complete('inbox', '--output', '=', 'j')
+  end
+
   def test_flags_and_values_complete
     assert_includes complete('ask', '--'), '--within'
     assert_includes complete('ask', '--'), '--as'

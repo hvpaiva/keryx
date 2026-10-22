@@ -20,7 +20,7 @@ module Keryx
       # Never fails: an error here would print inside the user's command line.
       def call(words)
         current = words.last.to_s
-        before = words[0...-1]
+        before = joined(words[0...-1])
         @as = acting_as(before)
         terminal.puts(candidates(before, current).select { matches?(it, current) }.uniq)
         nil
@@ -31,7 +31,8 @@ module Keryx
       private
 
       def candidates(before, current)
-        return value_candidates(before.last) if VALUE_OPTIONS.include?(before.last)
+        option = before.last.to_s.delete_suffix('=')
+        return value_candidates(option) if VALUE_OPTIONS.include?(option)
 
         command, positionals = parse(before)
         return flags(command) if current.start_with?('-')
@@ -49,6 +50,17 @@ module Keryx
           command ? positionals << word : command = Commands::ALL.find { it.spec.name == word }
         end
         [command, positionals]
+      end
+
+      # Bash breaks --as=NAME into --as, = and NAME, as COMP_WORDBREAKS says, so the pieces are joined again.
+      def joined(words)
+        words.each_with_object([]) do |word, joined|
+          if (word == '=' && joined.last.to_s.start_with?('--')) || joined.last.to_s.match?(/\A--[a-z-]+=\z/)
+            joined[-1] += word
+          else
+            joined << word
+          end
+        end
       end
 
       def acting_as(words)
