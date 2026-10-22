@@ -78,21 +78,12 @@ reminder, so every message is reminded about once and the hook cannot hold a ses
 
 `Keryx.run` builds a `CLI::Dispatcher` over the command classes in `Commands::ALL`. The dispatcher
 parses the global options, finds the command, parses its options with `OptionParser`, checks the
-number of arguments and calls it. Every error becomes a message on standard error and an exit
-status, never a backtrace.
+number of arguments and calls it. Every error becomes a message on standard error and one of the
+[exit statuses](docs/usage.md#exit-status), never a backtrace. Help lists the commands of each
+section in the order of `Commands::ALL`.
 
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
 
 Text that came from a file or from another session (message bodies, roles, herdr states) goes
 through `Text.plain` before it reaches a terminal, so it cannot carry escape sequences.
-
-## Exit statuses
-
-| Status | Meaning |
-|---|---|
-| 0 | Success |
-| 1 | An error, such as an unknown address or a damaged file |
-| 2 | A usage error: an unknown command or flag, a missing or extra argument |
-| 3 | `keryx wait` gave up before the reply arrived |
-| 130 | Interrupted |
