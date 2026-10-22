@@ -184,6 +184,16 @@ class MailTest < Minitest::Test
     assert_match(/\ASent #{ids.first} to rev-1@athena\. The bell failed \(.*occupant.json is damaged\)/, result.out)
   end
 
+  def test_inbox_opens_only_the_unread_messages
+    keryx('send', 'rev-1', 'one', env: @orq)
+    id = last_id(@rev)
+    keryx('read', id, env: @rev)
+    File.write(tmp('state', 'addresses', 'rev-1', 'mail', "#{id}.json"), '{')
+    result = keryx('inbox', env: @rev)
+
+    assert_equal ["No unread messages for rev-1@athena.\n", ''], [result.out, result.err]
+  end
+
   def test_inbox_all_shows_read_messages_with_their_state
     keryx('send', 'rev-1', 'one', env: @orq)
     keryx('read', env: @rev)
