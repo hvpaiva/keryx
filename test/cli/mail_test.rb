@@ -111,8 +111,10 @@ class MailTest < Minitest::Test
     id = last_id(@rev)
     keryx('read', id, env: @rev)
     forged = build_message(to: 'orq@athena', from: 'peer@zeus', in_reply_to: id, body: 'not a reply')
-    keryx('__receive', input: "#{forged.to_json}\n")
+    received = keryx('__receive', input: "#{forged.to_json}\n")
 
+    assert_equal 'delivered', JSON.parse(received.out)['status']
+    assert_equal(['not a reply'], JSON.parse(keryx('inbox', '-o', 'json', env: @orq).out).map { it['body'] })
     assert_equal([id], JSON.parse(keryx('status', '-o', 'json').out)['open_requests'].map { it['id'] })
     assert_equal 3, keryx('wait', id, '--timeout', '1s', env: @orq).status
   end
