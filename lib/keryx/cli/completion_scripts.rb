@@ -2,8 +2,6 @@
 
 module Keryx
   module CLI
-    # Shell scripts that ask `keryx __complete WORDS...` for the candidates, so they never change
-    # when commands do. The last word is the one being completed, possibly empty.
     module CompletionScripts
       SHELLS = %w[bash zsh fish].freeze
 
@@ -11,7 +9,6 @@ module Keryx
         { 'bash' => method(:bash), 'zsh' => method(:zsh), 'fish' => method(:fish) }.fetch(shell).call(program)
       end
 
-      # -o default falls back to file names when keryx offers nothing, as for --file.
       def self.bash(program)
         <<~BASH
           # bash completion for #{program}. Load it with: eval "$(#{program} completion bash)"

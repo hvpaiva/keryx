@@ -1,5 +1,3 @@
-# The cooldown waits a week after a release before proposing it, so a compromised or yanked
-# version has time to be caught.
 version: 2
 updates:
   - package-ecosystem: bundler

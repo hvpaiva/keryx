@@ -3,54 +3,42 @@ plugins:
   - rubocop-performance
   - rubocop-rake
 
-# Exclude lists add to the defaults instead of replacing them.
 inherit_mode:
   merge:
     - Exclude
 
 AllCops:
-  # Pending cops are opted in as they ship, so the configuration never lags a release.
   NewCops: enable
-  # Mirrors required_ruby_version in the gemspec.
   TargetRubyVersion: 3.4
   Exclude:
     - vendor/**/*
 
 Metrics/AbcSize:
-  # Command handlers branch on user input; 25 keeps them readable without splitting on ceremony.
   Max: 25
-  # A test reads as one scenario from top to bottom; splitting it into helpers hides the story.
   Exclude:
     - test/**/*
 
 Metrics/BlockLength:
-  # Test bodies, the gemspec and rake tasks are declarative blocks, not logic.
   Exclude:
     - test/**/*
     - '*.gemspec'
     - Rakefile
 
 Metrics/ClassLength:
-  # The store holds many small methods over one directory layout; 200 lines is the point to split it.
   Max: 200
 
 Metrics/MethodLength:
-  # 15 lines fits a whole case statement or a formatted table without a private helper.
   Max: 15
 
 Metrics/ParameterLists:
-  # Keyword arguments are named at every call site, so a long list of them stays readable.
   CountKeywordArgs: false
 
 Minitest/MultipleAssertions:
-  # A CLI test asserts the status, stdout and stderr, often for two invocations.
   Max: 6
 
 Style/Documentation:
-  # A cop that demands a comment on every class gets comments that restate the class name.
   Enabled: false
 
 Style/DisableCopsWithinSourceCodeDirective:
-  # Exceptions to a cop live in this file, where they carry a reason, never inline.
   Enabled: true
   AllowedCops: []

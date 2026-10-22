@@ -25,7 +25,6 @@ Gem::Specification.new do |spec|
     'rubygems_mfa_required' => 'true'
   }
 
-  # Only tracked files ship, so the gem has to be built from a git checkout.
   shipped = %w[lib/ exe/ README.md CHANGELOG.md LICENSE.txt]
   spec.files = IO.popen(%w[git ls-files -z], chdir: __dir__, err: IO::NULL) do |ls|
     ls.readlines("\x0", chomp: true).select { |file| file.start_with?(*shipped) }
