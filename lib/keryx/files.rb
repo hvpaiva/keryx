@@ -1,0 +1,90 @@
+# frozen_string_literal: true
+
+require 'fileutils'
+require 'json'
+require 'securerandom'
+require_relative 'error'
+require_relative 'message'
+
+module Keryx
+  module Files
+    MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
+    DIR_MODE = 0o700
+    FILE_MODE = 0o600
+
+    private
+
+    def make_dirs(base, dirs) = dirs.each { FileUtils.mkdir_p(File.join(base, it), mode: DIR_MODE) }
+
+    def drop_in(base, message, dirs)
+      file = "#{message.id}.json"
+      return :duplicate if dirs.any? { File.exist?(File.join(base, it, file)) }
+
+      temporary = File.join(base, 'tmp', "#{message.id}.#{Process.pid}.#{SecureRandom.hex(4)}")
+      write_file(temporary, message.to_json)
+      link(temporary, File.join(base, 'new', file))
+    ensure
+      FileUtils.rm_f(temporary) if temporary
+    end
+
+    def link(source, target)
+      File.link(source, target)
+      sync_directory(File.dirname(target))
+      :delivered
+    rescue Errno::EEXIST
+      :duplicate
+    end
+
+    def messages_in(dir)
+      return [] unless File.directory?(dir)
+
+      Dir.children(dir).sort.filter_map do |file|
+        next unless MESSAGE_FILE.match?(file)
+
+        read_message(File.join(dir, file))
+      end
+    end
+
+    def read_message(path)
+      message = Message.from_json(File.read(path))
+      return message if File.basename(path, '.json') == message.id
+
+      raise Error, "the file name does not match the message id #{message.id}"
+    rescue Errno::ENOENT
+      nil
+    rescue Error => e
+      @problems << "skipped #{path}: #{e.message}"
+      nil
+    end
+
+    def read_json(path)
+      JSON.parse(File.read(path))
+    rescue Errno::ENOENT
+      nil
+    rescue JSON::ParserError => e
+      raise Error, "#{path} is not valid JSON (#{e.message.lines.first.strip})"
+    end
+
+    def write_atomic(path, content)
+      temporary = "#{path}.#{Process.pid}.#{SecureRandom.hex(4)}.tmp"
+      write_file(temporary, content)
+      File.rename(temporary, path)
+    ensure
+      FileUtils.rm_f(temporary) if temporary
+    end
+
+    def write_file(path, content)
+      File.open(path, File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) do |file|
+        file.write(content)
+        file.flush
+        file.fsync
+      end
+    end
+
+    def sync_directory(dir)
+      File.open(dir, &:fsync)
+    rescue SystemCallError
+      nil
+    end
+  end
+end

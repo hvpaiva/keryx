@@ -18,7 +18,7 @@ module Keryx
     end
 
     def forward(host)
-      messages = @store.queued(host)
+      messages = @store.outbox.queued(host)
       return {} if messages.empty?
 
       answer = @remote.deliver(host, messages)
@@ -30,10 +30,10 @@ module Keryx
     def settle(host, message, answer)
       receipt = answer.receipts[message.id]
       if receipt && ARRIVED.include?(receipt['status'])
-        @store.settle(host, message.id, :forwarded)
+        @store.outbox.settle(host, message.id, :forwarded)
         record(host, message, FORWARDED, nil, bell: receipt['bell'])
       elsif receipt && receipt['status'] == REFUSED
-        @store.settle(host, message.id, :refused)
+        @store.outbox.settle(host, message.id, :refused)
         record(host, message, REFUSED, receipt['detail'].to_s)
       else
         record(host, message, QUEUED, answer.error || "#{host} sent no receipt for #{message.id}",
@@ -41,12 +41,12 @@ module Keryx
       end
     end
 
-    def attempts(host, message) = @store.forward_receipt(host, message.id)&.fetch('attempts', 0).to_i
+    def attempts(host, message) = @store.outbox.receipt(host, message.id)&.fetch('attempts', 0).to_i
 
     def record(host, message, status, detail, bell: nil, attempts: nil)
       data = { 'status' => status, 'detail' => detail, 'bell' => bell, 'attempts' => attempts,
                'at' => @clock.call.utc.iso8601 }
-      @store.write_forward_receipt(host, message.id, data.compact)
+      @store.outbox.write_receipt(host, message.id, data.compact)
       Result.new(status:, detail:, bell:)
     end
   end

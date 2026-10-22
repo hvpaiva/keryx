@@ -34,11 +34,11 @@ module Keryx
     private
 
     def forward(message, host)
-      @store.queue(host, message)
+      @store.outbox.queue(host, message)
       result = @forwarder.forward(host).fetch(message.id)
       return Posted.new(message:, bell: nil, forward: result) unless result.status == Forwarder::REFUSED
 
-      @store.discard(host, message.id)
+      @store.outbox.discard(host, message.id)
       raise Error, "#{host} refused the message; #{result.detail}"
     end
 

@@ -25,7 +25,7 @@ module Keryx
     private
 
     def forward
-      @store.outbox_hosts.to_h { [it, @forwarder.forward(it)] }.reject { |_host, results| results.empty? }
+      @store.outbox.hosts.to_h { [it, @forwarder.forward(it)] }.reject { |_host, results| results.empty? }
     end
 
     def ring_again
