@@ -37,6 +37,14 @@ class MessageTest < Minitest::Test
     assert_raises(Keryx::Error) { Keryx::Message.from_json(JSON.generate(data.merge('created_at' => 'today'))) }
   end
 
+  def test_from_json_rejects_fields_of_the_wrong_type_as_a_keryx_error
+    data = JSON.parse(build_message.to_json)
+
+    %w[from to created_at due_at in_reply_to].each do |field|
+      assert_raises(Keryx::Error, field) { Keryx::Message.from_json(JSON.generate(data.merge(field => 42))) }
+    end
+  end
+
   def test_overdue_applies_to_requests_past_their_deadline
     assert build_message.overdue?(CREATED + 1801)
     refute build_message.overdue?(CREATED + 1799)

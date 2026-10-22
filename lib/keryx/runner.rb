@@ -13,20 +13,32 @@ module Keryx
     end
 
     def call(argv, env: {}, input: nil)
-      Open3.popen3(env, *argv) do |stdin, stdout, stderr, waiter|
-        out = reader(stdout)
-        err = reader(stderr)
-        writer(stdin, input)
-        next Result.new(out: out.value, err: err.value, success: waiter.value.success?) if waiter.join(@timeout)
-
-        stop(waiter)
-        Result.new(out: '', err: "#{argv.first} did not finish within #{@timeout}s", success: false)
-      end
+      Open3.popen3(env, *argv, pgroup: true) { |*streams| run(argv.first, input, streams) }
     rescue SystemCallError => e
       Result.new(out: '', err: "#{argv.first}: #{e.message}", success: false)
     end
 
     private
+
+    def run(program, input, (stdin, stdout, stderr, waiter))
+      deadline = now + @timeout
+      out = reader(stdout)
+      err = reader(stderr)
+      writer(stdin, input)
+      if done?(deadline, waiter, out, err)
+        return Result.new(out: out.value, err: err.value, success: waiter.value.success?)
+      end
+
+      stop(waiter, stdout, stderr)
+      Result.new(out: '', err: "#{program} did not finish within #{@timeout}s", success: false)
+    rescue Interrupt
+      stop(waiter, stdout, stderr)
+      raise
+    end
+
+    def now = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    def done?(deadline, *threads) = threads.all? { it.join([deadline - now, 0].max) }
 
     def reader(io)
       Thread.new do
@@ -46,10 +58,16 @@ module Keryx
       end
     end
 
-    def stop(waiter)
-      Process.kill('TERM', waiter.pid)
-      Process.kill('KILL', waiter.pid) unless waiter.join(KILL_GRACE)
-    rescue Errno::ESRCH
+    def stop(waiter, *pipes)
+      signal_group('TERM', waiter.pid)
+      waiter.join(KILL_GRACE)
+      signal_group('KILL', waiter.pid)
+      pipes.each { it.close unless it.closed? }
+    end
+
+    def signal_group(signal, pid)
+      Process.kill(signal, -pid)
+    rescue Errno::ESRCH, Errno::EPERM
       nil
     end
   end

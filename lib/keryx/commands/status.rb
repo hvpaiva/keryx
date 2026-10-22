@@ -56,8 +56,8 @@ module Keryx
       end
 
       def not_forwarded
-        app.store.outgoing.reject { it.state == :forwarded }.map do |outgoing|
-          [outgoing, app.store.forward_receipt(outgoing.host, outgoing.message.id) || {}]
+        app.store.outbox.outgoing.reject { it.state == :forwarded }.map do |outgoing|
+          [outgoing, app.store.outbox.receipt(outgoing.host, outgoing.message.id) || {}]
         end
       end
 

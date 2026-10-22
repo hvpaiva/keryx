@@ -148,6 +148,16 @@ class BellTest < Minitest::Test
     end
   end
 
+  def test_herdr_defers_when_the_screen_cannot_be_read
+    message = deliver
+    store.bind('rev-1', pane_occupant)
+    herdr = herdr_with('idle', screen: nil)
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal ['deferred', 'the screen could not be read'], [result.status, result.detail]
+    assert_empty herdr.prompts
+  end
+
   def test_herdr_reports_a_refused_prompt
     message = deliver
     store.bind('rev-1', pane_occupant)

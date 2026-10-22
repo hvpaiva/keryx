@@ -81,7 +81,7 @@ class PostmanTest < Minitest::Test
 
     assert_equal 'forwarded', posted.forward.status
     assert_equal [posted.message], zeus.unread('port')
-    assert_equal([[posted.message, :forwarded]], store.outgoing.map { [it.message, it.state] })
+    assert_equal([[posted.message, :forwarded]], store.outbox.outgoing.map { [it.message, it.state] })
     assert_empty bell.rung
   end
 
@@ -91,7 +91,7 @@ class PostmanTest < Minitest::Test
     end
 
     assert_equal 'zeus refused the message; no address ghost@zeus', error.message
-    assert_empty store.outgoing
+    assert_empty store.outbox.outgoing
   end
 
   def test_a_message_for_a_machine_that_is_down_waits_and_goes_out_once
@@ -105,7 +105,7 @@ class PostmanTest < Minitest::Test
     2.times { forwarder.forward('zeus') }
 
     assert_equal [posted.message], zeus.unread('port')
-    assert_equal [:forwarded], store.outgoing.map(&:state)
+    assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
   end
 
   def test_post_refuses_empty_oversized_and_invalid_bodies

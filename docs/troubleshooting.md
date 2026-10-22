@@ -23,6 +23,8 @@ reason.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not
   type into a herdr pane while the agent waited on something else. Answer the dialog, then run
   `keryx ring`.
+- `the screen could not be read` means herdr did not return the pane's screen, so keryx could not
+  rule out a dialog and did not type. The courier tries again.
 - `socket ...` with an error means the Claude Code session that held the address is gone. A session
   restarted in the same herdr pane takes the address back with its first keryx command, and
   `keryx ring` then reaches it.

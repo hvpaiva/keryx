@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative 'address'
+require_relative 'bell'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'message'
@@ -9,11 +10,24 @@ require_relative 'ulid'
 
 module Keryx
   class Receiver
+    FRAME_LIMIT = (6 * Message::MAX_BODY_BYTES) + 4096
+    CLAIMED_ID = /"id":"(?<id>[0-9A-HJKMNP-TV-Z]{26})"/
+
     def initialize(store:, bell:, host:, person:)
       @store = store
       @bell = bell
       @host = host
       @person = person
+    end
+
+    def receive_all(input, &)
+      @oversized = nil
+      input.each_line(FRAME_LIMIT) do |chunk|
+        next skip(chunk, &) if @oversized || truncated?(chunk)
+
+        yield receive(chunk) unless chunk.strip.empty?
+      end
+      yield too_large(@oversized[:id]) if @oversized
     end
 
     def receive(line)
@@ -24,13 +38,32 @@ module Keryx
 
       @store.create_address(to.name, role: Identity::HUMAN_ROLE) unless @store.address?(to.name)
       status = @store.deliver(to.name, message)
-      bell = @bell.ring(to.name, [message]).record if status == :delivered
-      receipt(message.id, status.to_s, bell:)
-    rescue Error, SystemCallError => e
+      receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
+    rescue Error => e
       receipt(claimed_id(line), 'refused', detail: e.message)
+    rescue StandardError => e
+      receipt(claimed_id(line), 'failed', detail: e.message)
     end
 
     private
+
+    def truncated?(chunk) = chunk.bytesize >= FRAME_LIMIT && !chunk.end_with?("\n")
+
+    def skip(chunk)
+      @oversized ||= { id: chunk[CLAIMED_ID, :id] }
+      return unless chunk.end_with?("\n")
+
+      yield too_large(@oversized[:id])
+      @oversized = nil
+    end
+
+    def too_large(id) = receipt(id, 'refused', detail: "the message is larger than #{FRAME_LIMIT} bytes")
+
+    def ring(name, message)
+      @bell.ring(name, [message]).record
+    rescue StandardError => e
+      { 'status' => Bell::FAILED, 'detail' => e.message }
+    end
 
     def refusal(message, to)
       return "#{message.to} is not on #{@host}" unless to.local?(@host)

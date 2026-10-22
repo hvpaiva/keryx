@@ -26,14 +26,19 @@ module Keryx
     end
 
     def self.build(data)
+      check_fields(data)
+      new(id: data['id'], kind: data['kind'], from: data['from'], to: data['to'], thread: data['thread'],
+          in_reply_to: data['in_reply_to'], created_at: time(data['created_at']), due_at: time(data['due_at']),
+          body: data['body'])
+    end
+
+    def self.check_fields(data)
       missing = %w[id kind from to thread created_at body] - data.compact.keys
       raise Error, "missing #{missing.join(', ')}" unless missing.empty?
       raise Error, "unknown kind #{data['kind'].inspect}" unless KINDS.include?(data['kind'])
 
       check_identity(data)
-      new(id: data['id'], kind: data['kind'], from: data['from'], to: data['to'], thread: data['thread'],
-          in_reply_to: data['in_reply_to'], created_at: time(data['created_at']), due_at: time(data['due_at']),
-          body: data['body'])
+      check_body(data['body'])
     end
 
     # Bells and hook reminders repeat these fields into other sessions' context.
@@ -43,16 +48,27 @@ module Keryx
         raise Error, "bad in_reply_to #{data['in_reply_to'].inspect}"
       end
 
-      %w[from to].each { raise Error, "bad #{it} address #{data[it].inspect}" unless ADDRESS.match?(data[it]) }
-      raise Error, 'the body is not text' unless data['body'].is_a?(String)
+      %w[from to].each { raise Error, "bad #{it} address #{data[it].inspect}" unless address?(data[it]) }
     end
 
+    def self.check_body(body)
+      raise Error, 'the body is not text' unless body.is_a?(String)
+      return if body.bytesize <= MAX_BODY_BYTES
+
+      raise Error, "the body is #{body.bytesize} bytes and the limit is #{MAX_BODY_BYTES}"
+    end
+
+    def self.address?(value) = value.is_a?(String) && ADDRESS.match?(value)
+
     def self.time(text)
-      text && Time.iso8601(text)
+      return nil if text.nil?
+      raise Error, "bad time #{text.inspect}" unless text.is_a?(String)
+
+      Time.iso8601(text)
     rescue ArgumentError => e
       raise Error, "bad time: #{e.message}"
     end
-    private_class_method :check_identity, :time
+    private_class_method :check_fields, :check_identity, :check_body, :address?, :time
 
     def request? = kind == 'request'
 
