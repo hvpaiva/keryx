@@ -36,9 +36,9 @@ module Keryx
     def settle(host, message, answer)
       receipt = answer.receipts[message.id]
       if receipt && ARRIVED.include?(receipt['status'])
-        finish(host, message, :forwarded, record(host, message, FORWARDED, nil, bell: receipt['bell']))
+        finish(host, message, FORWARDED, nil, bell: receipt['bell'])
       elsif receipt && receipt['status'] == REFUSED
-        finish(host, message, :refused, record(host, message, REFUSED, receipt['detail'].to_s))
+        finish(host, message, REFUSED, receipt['detail'].to_s)
       else
         record(host, message, QUEUED, waiting_reason(host, message, receipt, answer),
                attempts: attempts(host, message) + 1)
@@ -46,8 +46,9 @@ module Keryx
     end
 
     # The receipt comes first, so a sender that finds the message gone from new/ can read how it settled.
-    def finish(host, message, state, result)
-      @store.outbox.settle(host, message.id, state)
+    def finish(host, message, status, detail, bell: nil)
+      result = record(host, message, status, detail, bell:)
+      @store.outbox.settle(host, message.id, status.to_sym)
       result
     end
 
