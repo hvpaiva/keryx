@@ -8,8 +8,9 @@ class ExecutableTest < Minitest::Test
   include TempDir
 
   EXE = File.expand_path('../../exe/keryx', __dir__)
-  INHERITED = %w[CLAUDECODE CLAUDE_PID CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET HERDR_SOCKET_PATH
-                 HERDR_PANE_ID CODEX_THREAD_ID KERYX_AS KERYX_COLOR NO_COLOR FORCE_COLOR].freeze
+  INHERITED = %w[CLAUDECODE CLAUDE_PID CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET HERDR_SOCKET_PATH KERYX_SSH
+                 HERDR_PANE_ID CODEX_THREAD_ID CURSOR_CONVERSATION_ID KERYX_AS KERYX_COLOR KERYX_REMOTE_COMMAND NO_COLOR
+                 FORCE_COLOR].freeze
 
   def run_keryx(*argv, env: {}, input: '')
     base = INHERITED.to_h { [it, nil] }.merge('KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena',
@@ -49,5 +50,17 @@ class ExecutableTest < Minitest::Test
     assert_equal 1, status.exitstatus
     assert_empty out
     assert_equal "error: no message ZZZZ in the mailbox of person\n", err
+  end
+
+  def test_a_message_in_utf8_arrives_and_reads_without_a_locale
+    env = { 'LANG' => nil, 'LC_ALL' => 'C', 'LC_CTYPE' => nil }
+    body = "Revis#{[0xE3].pack('U')}o conclu#{[0xED].pack('U')}da #{[0x2713].pack('U')}"
+    message = Keryx::Message.new(id: Keryx::Ulid.generate, kind: 'message', from: 'orq@zeus', to: 'person@athena',
+                                 thread: nil, in_reply_to: nil, created_at: Time.now.utc, due_at: nil, body:)
+    message = message.with(thread: message.id)
+    out, err, = run_keryx('__receive', env:, input: "#{message.to_json}\n")
+
+    assert_equal ['delivered', ''], [JSON.parse(out)['status'], err]
+    assert_includes run_keryx('read', message.id, env:).first.force_encoding(Encoding::UTF_8), body
   end
 end

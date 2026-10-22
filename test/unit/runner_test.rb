@@ -21,6 +21,12 @@ class RunnerTest < Minitest::Test
     assert result.success
   end
 
+  def test_it_feeds_standard_input
+    result = Keryx::Runner.new.call([RUBY, '-e', 'print $stdin.read.upcase'], input: "one\ntwo\n")
+
+    assert_equal "ONE\nTWO\n", result.out
+  end
+
   def test_it_stops_a_command_past_the_deadline
     started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
     result = Keryx::Runner.new(timeout: 0.3).call([RUBY, '-e', 'sleep 30'])

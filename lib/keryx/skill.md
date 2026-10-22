@@ -34,7 +34,9 @@ stays open in `keryx status`, and the stop hook reminds you before your turn end
   the reply rings this session when it arrives. Use `keryx wait ID` only when you cannot go on
   without the answer.
 - `keryx send ADDRESS TEXT` for updates that need no answer.
-- `keryx who` lists the addresses and whether a session holds each one.
+- An address on another machine is `NAME@HOST`, such as `port@zeus`. Mail to it goes over SSH,
+  and when that machine is unreachable it waits and goes out later; `keryx status` shows it.
+- `keryx who` lists the addresses on this machine and whether a session holds each one.
 
 ## Write messages that stand on their own
 

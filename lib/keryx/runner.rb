@@ -12,11 +12,11 @@ module Keryx
       @timeout = timeout
     end
 
-    def call(argv, env: {})
+    def call(argv, env: {}, input: nil)
       Open3.popen3(env, *argv) do |stdin, stdout, stderr, waiter|
-        stdin.close
         out = reader(stdout)
         err = reader(stderr)
+        writer(stdin, input)
         next Result.new(out: out.value, err: err.value, success: waiter.value.success?) if waiter.join(@timeout)
 
         stop(waiter)
@@ -33,6 +33,16 @@ module Keryx
         io.read
       rescue IOError
         ''
+      end
+    end
+
+    def writer(io, input)
+      Thread.new do
+        io.write(input) if input
+      rescue IOError, Errno::EPIPE
+        nil
+      ensure
+        io.close unless io.closed?
       end
     end
 

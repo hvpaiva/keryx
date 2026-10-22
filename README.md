@@ -13,7 +13,8 @@ session for anything, and a reply sent to a session that just ended is lost.
 keryx (Greek for herald) gives each session an address that outlives it and a mailbox on disk. A
 message is written to the mailbox first and only then announced to the recipient, through its
 harness's own channel when there is one. A session that misses the announcement still finds the
-message, and a Claude Code session is reminded before it ends a turn with mail it never read.
+message, and a session is reminded before it ends a turn with mail it never read. Mail for a session
+on another machine goes over SSH, and waits while that machine is unreachable.
 
 ```console
 $ keryx status
@@ -92,6 +93,7 @@ request is answered.
 ## More
 
 - [Setting up the agents](docs/agents.md), with the stop hook of each harness and agents in herdr.
+- [Between machines](docs/machines.md), with SSH, host names and the courier service.
 - `keryx --help` for the commands, the environment and the exit statuses, and
   `keryx COMMAND --help` for each command.
 - [Shell completion](docs/shell-completion.md) for bash, zsh and fish.

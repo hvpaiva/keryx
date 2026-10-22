@@ -21,7 +21,18 @@ class PostmanTest < Minitest::Test
 
   def bell = @bell ||= RecordingBell.new
 
-  def postman = Keryx::Postman.new(store:, bell:, host: 'athena', clock: -> { NOW }, person: 'person')
+  def zeus = @zeus ||= Keryx::Store.new(tmp('zeus'))
+
+  def remote
+    @remote ||= FakeRemote.new do |_host, input|
+      receiver = Keryx::Receiver.new(store: zeus, bell: RecordingBell.new, host: 'zeus', person: 'person')
+      input.each_line.map { "#{JSON.generate(receiver.receive(it))}\n" }.join
+    end
+  end
+
+  def forwarder = Keryx::Forwarder.new(store:, remote:, clock: -> { NOW })
+
+  def postman = Keryx::Postman.new(store:, bell:, forwarder:, host: 'athena', clock: -> { NOW }, person: 'person')
 
   def address(text) = Keryx::Address.parse(text, local_host: 'athena')
 
@@ -56,11 +67,45 @@ class PostmanTest < Minitest::Test
     assert_empty bell.rung
   end
 
-  def test_post_refuses_unknown_and_remote_addresses
-    post = ->(to) { postman.post(sender: 'orq', recipient: address(to), kind: 'message', body: 'x') }
+  def test_post_refuses_an_unknown_local_address
+    error = assert_raises(Keryx::Error) do
+      postman.post(sender: 'orq', recipient: address('ghost'), kind: 'message', body: 'x')
+    end
 
-    assert_match(/no address ghost@athena/, assert_raises(Keryx::Error) { post.call('ghost') }.message)
-    assert_match(/rev-1@zeus is on another machine/, assert_raises(Keryx::Error) { post.call('rev-1@zeus') }.message)
+    assert_match(/no address ghost@athena/, error.message)
+  end
+
+  def test_a_message_for_another_machine_is_forwarded_and_kept_as_sent
+    zeus.create_address('port')
+    posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'request', body: 'Port it')
+
+    assert_equal 'forwarded', posted.forward.status
+    assert_equal [posted.message], zeus.unread('port')
+    assert_equal([[posted.message, :forwarded]], store.outgoing.map { [it.message, it.state] })
+    assert_empty bell.rung
+  end
+
+  def test_a_message_the_other_machine_refuses_is_not_kept
+    error = assert_raises(Keryx::Error) do
+      postman.post(sender: 'orq', recipient: address('ghost@zeus'), kind: 'message', body: 'x')
+    end
+
+    assert_equal 'zeus refused the message; no address ghost@zeus', error.message
+    assert_empty store.outgoing
+  end
+
+  def test_a_message_for_a_machine_that_is_down_waits_and_goes_out_once
+    zeus.create_address('port')
+    remote.down << 'zeus'
+    posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'message', body: 'later')
+
+    assert_equal ['queued', 'ssh: connect to host zeus port 22: No route to host'],
+                 [posted.forward.status, posted.forward.detail]
+    remote.down.clear
+    2.times { forwarder.forward('zeus') }
+
+    assert_equal [posted.message], zeus.unread('port')
+    assert_equal [:forwarded], store.outgoing.map(&:state)
   end
 
   def test_post_refuses_empty_oversized_and_invalid_bodies

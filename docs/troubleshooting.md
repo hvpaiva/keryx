@@ -29,6 +29,18 @@ reason.
 - `the session has no Claude Code socket, Codex thread or herdr pane` means keryx has no way to
   ring that session. Run the agent in a herdr pane.
 
+## Mail for another machine stays under NOT FORWARDED
+
+`keryx status` shows the last error, which is what ssh or the other machine said.
+
+- `Connection refused`, `No route to host` or a timeout means the other machine cannot be reached
+  now. The courier forwards the message once it can.
+- `keryx: command not found` means a non-interactive SSH session on the other machine does not find
+  keryx. Set `KERYX_REMOTE_COMMAND` to its full path, as [Between machines](machines.md) shows.
+- `Host key verification failed` or `Permission denied` means ssh needs a prompt keryx cannot give.
+  Log in once by hand to accept the host key, and use a key that works without a passphrase prompt.
+- A message marked refused names the reason, such as an address the other machine does not have.
+
 ## Codex ends its turn with unread mail
 
 Codex skips a hook nobody has trusted yet, and says so when it starts with "Hooks need review".

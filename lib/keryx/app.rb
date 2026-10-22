@@ -3,10 +3,14 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'caller'
+require_relative 'courier'
+require_relative 'forwarder'
 require_relative 'herdr'
 require_relative 'identity'
 require_relative 'paths'
 require_relative 'postman'
+require_relative 'receiver'
+require_relative 'remote'
 require_relative 'roster'
 require_relative 'runner'
 require_relative 'store'
@@ -16,7 +20,7 @@ module Keryx
     attr_reader :env, :cwd, :clock, :sleeper, :process
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
-                   claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new,
+                   claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new, remote: nil,
                    sleeper: ->(seconds) { sleep(seconds) }, process: Process)
       @env = env
       @cwd = cwd
@@ -25,6 +29,7 @@ module Keryx
       @herdr = herdr
       @claude_socket = claude_socket
       @codex = codex
+      @remote = remote
       @sleeper = sleeper
       @process = process
     end
@@ -43,7 +48,17 @@ module Keryx
 
     def bell = @bell ||= Bell.new(store:, herdr:, clock:, claude_socket: @claude_socket, codex: @codex)
 
-    def postman = @postman ||= Postman.new(store:, bell:, host:, clock:, person: identity.human_name)
+    def remote = @remote ||= Remote.from_env(env)
+
+    def forwarder = @forwarder ||= Forwarder.new(store:, remote:, clock:)
+
+    def postman
+      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name)
+    end
+
+    def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
+
+    def courier = @courier ||= Courier.new(store:, forwarder:, bell:, roster:, postman:, host:, clock:)
 
     def roster = @roster ||= Roster.new(store:, herdr:, process:)
 

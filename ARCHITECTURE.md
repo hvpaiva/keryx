@@ -15,6 +15,10 @@ addresses/NAME/tmp/            messages being written
 addresses/NAME/new/            unread messages
 addresses/NAME/cur/            read messages
 addresses/NAME/receipts/       bell results and hook reminders, one file per message
+outbox/HOST/new/               messages waiting to go to another machine
+outbox/HOST/cur/               messages the other machine took
+outbox/HOST/refused/           messages the other machine refused
+outbox/HOST/receipts/          forwarding attempts and results, one file per message
 ```
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
@@ -74,6 +78,20 @@ Cursor has no channel of its own, so it is always rung by typing.
 
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
 each message, and `keryx status` reads the receipts to list what did not ring.
+
+## Between machines
+
+A message for an address on another host goes to `outbox/HOST/`, written in `tmp/` and linked into
+`new/` like a delivery. `Forwarder` sends what waits in `new/` through `Remote`, which runs
+`ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
+message for another host, one that claims to come from its own host, and one for an address it
+lacks. It stores the rest under their ids, rings the local session and prints a receipt for each.
+The sender then moves a message to `cur/` or `refused/`. Without a receipt the message stays in
+`new/`, and its file in `receipts/` counts the attempts.
+
+The outbox counts with the mailboxes when keryx decides what is answered, so a request and its
+reply look the same from both machines. `Courier` forwards on a schedule, rings again for bells that
+did not reach a session, and sends the deadline notices from `keryx@HOST`.
 
 ## The stop hook
 

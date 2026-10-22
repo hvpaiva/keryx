@@ -12,10 +12,13 @@ require_relative 'occupant'
 module Keryx
   AddressRecord = Data.define(:name, :role, :created_at)
   StoredMessage = Data.define(:message, :state)
+  OutgoingMessage = Data.define(:host, :message, :state)
 
   class Store
     ADDRESSES = 'addresses'
+    OUTBOX = 'outbox'
     STATE_DIRS = { unread: 'new', read: 'cur' }.freeze
+    OUTBOX_DIRS = { queued: 'new', forwarded: 'cur', refused: 'refused' }.freeze
     BOX_DIRS = %w[tmp new cur receipts].freeze
     MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
     MINIMUM_PREFIX = 4
@@ -75,15 +78,48 @@ module Keryx
 
     def deliver(name, message)
       require_address(name)
-      file = "#{message.id}.json"
-      return :duplicate if STATE_DIRS.values.any? { File.exist?(File.join(box(name), it, file)) }
-
-      temporary = File.join(box(name), 'tmp', "#{message.id}.#{Process.pid}.#{SecureRandom.hex(4)}")
-      write_file(temporary, message.to_json)
-      link(temporary, File.join(box(name), 'new', file))
-    ensure
-      FileUtils.rm_f(temporary) if temporary
+      drop_in(box(name), message, STATE_DIRS.values)
     end
+
+    def queue(host, message)
+      ['tmp', 'receipts', *OUTBOX_DIRS.values].each { FileUtils.mkdir_p(File.join(outbox(host), it), mode: DIR_MODE) }
+      drop_in(outbox(host), message, OUTBOX_DIRS.values)
+    end
+
+    def outbox_hosts
+      base = File.join(root, OUTBOX)
+      return [] unless File.directory?(base)
+
+      Dir.children(base).select { Address::HOST.match?(it) && File.directory?(File.join(base, it)) }.sort
+    end
+
+    def outgoing(hosts = outbox_hosts)
+      found = Array(hosts).flat_map do |host|
+        OUTBOX_DIRS.flat_map do |state, dir|
+          messages_in(File.join(outbox(host), dir)).map { OutgoingMessage.new(host, it, state) }
+        end
+      end
+      found.sort_by { it.message.id }
+    end
+
+    def queued(host) = outgoing(host).select { it.state == :queued }.map(&:message)
+
+    def settle(host, id, state)
+      File.rename(File.join(outbox(host), 'new', "#{id}.json"),
+                  File.join(outbox(host), OUTBOX_DIRS.fetch(state), "#{id}.json"))
+      true
+    rescue Errno::ENOENT
+      false
+    end
+
+    def discard(host, id)
+      OUTBOX_DIRS.each_value { FileUtils.rm_f(File.join(outbox(host), it, "#{id}.json")) }
+      FileUtils.rm_f(forward_receipt_file(host, id))
+    end
+
+    def write_forward_receipt(host, id, data) = write_atomic(forward_receipt_file(host, id), JSON.generate(data))
+
+    def forward_receipt(host, id) = read_json(forward_receipt_file(host, id))
 
     def mailbox(name)
       STATE_DIRS.flat_map { |state, dir| messages_in(File.join(box(name), dir)).map { StoredMessage.new(it, state) } }
@@ -111,7 +147,11 @@ module Keryx
       raise Error, "no message #{id} in the mailbox of #{name}"
     end
 
-    def all_messages = address_names.flat_map { |name| mailbox(name).map { [name, it] } }
+    def all_messages
+      kept = address_names.flat_map { |name| mailbox(name).map { [name, it] } }
+      sent = outgoing.reject { it.state == :refused }.map { [nil, StoredMessage.new(it.message, it.state)] }
+      kept + sent
+    end
 
     def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
 
@@ -136,6 +176,25 @@ module Keryx
     def occupant_file(name) = File.join(box(name), 'occupant.json')
 
     def receipt_file(name, id, kind) = File.join(box(name), 'receipts', "#{id}.#{kind}")
+
+    def outbox(host)
+      raise Error, "invalid host #{host.inspect}" unless Address::HOST.match?(host.to_s)
+
+      File.join(root, OUTBOX, host)
+    end
+
+    def forward_receipt_file(host, id) = File.join(outbox(host), 'receipts', "#{id}.forward")
+
+    def drop_in(base, message, dirs)
+      file = "#{message.id}.json"
+      return :duplicate if dirs.any? { File.exist?(File.join(base, it, file)) }
+
+      temporary = File.join(base, 'tmp', "#{message.id}.#{Process.pid}.#{SecureRandom.hex(4)}")
+      write_file(temporary, message.to_json)
+      link(temporary, File.join(base, 'new', file))
+    ensure
+      FileUtils.rm_f(temporary) if temporary
+    end
 
     def require_address(name)
       raise Error, "no address #{name}" unless address?(name)

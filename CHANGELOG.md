@@ -17,6 +17,9 @@ All notable changes to this project are documented here. The format follows
   dialog shows, which is how Cursor is rung.
 - `keryx hook stop`, the stop hook of Claude Code, Codex and Cursor, which reminds a session of
   unread mail and unanswered requests before it ends a turn.
+- Mail between machines over SSH, with an outbox that holds it while the other machine is
+  unreachable, and `keryx courier`, which forwards it, rings again for bells that did not reach a
+  session and tells senders about missed deadlines.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
 - `keryx skill`, the instructions agents follow to use keryx.
 - Shell completion for bash, zsh and fish.

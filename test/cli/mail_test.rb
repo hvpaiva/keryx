@@ -129,7 +129,7 @@ class MailTest < Minitest::Test
 
   def test_sending_to_an_unknown_or_remote_address_fails
     assert_match(/no address ghost@athena/, keryx('send', 'ghost', 'x', env: @orq).err)
-    assert_match(/rev-1@zeus is on another machine/, keryx('send', 'rev-1@zeus', 'x', env: @orq).err)
+    assert_match(/zeus refused the message; no address rev-1@zeus/, keryx('send', 'rev-1@zeus', 'x', env: @orq).err)
   end
 
   def test_an_agent_can_write_to_the_person_before_they_use_keryx

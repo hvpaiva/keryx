@@ -1,17 +1,19 @@
 # frozen_string_literal: true
 
 require_relative 'error'
+require_relative 'forwarder'
 require_relative 'identity'
 require_relative 'message'
 require_relative 'ulid'
 
 module Keryx
   class Postman
-    Posted = Data.define(:message, :bell)
+    Posted = Data.define(:message, :bell, :forward)
 
-    def initialize(store:, bell:, host:, clock:, person:)
+    def initialize(store:, bell:, forwarder:, host:, clock:, person:)
       @store = store
       @bell = bell
+      @forwarder = forwarder
       @host = host
       @clock = clock
       @person = person
@@ -20,14 +22,25 @@ module Keryx
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil)
       check_recipient(recipient)
       check_body(body)
-      @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
       message = compose(sender, recipient, kind:, body:, due_at:, reply_to:)
+      return forward(message, recipient.host) unless recipient.local?(@host)
+
+      @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
       @store.deliver(recipient.name, message)
       bell = @bell.ring(recipient.name, [message]) unless recipient.name == sender
-      Posted.new(message:, bell:)
+      Posted.new(message:, bell:, forward: nil)
     end
 
     private
+
+    def forward(message, host)
+      @store.queue(host, message)
+      result = @forwarder.forward(host).fetch(message.id)
+      return Posted.new(message:, bell: nil, forward: result) unless result.status == Forwarder::REFUSED
+
+      @store.discard(host, message.id)
+      raise Error, "#{host} refused the message; #{result.detail}"
+    end
 
     def compose(sender, recipient, kind:, body:, due_at:, reply_to:)
       now = @clock.call
@@ -37,9 +50,7 @@ module Keryx
     end
 
     def check_recipient(recipient)
-      unless recipient.local?(@host)
-        raise Error, "#{recipient} is on another machine; this version of keryx delivers on #{@host} only"
-      end
+      return unless recipient.local?(@host)
       return if @store.address?(recipient.name) || recipient.name == @person
 
       raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"

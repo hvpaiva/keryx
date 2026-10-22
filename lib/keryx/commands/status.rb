@@ -15,8 +15,11 @@ module Keryx
                                     "sessions.\n\n" \
                                     'ADDRESSES lists each address with its session, its unread messages and the ' \
                                     'requests waiting for its answer. OPEN REQUESTS lists every request no reply ' \
-                                    'points at yet, with its deadline. NOT RUNG lists unread messages whose bell ' \
-                                    'did not reach a session, and why; keryx ring tries those again.',
+                                    'points at yet, with its deadline, including those sent to another machine. ' \
+                                    'NOT RUNG lists unread messages whose bell did not reach a session, and why; ' \
+                                    'keryx ring tries those again. NOT FORWARDED lists messages for another ' \
+                                    'machine that are still queued or that it refused; keryx courier forwards the ' \
+                                    'queued ones.',
                        examples: [['Check whether anything is stuck', 'status'], ['Feed a script', 'status -o json']]
 
       def define_options(parser) = output_option(parser)
@@ -26,16 +29,22 @@ module Keryx
         entries = roster.entries
         requests = roster.open_requests
         unrung = not_rung
-        return print_json(json(entries, requests, unrung)) if json?
+        outgoing = not_forwarded
+        return print_json(json(entries, requests, unrung, outgoing)) if json?
         return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
 
+        print_sections(entries, requests, unrung, outgoing)
+      end
+
+      private
+
+      def print_sections(entries, requests, unrung, outgoing)
         waiting = requests.map(&:first).tally
         section('ADDRESSES', %w[ADDRESS ROLE SESSION UNREAD WAITING], entries.map { address_row(it, waiting) })
         section('OPEN REQUESTS', %w[ID FROM TO AGE DUE STATE SUMMARY], requests.map { request_row(it.last) })
         section('NOT RUNG', %w[ID TO FROM BELL DETAIL], unrung.map { unrung_row(it) })
+        section('NOT FORWARDED', %w[ID TO FROM STATE ATTEMPTS DETAIL], outgoing.map { forward_row(*it) })
       end
-
-      private
 
       def not_rung
         app.store.address_names.flat_map do |name|
@@ -46,11 +55,29 @@ module Keryx
         end
       end
 
-      def json(entries, requests, unrung)
+      def not_forwarded
+        app.store.outgoing.reject { it.state == :forwarded }.map do |outgoing|
+          [outgoing, app.store.forward_receipt(outgoing.host, outgoing.message.id) || {}]
+        end
+      end
+
+      def json(entries, requests, unrung, outgoing)
         waiting = requests.map(&:first).tally
         { 'addresses' => entries.map { address_record(it, waiting) },
           'open_requests' => requests.map { request_record(it.last) },
-          'not_rung' => unrung.map { unrung_record(it) } }
+          'not_rung' => unrung.map { unrung_record(it) },
+          'not_forwarded' => outgoing.map { forward_record(*it) } }
+      end
+
+      def forward_record(outgoing, receipt)
+        { 'id' => outgoing.message.id, 'to' => outgoing.message.to, 'from' => outgoing.message.from,
+          'state' => outgoing.state.to_s, 'attempts' => receipt.fetch('attempts', 0), 'detail' => receipt['detail'] }
+      end
+
+      def forward_row(outgoing, receipt)
+        message = outgoing.message
+        [[:id, message.id], message.to, message.from, [outgoing.state, outgoing.state.to_s],
+         receipt.fetch('attempts', 0).to_s, Text.plain(receipt['detail'].to_s)]
       end
 
       def address_record(entry, waiting)
