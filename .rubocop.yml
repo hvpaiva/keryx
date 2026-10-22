@@ -19,6 +19,9 @@ AllCops:
 Metrics/AbcSize:
   # Command handlers branch on user input; 25 keeps them readable without splitting on ceremony.
   Max: 25
+  # A test reads as one scenario from top to bottom; splitting it into helpers hides the story.
+  Exclude:
+    - test/**/*
 
 Metrics/BlockLength:
   # Test bodies, the gemspec and rake tasks are declarative blocks, not logic.
