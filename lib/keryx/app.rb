@@ -79,9 +79,16 @@ module Keryx
 
     def refresh(name)
       occupant = store.occupant(name) or return
-      current = caller.occupant(occupant.joined_at).with(cwd: occupant.cwd)
-      store.bind(name, current) if caller.agent? && current != occupant
+      return unless caller.agent? && renewed(occupant) != occupant
+
+      # A join may have moved the session since the read above, so only the occupant read under the lock counts.
+      store.with_occupants_lock do
+        current = store.occupant(name)
+        store.bind(name, renewed(current)) if current && caller.holds?(current)
+      end
     end
+
+    def renewed(occupant) = caller.occupant(occupant.joined_at).with(cwd: occupant.cwd)
 
     def present(value) = value.to_s.empty? ? nil : value
   end

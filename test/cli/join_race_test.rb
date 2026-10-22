@@ -11,7 +11,8 @@ class JoinRaceTest < Minitest::Test
   EXE = File.expand_path('../../exe/keryx', __dir__)
   LIB = File.expand_path('../../lib', __dir__)
   SECONDS = 5
-  # Loaded into each command: it stops before writing an occupant, and marks when it asks for the lock.
+  # Loaded into each command: it stops before writing an occupant, or after the first occupant read of
+  # App#refresh, and marks when it asks for the lock.
   PAUSE = <<~'RUBY'
     require 'keryx'
 
@@ -23,14 +24,25 @@ class JoinRaceTest < Minitest::Test
         sleep(0.01) until File.exist?(ENV.fetch('PAUSE_RELEASE'))
       end
 
+      def self.first_refresh?(from)
+        return false if @refreshed || ENV['PAUSE_ON'] != 'refresh' || from.base_label != 'refresh'
+
+        @refreshed = true
+      end
+
       def with_occupants_lock(...)
         Pause.mark('waiting')
         super
       end
 
       def bind(...)
-        Pause.hold('ready')
+        Pause.hold('ready') if ENV['PAUSE_ON'] == 'bind'
         super
+      end
+
+      def occupant(...)
+        from = caller_locations(1, 1).first
+        super.tap { Pause.hold('ready') if Pause.first_refresh?(from) }
       end
     end
 
@@ -73,19 +85,31 @@ class JoinRaceTest < Minitest::Test
     assert_equal sessions.fetch(winner)['CLAUDE_CODE_SESSION_ID'], store.occupant('solo').session_id
   end
 
+  def test_a_command_that_records_the_session_again_during_a_join_leaves_one_address
+    keryx('join', 'alpha', env: claude(111))
+    restarted = claude(111).merge('CLAUDE_PID' => '222')
+    inbox = start('inbox', 'inbox', env: restarted, pause: 'refresh')
+    wait_until('inbox to read the occupant it records again') { File.exist?(tmp('pause-inbox.ready')) }
+    joined = keryx('join', 'beta', env: restarted)
+    File.write(tmp('release'), '')
+
+    assert_equal [0, 0], [joined.status, finish([inbox]).fetch('inbox')]
+    assert_equal ['beta'], held
+  end
+
   private
 
-  def start(label, *argv, env:)
+  def start(label, *argv, env:, pause: 'bind')
     at = tmp("pause-#{label}")
-    pid = Process.spawn(command_env(at).merge(env), RbConfig.ruby, '-I', LIB, '-r', tmp('pause.rb'), EXE, *argv,
-                        unsetenv_others: true, out: "#{at}.out", err: "#{at}.err")
+    pid = Process.spawn(command_env(at, pause).merge(env), RbConfig.ruby, '-I', LIB, '-r', tmp('pause.rb'), EXE,
+                        *argv, unsetenv_others: true, out: "#{at}.out", err: "#{at}.err")
     @started << pid
     Command.new(label:, pid:)
   end
 
-  def command_env(at)
+  def command_env(at, pause)
     { 'PATH' => ENV.fetch('PATH', ''), 'HOME' => tmp, 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena',
-      'USER' => 'person', 'PAUSE_AT' => at, 'PAUSE_RELEASE' => tmp('release') }
+      'USER' => 'person', 'PAUSE_AT' => at, 'PAUSE_ON' => pause, 'PAUSE_RELEASE' => tmp('release') }
   end
 
   # Both stopped before writing is the race; one stopped and the other waiting for the lock is the serial order.

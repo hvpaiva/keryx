@@ -66,7 +66,8 @@ the address, releases the others and writes the occupant under an exclusive `flo
 `occupants.lock`, so two joins that run at once, of one session or of two, take turns. The kernel
 drops the lock when a process ends, so a crash never leaves it held, but the lock does not make
 those writes one transaction, and a join cut off between releasing and writing leaves the session
-with no address until it joins again.
+with no address until it joins again. `App#me` records a new process or socket under the same lock,
+from the occupant it reads again there, so it never writes back an address a join released.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
 keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the
