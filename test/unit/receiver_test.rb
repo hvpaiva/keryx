@@ -30,6 +30,23 @@ class ReceiverTest < Minitest::Test
     assert_equal [incoming], store.unread('port')
   end
 
+  def test_a_body_over_the_limit_is_refused
+    receipt = receive(build_message(to: 'port@zeus', from: 'orq@athena', body: 'x' * 65_537))
+
+    assert_equal ['refused', 'the body is 65537 bytes and the limit is 65536'], receipt.values_at('status', 'detail')
+    assert_empty store.unread('port')
+  end
+
+  def test_a_line_over_the_frame_limit_is_refused_without_stopping_the_next
+    huge = build_message(to: 'port@zeus', from: 'orq@athena', body: 'x' * Keryx::Receiver::FRAME_LIMIT)
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person')
+    receipts = []
+    receiver.receive_all(StringIO.new("#{huge.to_json}\n#{incoming.to_json}\n")) { receipts << it }
+
+    assert_equal([[huge.id, 'refused'], [incoming.id, 'delivered']], receipts.map { it.values_at('id', 'status') })
+    assert_match(/larger than \d+ bytes/, receipts.first['detail'])
+  end
+
   def test_a_store_that_cannot_write_answers_failed_so_the_sender_tries_again
     store.define_singleton_method(:deliver) { |*| raise Errno::ENOSPC, 'mail' }
 

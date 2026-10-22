@@ -12,10 +12,7 @@ module Keryx
       def self.raw? = true
 
       def call(_arguments)
-        receiver = app.receiver
-        terminal.input.each_line do |line|
-          terminal.puts(JSON.generate(receiver.receive(line))) unless line.strip.empty?
-        end
+        app.receiver.receive_all(terminal.input) { terminal.puts(JSON.generate(it)) }
         nil
       end
     end
