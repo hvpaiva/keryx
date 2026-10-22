@@ -13,7 +13,8 @@ Joined rev-1@athena as a claude session (pid 4142).
 ```
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the keyboard.
-A plain terminal acts as an address named after `$USER`, created on first use.
+A plain terminal acts as an address named after `$USER`, created on first use or by the first
+message an agent sends to it.
 
 ## Messages and requests
 

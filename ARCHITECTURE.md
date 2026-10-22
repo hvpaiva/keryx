@@ -40,13 +40,18 @@ the commands it runs.
 - Claude Code sets `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CODE_SESSION_ID` and
   `CLAUDE_CODE_MESSAGING_SOCKET`.
 - Codex sets `CODEX_THREAD_ID`.
+- Cursor sets `CURSOR_CONVERSATION_ID`.
 - herdr sets `HERDR_SOCKET_PATH` and `HERDR_PANE_ID` in its panes, and answers which agent runs in
   a pane.
 
+A harness started from another harness's shell inherits the outer one's variables, so keryx reads
+Cursor's and Codex's before Claude Code's.
+
 `keryx join` writes these down as the address's occupant. Later commands find their address by
 matching the caller against the occupants (`Identity`), which means the same Claude Code process
-or session, the same Codex thread, or the same harness in the same herdr pane. The pane rule lets a session
-restarted in its pane keep its address, and `App#me` then records the new process and socket.
+or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
+pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
+records the new process and socket.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
 keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the
@@ -65,15 +70,19 @@ and the id, never the body. It tries two ways, in order.
 2. when that fails or does not exist, typing into the herdr pane, if herdr reports the agent idle,
    done or working and no dialog shows on the bottom of its screen.
 
+Cursor has no channel of its own, so it is always rung by typing.
+
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
 each message, and `keryx status` reads the receipts to list what did not ring.
 
 ## The stop hook
 
-Claude Code runs `keryx hook stop` when a session is about to end its turn. `StopHook` finds the
-session's address from the hook payload and the environment, and blocks the end of the turn when
-there are unread messages or read requests without a reply. A marker in `receipts/` records each
-reminder, so every message is reminded about once and the hook cannot hold a session in a loop.
+Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to end its turn.
+`StopHook` tells them apart by the payload and finds the session's address from the session id in
+it and the environment. When there are unread messages or read requests without a reply, it keeps
+the turn going, with a block decision for Claude Code and Codex and a follow-up message for Cursor.
+A marker in `receipts/` records each reminder, so every message is reminded about once and the
+hook cannot hold a session in a loop.
 
 ## The command line
 
