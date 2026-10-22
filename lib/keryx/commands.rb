@@ -12,12 +12,15 @@ require_relative 'commands/reply'
 require_relative 'commands/wait'
 require_relative 'commands/status'
 require_relative 'commands/ring'
+require_relative 'commands/hook'
+require_relative 'commands/skill'
 require_relative 'commands/version'
 require_relative 'commands/help'
 
 module Keryx
   module Commands
     # Help lists them in this order within each section.
-    ALL = [Join, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Version, Help].freeze
+    ALL = [Join, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Hook, Skill, Version,
+           Help].freeze
   end
 end
