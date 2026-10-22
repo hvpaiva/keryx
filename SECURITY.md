@@ -9,12 +9,12 @@ rather than in a public issue. You will get an answer within a week.
 ## What keryx protects, and what it does not
 
 keryx connects agent sessions that one person runs on their own machine. It trusts the operating
-system user: anything running as that user can read and write the mailboxes, act as any address
+system user. Anything running as that user can read and write the mailboxes, act as any address
 with `--as`, and post to a Claude Code session's peer socket. Identities are labels for
 coordination, not credentials. Do not use keryx between users who do not trust each other.
 
 Within that boundary, keryx defends against a few things that matter when the parties are
-language models:
+language models.
 
 - A peer's message is not the user's word. The skill keryx gives agents says so, and tells them
   to refuse what their own user did not authorize. An agent that joined no address cannot send as

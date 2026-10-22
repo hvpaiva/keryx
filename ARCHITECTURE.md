@@ -6,7 +6,7 @@ follows.
 
 ## The store
 
-All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`:
+All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 
 ```text
 addresses/NAME/address.json    the address: its role and when it was created
@@ -26,7 +26,7 @@ Nothing else records state. A request is answered when some mailbox holds a repl
 `in_reply_to` is the request's id; it is read when its file is in `cur/`. Because no operation has
 to change two files together, there are no locks and a crash leaves nothing half done.
 
-Message ids are [ULIDs](https://github.com/ulid/spec): 26 characters that sort by creation time,
+Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
 
 `Store` is the only code that touches these paths, and it validates every address name before
@@ -35,7 +35,7 @@ building a path from it.
 ## Identity
 
 A command first works out which session called it (`Caller`), from what the harness exports to
-the commands it runs:
+the commands it runs.
 
 - Claude Code sets `CLAUDECODE`, `CLAUDE_PID`, `CLAUDE_CODE_SESSION_ID` and
   `CLAUDE_CODE_MESSAGING_SOCKET`.
@@ -44,8 +44,8 @@ the commands it runs:
   a pane.
 
 `keryx join` writes these down as the address's occupant. Later commands find their address by
-matching the caller against the occupants (`Identity`): the same Claude Code process or session,
-the same Codex thread, or the same harness in the same herdr pane. The pane rule lets a session
+matching the caller against the occupants (`Identity`), which means the same Claude Code process
+or session, the same Codex thread, or the same harness in the same herdr pane. The pane rule lets a session
 restarted in its pane keep its address, and `App#me` then records the new process and socket.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
@@ -57,9 +57,9 @@ keyboard. A plain terminal acts as an address named after `USER`, created on fir
 the message is safe whatever happens to the bell.
 
 `Bell` announces it to the session holding the address. The bell text names the sender, the kind
-and the id, never the body. It tries, in order:
+and the id, never the body. It tries two ways, in order.
 
-1. the harness's own channel: the Claude Code peer socket (one JSON line per connection), or
+1. the harness's own channel, the Claude Code peer socket (one JSON line per connection) or
    `codex queue --thread ID`;
 2. when that fails or does not exist, typing into the herdr pane, if herdr reports the agent idle,
    done or working and no dialog shows on the bottom of its screen.
