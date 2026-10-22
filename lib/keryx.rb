@@ -10,6 +10,10 @@ require_relative 'keryx/message'
 require_relative 'keryx/paths'
 require_relative 'keryx/occupant'
 require_relative 'keryx/store'
+require_relative 'keryx/runner'
+require_relative 'keryx/herdr'
+require_relative 'keryx/caller'
+require_relative 'keryx/identity'
 
 # Reliable messaging between AI coding agent sessions.
 module Keryx
