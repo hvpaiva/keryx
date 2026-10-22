@@ -3,6 +3,7 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'caller'
+require_relative 'courier'
 require_relative 'forwarder'
 require_relative 'herdr'
 require_relative 'identity'
@@ -56,6 +57,8 @@ module Keryx
     end
 
     def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
+
+    def courier = @courier ||= Courier.new(store:, forwarder:, bell:, roster:, postman:, host:, clock:)
 
     def roster = @roster ||= Roster.new(store:, herdr:, process:)
 
