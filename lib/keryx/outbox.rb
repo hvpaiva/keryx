@@ -40,7 +40,7 @@ module Keryx
       found.sort_by { it.message.id }
     end
 
-    def queued(host) = outgoing(host).select { it.state == :queued }.map(&:message)
+    def queued(host) = messages_in(File.join(dir(host), STATES.fetch(:queued)))
 
     def settle(host, id, state)
       target = File.join(dir(host), STATES.fetch(state))
