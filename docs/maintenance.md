@@ -53,8 +53,8 @@ machine, refuses.
 gh workflow run release.yml --ref main
 ```
 
-A manual run goes through CI, the build and the attestation, and stops before RubyGems. It cannot
-check the trusted publisher.
+A manual run goes through CI and the build, and stops before the attestation, which would record an
+unpublished gem in Sigstore's public log for good. It cannot check the trusted publisher either.
 
 ## Recover
 
