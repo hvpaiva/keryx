@@ -21,7 +21,6 @@ require_relative 'commands/complete'
 
 module Keryx
   module Commands
-    # Help lists them in this order within each section.
     ALL = [Join, Leave, Whoami, Who, Send, Ask, Inbox, Read, Reply, Wait, Status, Ring, Hook, Skill, Completion,
            Version, Help, Complete].freeze
   end

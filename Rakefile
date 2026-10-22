@@ -8,7 +8,6 @@ require 'rbconfig'
 require 'rubocop/rake_task'
 require 'tempfile'
 
-# The gates sit a little under what test:cov measures and rise with it.
 MINIMUM_LINE_COVERAGE = 97
 MINIMUM_BRANCH_COVERAGE = 87
 

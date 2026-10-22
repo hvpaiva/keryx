@@ -4,7 +4,6 @@ source 'https://rubygems.org'
 
 gemspec
 
-# rake and minitest load with the Rakefile, so they stay outside the groups.
 gem 'minitest', '~> 6.0'
 gem 'rake', '~> 13.4'
 
