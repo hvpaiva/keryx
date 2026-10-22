@@ -126,7 +126,7 @@ module Keryx
       write_atomic(receipt_file(name, id, kind), JSON.generate(data))
     end
 
-    def receipt(name, id, kind) = read_json(receipt_file(name, id, kind))
+    def receipt(name, id, kind) = read_receipt(receipt_file(name, id, kind))
 
     def marked?(name, id, kind) = File.exist?(receipt_file(name, id, kind))
 

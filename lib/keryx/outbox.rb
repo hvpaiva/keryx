@@ -58,7 +58,7 @@ module Keryx
 
     def write_receipt(host, id, data) = write_atomic(receipt_file(host, id), JSON.generate(data))
 
-    def receipt(host, id) = read_json(receipt_file(host, id))
+    def receipt(host, id) = read_receipt(receipt_file(host, id))
 
     private
 

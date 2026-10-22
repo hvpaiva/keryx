@@ -67,6 +67,16 @@ class CourierTest < Minitest::Test
     assert_equal 1, notices.size
   end
 
+  def test_a_damaged_bell_receipt_does_not_stop_the_round
+    store.bind('rev-1', build_occupant)
+    message = build_message(to: 'rev-1@athena').tap { store.deliver('rev-1', it) }
+    File.write(tmp('state', 'addresses', 'rev-1', 'receipts', "#{message.id}.bell"), '[]')
+    round = courier.round
+
+    assert_equal ['rev-1'], round.rung.keys
+    assert_match(/#{message.id}\.bell is not a JSON object/, store.problems.first)
+  end
+
   def test_each_round_reads_the_sessions_afresh
     2.times { courier.round }
 

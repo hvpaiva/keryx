@@ -11,6 +11,8 @@ module Keryx
     MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
     DIR_MODE = 0o700
     FILE_MODE = 0o600
+    RECEIPT = { 'status' => [String], 'channel' => [String, NilClass], 'detail' => [String, NilClass],
+                'at' => [String, NilClass], 'attempts' => [Integer, NilClass], 'bell' => [Hash, NilClass] }.freeze
 
     private
 
@@ -57,11 +59,25 @@ module Keryx
 
     def read_json(path)
       text = read_regular(path) or raise Error, "#{path} is not a regular file"
-      JSON.parse(text)
+      data = JSON.parse(text)
+      return data if data.is_a?(Hash)
+
+      raise Error, "#{path} is not a JSON object"
     rescue Errno::ENOENT
       nil
     rescue JSON::ParserError => e
       raise Error, "#{path} is not valid JSON (#{e.message.lines.first.strip})"
+    end
+
+    def read_receipt(path)
+      receipt = read_json(path) or return nil
+      field, = RECEIPT.find { |name, types| types.none? { receipt[name].is_a?(it) } }
+      raise Error, "#{path} has a bad #{field}" if field
+
+      receipt
+    rescue Error => e
+      @problems << "#{e.message}; it is ignored until keryx writes it again"
+      nil
     end
 
     # Opening a named pipe without O_NONBLOCK waits for a writer, and the type is checked on the open file.
