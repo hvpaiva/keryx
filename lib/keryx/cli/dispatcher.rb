@@ -19,6 +19,21 @@ module Keryx
       SIGINT_STATUS = 130
       DEBUG_VARIABLE = 'KERYX_DEBUG'
       COLOR_VARIABLE = 'KERYX_COLOR'
+      ENVIRONMENT = [
+        ['KERYX_HOME', 'Where the mailboxes live, instead of $XDG_STATE_HOME/keryx'],
+        ['KERYX_HOST', "The host part of addresses, instead of the machine's name"],
+        ['KERYX_AS', 'Act as this address, like --as'],
+        [COLOR_VARIABLE, 'auto, always or never, like --color'],
+        ['NO_COLOR, FORCE_COLOR', 'The usual color switches, honored in auto mode'],
+        [DEBUG_VARIABLE, 'Print a backtrace for unexpected errors']
+      ].freeze
+      EXIT_STATUSES = [
+        ['0', 'Success'],
+        ['1', 'An error, such as an unknown address or a damaged file'],
+        ['2', 'A usage error, such as an unknown command or flag or a missing argument'],
+        ['3', 'keryx wait gave up before the reply arrived'],
+        [SIGINT_STATUS.to_s, 'Interrupted']
+      ].freeze
 
       def initialize(terminal, commands:, app_factory:)
         @terminal = terminal
@@ -130,7 +145,10 @@ module Keryx
         raise UsageError, "#{COLOR_VARIABLE} must be one of #{Style::MODES.join(', ')}"
       end
 
-      def help = Help.new(@terminal, program: PROGRAM, description: DESCRIPTION)
+      def help
+        Help.new(@terminal, program: PROGRAM, description: DESCRIPTION,
+                            notes: { 'Environment' => ENVIRONMENT, 'Exit Status' => EXIT_STATUSES })
+      end
 
       def root_help
         @terminal.puts(help.root(@commands, global_parser({})))

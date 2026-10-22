@@ -15,6 +15,14 @@ class HelpTest < Minitest::Test
     refute_includes result.out, '__complete'
   end
 
+  def test_bare_keryx_lists_the_environment_and_the_exit_statuses
+    result = keryx
+
+    assert_match(/^Environment:\n  KERYX_HOME +Where the mailboxes live/, result.out)
+    assert_match(/^Exit Status:\n  0 +Success\n/, result.out)
+    assert_match(/^  3 +keryx wait gave up before the reply arrived$/, result.out)
+  end
+
   def test_command_help_lists_its_own_options_apart_from_the_global_ones
     result = keryx('ask', '--help')
 
