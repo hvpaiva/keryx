@@ -144,7 +144,7 @@ class SpawnTest < Minitest::Test
       herdr.put(socket, pane, lambda do
         polls += 1
         keryx('join', name, env: claude(500).merge(in_pane(socket, pane)).tap { alive << 500 }) if polls == 2
-        agent(pane, kind, 'working')
+        agent(pane, kind, 'working') if polls > 1
       end)
     end
     result = spawn('rev-1', '--harness', 'claude', '--timeout', '10m')
