@@ -43,16 +43,21 @@ module Keryx
         raise Error, "bad in_reply_to #{data['in_reply_to'].inspect}"
       end
 
-      %w[from to].each { raise Error, "bad #{it} address #{data[it].inspect}" unless ADDRESS.match?(data[it]) }
+      %w[from to].each { raise Error, "bad #{it} address #{data[it].inspect}" unless address?(data[it]) }
       raise Error, 'the body is not text' unless data['body'].is_a?(String)
     end
 
+    def self.address?(value) = value.is_a?(String) && ADDRESS.match?(value)
+
     def self.time(text)
-      text && Time.iso8601(text)
+      return nil if text.nil?
+      raise Error, "bad time #{text.inspect}" unless text.is_a?(String)
+
+      Time.iso8601(text)
     rescue ArgumentError => e
       raise Error, "bad time: #{e.message}"
     end
-    private_class_method :check_identity, :time
+    private_class_method :check_identity, :address?, :time
 
     def request? = kind == 'request'
 

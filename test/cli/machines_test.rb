@@ -76,6 +76,15 @@ class MachinesTest < Minitest::Test
     assert_empty bodies(@port)
   end
 
+  def test_a_line_with_a_field_of_the_wrong_type_does_not_stop_the_batch
+    bad = JSON.parse(build_message(to: 'port@zeus', from: 'orq@athena').to_json).merge('from' => 42)
+    good = build_message(to: 'port@zeus', from: 'orq@athena', body: 'still here')
+    out = keryx('__receive', env: machine('zeus'), input: "#{JSON.generate(bad)}\n#{good.to_json}\n").out
+
+    assert_equal(%w[refused delivered], out.lines.map { JSON.parse(it)['status'] })
+    assert_equal ['still here'], bodies(@port)
+  end
+
   def test_the_courier_rings_a_session_that_joined_after_the_message
     keryx('leave', env: @port)
     keryx('send', 'port@zeus', 'Waiting for you', env: @orq)
