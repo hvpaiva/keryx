@@ -90,8 +90,10 @@ and the id, never the body. It tries two ways, in order.
 
 1. the harness's own channel, the Claude Code peer socket (one JSON line per connection) or
    `codex queue --thread ID`;
-2. when that fails or does not exist, typing into the herdr pane, if herdr reports the agent idle,
-   done or working and no dialog shows on the bottom of its screen.
+2. when that fails or does not exist, typing into the herdr pane, if herdr shows an agent of the
+   session's harness there, reports it idle, done or working, and no dialog shows on the bottom of
+   its screen. A pane that is empty or runs another harness no longer holds the session, so the
+   bell is absent there rather than typed into whoever took the pane.
 
 Cursor has no channel of its own, so it is always rung by typing.
 

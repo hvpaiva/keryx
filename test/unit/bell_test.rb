@@ -25,8 +25,8 @@ class BellTest < Minitest::Test
   end
 
   def herdr_with(status, screen: '> ', outcome: Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil),
-                 session: nil)
-    agent = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'codex', status:, session:)
+                 session: nil, kind: 'codex')
+    agent = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind:, status:, session:)
     screens = { [HERDR_SOCKET, 'w1:p2'] => screen }
     FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => agent }, screens:, prompt_outcome: outcome)
   end
@@ -78,11 +78,23 @@ class BellTest < Minitest::Test
   def test_a_dead_claude_socket_falls_back_to_the_herdr_pane
     message = deliver
     store.bind('rev-1', pane_occupant(harness: 'claude', claude_socket: tmp('gone.sock')))
-    herdr = herdr_with('idle')
+    herdr = herdr_with('idle', kind: 'claude')
     result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal %w[rung herdr], [result.status, result.channel]
     assert_equal 1, herdr.prompts.size
+  end
+
+  def test_a_pane_that_runs_another_harness_is_absent_and_not_typed_into
+    [%w[claude codex], %w[cursor claude], %w[codex cursor]].each do |harness, running|
+      message = deliver
+      store.bind('rev-1', pane_occupant(harness:, claude_socket: (tmp('gone.sock') if harness == 'claude')))
+      herdr = herdr_with('idle', kind: running)
+      result = bell(herdr:).ring('rev-1', [message])
+
+      assert_equal ['absent', "pane w1:p2 runs #{running}, not #{harness}"], [result.status, result.detail]
+      assert_empty herdr.prompts
+    end
   end
 
   def test_a_dead_claude_socket_without_a_pane_fails
@@ -215,11 +227,12 @@ class BellTest < Minitest::Test
     assert_equal 'timeout: no answer', bell(herdr: herdr_with('idle', outcome: stalled)).ring('rev-1', [message]).detail
   end
 
-  def test_an_empty_pane_fails
+  def test_an_empty_pane_is_absent
     message = deliver
     store.bind('rev-1', pane_occupant)
+    result = bell.ring('rev-1', [message])
 
-    assert_equal 'no agent in pane w1:p2', bell.ring('rev-1', [message]).detail
+    assert_equal ['absent', 'no agent runs in pane w1:p2'], [result.status, result.detail]
   end
 
   def test_an_occupant_with_no_channel_is_absent

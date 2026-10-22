@@ -86,7 +86,8 @@ module Keryx
     def through_herdr(occupant, text, agent = @herdr.agent(occupant.herdr_socket, occupant.herdr_pane))
       socket = occupant.herdr_socket
       pane = occupant.herdr_pane
-      return outcome(FAILED, 'herdr', "no agent in pane #{pane}") unless agent
+      missing = missing_agent(pane, agent, occupant.harness)
+      return outcome(ABSENT, nil, missing) if missing
       return outcome(DEFERRED, 'herdr', "the agent is #{agent.status}") unless TYPABLE.include?(agent.status)
 
       screen = @herdr.screen(socket, pane)
@@ -94,6 +95,12 @@ module Keryx
       return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if DIALOG.match?(screen)
 
       typed(@herdr.prompt(socket, pane, text))
+    end
+
+    def missing_agent(pane, agent, harness)
+      return "no agent runs in pane #{pane}" unless agent
+
+      "pane #{pane} runs #{agent.kind}, not #{harness}" unless agent.kind == harness
     end
 
     def typed(prompt)
