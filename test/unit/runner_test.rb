@@ -36,6 +36,20 @@ class RunnerTest < Minitest::Test
     assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 5
   end
 
+  def test_the_deadline_covers_a_child_that_keeps_the_output_open
+    marker = File.join(Dir.tmpdir, "keryx-runner-#{Process.pid}-#{rand(1_000_000)}")
+    script = "fork { sleep 2; File.write(#{marker.inspect}, 'survived') }; exit!(0)"
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+    result = Keryx::Runner.new(timeout: 0.3).call([RUBY, '-e', script])
+    elapsed = Process.clock_gettime(Process::CLOCK_MONOTONIC) - started
+    sleep 2.5
+
+    assert_equal [false, true], [result.success, elapsed < 1.9]
+    refute_path_exists marker
+  ensure
+    FileUtils.rm_f(marker)
+  end
+
   def test_a_missing_program_is_a_failed_result
     result = Keryx::Runner.new.call(['keryx-no-such-program'])
 
