@@ -19,10 +19,10 @@ module Keryx
       @person = person
     end
 
-    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil)
+    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil)
       check_recipient(recipient)
       check_body(body)
-      message = compose(sender, recipient, kind:, body:, due_at:, reply_to:)
+      message = compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
       return forward(message, recipient.host) unless recipient.local?(@host)
 
       @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
@@ -42,9 +42,9 @@ module Keryx
       raise Error, "#{host} refused the message; #{result.detail}"
     end
 
-    def compose(sender, recipient, kind:, body:, due_at:, reply_to:)
+    def compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
       now = @clock.call
-      id = Ulid.generate(now)
+      id ||= Ulid.generate(now)
       Message.new(id:, kind:, from: "#{sender}@#{@host}", to: recipient.to_s, thread: reply_to&.thread || id,
                   in_reply_to: reply_to&.id, created_at: now, due_at:, body:)
     end

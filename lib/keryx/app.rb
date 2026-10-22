@@ -58,7 +58,10 @@ module Keryx
 
     def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
 
-    def courier = @courier ||= Courier.new(store:, forwarder:, bell:, roster:, postman:, host:, clock:)
+    def courier
+      @courier ||= Courier.new(store:, forwarder:, bell:, postman:, host:, clock:,
+                               roster: -> { Roster.new(store:, herdr:, process:) })
+    end
 
     def roster = @roster ||= Roster.new(store:, herdr:, process:)
 

@@ -45,6 +45,7 @@ module Keryx
         round.forwarded.each { |host, results| report_host(host, results, waiting) }
         round.rung.each { |name, bell| say("rang #{app.full(name)}: #{bell.status} #{bell.detail}".strip) }
         round.overdue.each { say("told #{it.from} that #{it.id} to #{it.to} is past its deadline") }
+        round.errors.each { say(it) }
       end
 
       def report_host(host, results, waiting)

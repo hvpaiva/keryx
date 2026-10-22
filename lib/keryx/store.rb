@@ -124,6 +124,8 @@ module Keryx
 
     def receipt(name, id, kind) = read_json(receipt_file(name, id, kind))
 
+    def marked?(name, id, kind) = File.exist?(receipt_file(name, id, kind))
+
     def mark_once(name, id, kind)
       File.open(receipt_file(name, id, kind), File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) { true }
     rescue Errno::EEXIST
