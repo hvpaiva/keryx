@@ -160,7 +160,10 @@ module Keryx
     end
 
     def read_message(path)
-      Message.from_json(File.read(path))
+      message = Message.from_json(File.read(path))
+      return message if File.basename(path, '.json') == message.id
+
+      raise Error, "the file name does not match the message id #{message.id}"
     rescue Errno::ENOENT
       nil
     rescue Error => e

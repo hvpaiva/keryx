@@ -4,6 +4,7 @@ require 'json'
 require 'time'
 require_relative 'error'
 require_relative 'text'
+require_relative 'ulid'
 
 module Keryx
   Message = Data.define(:id, :kind, :from, :to, :thread, :in_reply_to, :created_at, :due_at, :body)
@@ -13,6 +14,7 @@ module Keryx
     FORMAT_VERSION = 1
     MAX_BODY_BYTES = 64 * 1024
     FIELDS = %w[id kind from to thread in_reply_to created_at due_at body].freeze
+    ADDRESS = /\A[a-z][a-z0-9-]{0,31}@[a-z0-9][a-z0-9-]{0,62}\z/
 
     def self.from_json(text)
       data = JSON.parse(text)
@@ -28,9 +30,21 @@ module Keryx
       raise Error, "missing #{missing.join(', ')}" unless missing.empty?
       raise Error, "unknown kind #{data['kind'].inspect}" unless KINDS.include?(data['kind'])
 
+      check_identity(data)
       new(id: data['id'], kind: data['kind'], from: data['from'], to: data['to'], thread: data['thread'],
           in_reply_to: data['in_reply_to'], created_at: time(data['created_at']), due_at: time(data['due_at']),
           body: data['body'])
+    end
+
+    # Bells and hook reminders repeat these fields into other sessions' context.
+    def self.check_identity(data)
+      %w[id thread].each { raise Error, "bad #{it} #{data[it].inspect}" unless Ulid.valid?(data[it]) }
+      if data['in_reply_to'] && !Ulid.valid?(data['in_reply_to'])
+        raise Error, "bad in_reply_to #{data['in_reply_to'].inspect}"
+      end
+
+      %w[from to].each { raise Error, "bad #{it} address #{data[it].inspect}" unless ADDRESS.match?(data[it]) }
+      raise Error, 'the body is not text' unless data['body'].is_a?(String)
     end
 
     def self.time(text)
@@ -38,7 +52,7 @@ module Keryx
     rescue ArgumentError => e
       raise Error, "bad time: #{e.message}"
     end
-    private_class_method :time
+    private_class_method :check_identity, :time
 
     def request? = kind == 'request'
 

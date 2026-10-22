@@ -36,7 +36,9 @@ module Keryx
           rows['session'] = Join.where(occupant)
           rows['joined'] = "#{age(occupant.joined_at)} ago"
         end
-        rows.compact.each { |label, value| terminal.puts("#{terminal.paint(:muted, label.ljust(8))} #{value}") }
+        rows.compact.each do |label, value|
+          terminal.puts("#{terminal.paint(:muted, label.ljust(8))} #{Text.plain(value)}")
+        end
       end
     end
   end

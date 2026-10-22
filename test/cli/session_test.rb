@@ -17,6 +17,24 @@ class SessionTest < Minitest::Test
     assert_equal '/tmp/cc-111.sock', store.occupant('rev-1').claude_socket
   end
 
+  def test_join_refuses_a_role_that_is_not_plain_words
+    alive << 111
+    result = keryx('join', 'rev-1', '--role', "rev\e[2J", env: claude(111))
+
+    assert_equal 2, result.status
+    assert_match(/invalid role/, result.err)
+    refute store.address?('rev-1')
+  end
+
+  def test_listings_neutralize_escapes_written_into_the_store
+    join_claude('rev-1', 111)
+    File.write(tmp('state', 'addresses', 'rev-1', 'address.json'),
+               JSON.generate('name' => 'rev-1', 'role' => "x\e[2Jy", 'created_at' => NOW.iso8601))
+
+    assert_includes keryx('who').out, 'x^[[2Jy'
+    refute_includes keryx('who').out, "\e"
+  end
+
   def test_join_from_a_plain_terminal_is_refused
     result = keryx('join', 'rev-1')
 

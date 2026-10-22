@@ -12,7 +12,7 @@ module Keryx
         case bell.status
         when Bell::RUNG then "The bell rang through #{bell.channel}."
         when Bell::ABSENT then "No session holds #{posted.message.to}; the message waits in its mailbox."
-        else "The bell #{bell.status == Bell::DEFERRED ? 'is deferred' : 'failed'} (#{bell.detail}); " \
+        else "The bell #{bell.status == Bell::DEFERRED ? 'is deferred' : 'failed'} (#{Text.plain(bell.detail)}); " \
              "the message waits in the mailbox and 'keryx ring' tries again."
         end
       end

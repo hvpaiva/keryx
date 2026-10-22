@@ -20,7 +20,7 @@ module Keryx
 
       def render(terminal, message, now)
         header = fields(message, now).map do |label, value|
-          "#{terminal.paint(:muted, label.ljust(LABEL_WIDTH))} #{value}"
+          "#{terminal.paint(:muted, label.ljust(LABEL_WIDTH))} #{Text.plain(value)}"
         end
         [*header, '', Text.plain(message.body.chomp, layout: true), *hint(terminal, message)].join("\n")
       end

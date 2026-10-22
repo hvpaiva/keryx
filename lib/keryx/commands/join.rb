@@ -8,6 +8,7 @@ module Keryx
       NOT_AN_AGENT = 'join binds the agent session that runs it; run it from inside a Claude Code session, or ' \
                      'from an agent running in a herdr pane'
       LIVE_SESSIONS = %w[live idle working blocked done].freeze
+      ROLE = /\A[[:alnum:]][[:alnum:] ._-]{0,39}\z/
 
       define 'join', section: 'Session Commands', arguments: 'NAME', min: 1, max: 1,
                      summary: 'Claim an address for this agent session',
@@ -33,6 +34,7 @@ module Keryx
 
       def call(arguments)
         name = Address.validate_name(arguments.first)
+        check_role(options[:role])
         caller = app.caller
         raise Error, NOT_AN_AGENT unless caller.agent?
 
@@ -44,6 +46,12 @@ module Keryx
       end
 
       private
+
+      def check_role(role)
+        return if role.nil? || ROLE.match?(role)
+
+        raise UsageError, "invalid role #{role.inspect}: up to 40 letters, digits, spaces, dots, hyphens or underscores"
+      end
 
       def refuse_taken(name, caller)
         occupant = app.store.occupant(name)
@@ -62,8 +70,8 @@ module Keryx
       end
 
       def report(name, caller)
-        terminal.puts("Joined #{terminal.paint(:address, app.full(name))} as a #{caller.harness} session " \
-                      "(#{Join.where(caller)}).")
+        terminal.puts("Joined #{terminal.paint(:address, app.full(name))} as a #{Text.plain(caller.harness)} " \
+                      "session (#{Text.plain(Join.where(caller))}).")
         unread = app.store.unread(name).size
         terminal.puts("#{unread} unread message(s) waiting; run 'keryx inbox'.") if unread.positive?
         nil
