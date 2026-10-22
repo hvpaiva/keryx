@@ -2,6 +2,9 @@
 
 Reliable messaging between AI coding agent sessions.
 
+[![Gem](https://img.shields.io/gem/v/keryx)](https://rubygems.org/gems/keryx)
+[![CI](https://github.com/hvpaiva/keryx/actions/workflows/ci.yml/badge.svg)](https://github.com/hvpaiva/keryx/actions/workflows/ci.yml)
+
 When several coding agents run side by side, each in its own terminal pane, they have no dependable
 way to talk to each other. Claude Code sessions can message other Claude Code sessions, and Codex
 sessions can queue messages for other Codex sessions, but a Claude Code session cannot ask a Codex
@@ -33,7 +36,7 @@ none
 ## How it works
 
 A session claims a name with `keryx join rev-1`, and its address becomes `rev-1@HOST`. The
-address belongs to the role, not to the process: when the session ends, its mailbox keeps
+address belongs to the role, not to the process. When the session ends, its mailbox keeps
 receiving, and the next session to join the name finds the messages waiting.
 
 Messages are JSON files in a Maildir-style layout under `~/.local/state/keryx`. A message is
@@ -46,11 +49,11 @@ through `codex queue`, so neither touches the keyboard. Any other agent running 
 screen looks like a dialog the typing could answer.
 
 `keryx ask` sends a request that stays open until the recipient answers it with `keryx reply`,
-and the reply rings the asker. Claude Code also runs `keryx hook stop` before it ends a turn: if
+and the reply rings the asker. Claude Code also runs `keryx hook stop` before it ends a turn. If
 the session has unread mail, or read a request without answering it, the hook keeps the turn
 going once and says what is pending.
 
-A bell can fail: the session may be busy with a dialog, or gone. The message stays in the mailbox,
+A bell fails when the session is gone or busy with a dialog. The message stays in the mailbox,
 `keryx status` lists it under NOT RUNG with the reason, and `keryx ring` tries again.
 
 ## Requirements
@@ -63,16 +66,11 @@ A bell can fail: the session may be busy with a dialog, or gone. The message sta
 
 ## Install
 
-keryx is not on RubyGems yet. Build and install it from a checkout:
-
 ```sh
-git clone https://github.com/hvpaiva/keryx
-cd keryx
-gem build keryx.gemspec
-gem install ./keryx-*.gem
+gem install keryx
 ```
 
-Shell completion for bash, zsh and fish completes commands, flags, addresses and message ids:
+Shell completion for bash, zsh and fish completes commands, flags, addresses and message ids.
 
 ```sh
 keryx completion bash > "${XDG_DATA_HOME:-$HOME/.local/share}/bash-completion/completions/keryx"
@@ -83,7 +81,7 @@ keryx completion fish > ~/.config/fish/completions/keryx.fish
 ## Set up the agents
 
 Each agent needs the keryx skill, the instructions that tell it how to join, read, answer and
-write messages. Claude Code, Codex and Cursor read the same skill file:
+write messages. Claude Code, Codex and Cursor read the same skill file.
 
 ```sh
 mkdir -p ~/.claude/skills/keryx && keryx skill > ~/.claude/skills/keryx/SKILL.md
@@ -94,7 +92,7 @@ mkdir -p ~/.cursor/skills/keryx && keryx skill > ~/.cursor/skills/keryx/SKILL.md
 ### Claude Code
 
 Start the sessions that use keryx with these settings, saved for example as `keryx.json` and
-passed with `claude --settings keryx.json`, or put them in a project's `.claude/settings.json`:
+passed with `claude --settings keryx.json`, or put them in a project's `.claude/settings.json`.
 
 ```json
 {
@@ -121,7 +119,7 @@ it is idle, and rings them by typing a one-line bell into the pane.
 
 ## Use
 
-The orchestrating session and the reviewer each join an address:
+The orchestrating session and the reviewer each join an address.
 
 ```console
 $ keryx join rev-1 --role reviewer
@@ -131,7 +129,7 @@ $ keryx join orq --role orchestrator
 Joined orq@athena as a claude session (pid 4157).
 ```
 
-The orchestrator asks for a review, with a deadline:
+The orchestrator asks for a review, with a deadline.
 
 ```console
 $ keryx ask rev-1 "Review PR #448: focus on the retry path" --within 30m
@@ -139,7 +137,7 @@ Asked rev-1@athena (01M5JBZ1J79RX38D7NH2M76ZDD). The bell rang through claude.
 The reply will ring this session; 'keryx wait 01M5JBZ1J79RX38D7NH2M76ZDD' blocks until it arrives.
 ```
 
-The reviewer's session receives the bell, opens the request and answers it:
+The reviewer's session receives the bell, opens the request and answers it.
 
 ```console
 [keryx] New request for rev-1@athena from orq@athena (01M5JBZ1J79RX38D7NH2M76ZDD). Run 'keryx read 01M5JBZ1J79RX38D7NH2M76ZDD' to open it.
@@ -160,7 +158,7 @@ Replied to orq@athena (01M5JBZ1SSH67Z4YW088H3BRV0). The bell rang through claude
 ```
 
 A message id can be shortened to any unique prefix of four characters or more. You take part
-from a plain terminal too: there keryx acts as an address named after `$USER`, so
+from a plain terminal too. There keryx acts as an address named after `$USER`, so
 `keryx send rev-1 "..."` and `keryx inbox` work without joining anything.
 
 ### Commands
@@ -198,8 +196,8 @@ Every command has its own `--help`. `send`, `ask` and `reply` read long text fro
 
 ## Limits
 
-- keryx delivers on one machine. Addresses carry the host so that delivery across machines can
-  follow, but a message to another host is refused today.
+- keryx delivers on one machine. Addresses carry the host name, and a message to an address on
+  another host is refused.
 - Identities are not authenticated. Any process running as your user can act as any address with
   `--as`. keryx coordinates sessions you run; it is not a security boundary. See
   [SECURITY.md](SECURITY.md).

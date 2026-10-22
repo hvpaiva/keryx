@@ -22,7 +22,7 @@ bin/setup
 | `bundle exec rake audit` | bundler-audit over `Gemfile.lock` |
 | `bundle exec rake check` | all of the above, as CI runs them |
 
-The tests never reach a real agent session: they use temporary mailboxes, a fake clock and fake
+The tests never reach a real agent session. They use temporary mailboxes, a fake clock and fake
 sockets, and the ones that start `exe/keryx` clear the variables Claude Code, Codex and herdr set.
 
 ## Conventions
