@@ -1,0 +1,95 @@
+# frozen_string_literal: true
+
+require_relative '../cli/command'
+require_relative '../cli/message_view'
+require_relative '../cli/table'
+
+module Keryx
+  module Commands
+    class Status < CLI::Command
+      Unrung = Data.define(:message, :status, :detail)
+
+      define 'status', section: 'Overview Commands',
+                       summary: 'Show what is pending on this machine',
+                       description: 'Show what is pending on this machine, for a person keeping an eye on the ' \
+                                    "sessions.\n\n" \
+                                    'ADDRESSES lists each address with its session, its unread messages and the ' \
+                                    'requests waiting for its answer. OPEN REQUESTS lists every request no reply ' \
+                                    'points at yet, with its deadline. NOT RUNG lists unread messages whose bell ' \
+                                    'did not reach a session, and why; keryx ring tries those again.',
+                       examples: [['Check whether anything is stuck', 'status'], ['Feed a script', 'status -o json']]
+
+      def define_options(parser) = output_option(parser)
+
+      def call(_arguments)
+        roster = app.roster
+        entries = roster.entries
+        requests = roster.open_requests
+        unrung = not_rung
+        return print_json(json(entries, requests, unrung)) if json?
+        return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
+
+        waiting = requests.map(&:first).tally
+        section('ADDRESSES', %w[ADDRESS ROLE SESSION UNREAD WAITING], entries.map { address_row(it, waiting) })
+        section('OPEN REQUESTS', %w[ID FROM TO AGE DUE STATE SUMMARY], requests.map { request_row(it.last) })
+        section('NOT RUNG', %w[ID TO FROM BELL DETAIL], unrung.map { unrung_row(it) })
+      end
+
+      private
+
+      def not_rung
+        app.store.address_names.flat_map do |name|
+          app.store.unread(name).filter_map do |message|
+            bell = app.store.receipt(name, message.id, 'bell') || { 'status' => 'none', 'detail' => 'never rung' }
+            Unrung.new(message, bell['status'], bell['detail']) unless bell['status'] == Bell::RUNG
+          end
+        end
+      end
+
+      def json(entries, requests, unrung)
+        waiting = requests.map(&:first).tally
+        { 'addresses' => entries.map { address_record(it, waiting) },
+          'open_requests' => requests.map { request_record(it.last) },
+          'not_rung' => unrung.map { unrung_record(it) } }
+      end
+
+      def address_record(entry, waiting)
+        { 'address' => app.full(entry.name), 'role' => entry.role, 'session' => entry.session,
+          'unread' => entry.unread, 'waiting' => waiting.fetch(entry.name, 0) }
+      end
+
+      def request_record(stored)
+        stored.message.record.merge('state' => stored.state.to_s, 'overdue' => stored.message.overdue?(app.now))
+      end
+
+      def unrung_record(unrung)
+        { 'id' => unrung.message.id, 'to' => unrung.message.to, 'from' => unrung.message.from,
+          'bell' => unrung.status, 'detail' => unrung.detail }
+      end
+
+      def section(title, headers, rows)
+        terminal.puts('') unless title == 'ADDRESSES'
+        terminal.puts(terminal.paint(:header, title))
+        terminal.puts(rows.empty? ? terminal.paint(:muted, 'none') : CLI::Table.render(terminal, headers, rows))
+      end
+
+      def address_row(entry, waiting)
+        count = waiting.fetch(entry.name, 0)
+        [[:address, app.full(entry.name)], entry.role || '-', entry.session,
+         entry.unread.positive? ? [:unread, entry.unread.to_s] : '0', count.positive? ? [:request, count.to_s] : '0']
+      end
+
+      def request_row(stored)
+        message = stored.message
+        due = CLI::MessageView.due(message, app.now)
+        [[:id, message.id], message.from, message.to, age(message.created_at),
+         message.overdue?(app.now) ? [:overdue, due] : due, [stored.state, stored.state.to_s], message.summary]
+      end
+
+      def unrung_row(unrung)
+        [[:id, unrung.message.id], unrung.message.to, unrung.message.from,
+         [unrung.status == 'none' ? :muted : unrung.status.to_sym, unrung.status], Text.plain(unrung.detail.to_s)]
+      end
+    end
+  end
+end
