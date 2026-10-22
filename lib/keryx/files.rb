@@ -66,6 +66,7 @@ module Keryx
       temporary = "#{path}.#{Process.pid}.#{SecureRandom.hex(4)}.tmp"
       write_file(temporary, content)
       File.rename(temporary, path)
+      sync_directory(File.dirname(path))
     ensure
       FileUtils.rm_f(temporary) if temporary
     end

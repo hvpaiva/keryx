@@ -45,6 +45,7 @@ module Keryx
     def settle(host, id, state)
       target = File.join(dir(host), STATES.fetch(state))
       File.rename(File.join(dir(host), 'new', "#{id}.json"), File.join(target, "#{id}.json"))
+      [target, File.join(dir(host), 'new')].each { sync_directory(it) }
       true
     rescue Errno::ENOENT
       false
