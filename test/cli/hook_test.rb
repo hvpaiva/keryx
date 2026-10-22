@@ -7,6 +7,10 @@ class HookTest < Minitest::Test
   include Factory
   include CLIHelpers
 
+  class BrokenPipe < StringIO
+    def write(*) = raise(Errno::EPIPE)
+  end
+
   def setup
     super
     @orq = join_claude('orq', 111)
@@ -32,6 +36,17 @@ class HookTest < Minitest::Test
     assert_equal 'block', decision['decision']
     assert_match(/\Akeryx: rev-1 has 1 unread message \(#{id}\)\. Open each with 'keryx read ID'/, decision['reason'])
     assert_empty stop(@rev).out
+  end
+
+  def test_a_reminder_cut_off_before_it_reaches_the_harness_is_given_again
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    payload = JSON.generate('session_id' => 'session-222', 'hook_event_name' => 'Stop')
+    cut = keryx('hook', 'stop', env: @rev, input: payload, out: BrokenPipe.new)
+    again = stop(@rev).out
+
+    assert_equal 0, cut.status
+    refute_empty again
+    assert_equal 'block', JSON.parse(again)['decision']
   end
 
   def test_a_request_read_but_not_answered_blocks_once

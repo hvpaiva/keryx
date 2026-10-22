@@ -14,15 +14,24 @@ module Keryx
       @caller = caller
     end
 
+    # Marks reminders only after the block passed the decision on, so a hook cut off before then reminds again.
     def decide(payload)
       harness = harness_of(payload)
-      reminder = reminder(session_caller(harness, payload))
+      name = Identity.new(store: @store, caller: session_caller(harness, payload), env: {}).held
+      pending = name ? pending(name) : {}
+      decision = decision(harness, reminder(name, pending)) or return
+
+      yield decision
+      pending.each { |mark, messages| messages.each { @store.mark_once(name, it.id, mark) } }
+    end
+
+    private
+
+    def decision(harness, reminder)
       return { 'followup_message' => reminder }.compact if harness == 'cursor'
 
       { 'decision' => 'block', 'reason' => reminder } if reminder
     end
-
-    private
 
     def harness_of(payload)
       if payload.key?('cursor_version') then 'cursor'
@@ -38,12 +47,15 @@ module Keryx
       @caller.with(harness:, session_id: session, pid: nil, claude_socket: nil)
     end
 
-    def reminder(caller)
-      name = Identity.new(store: @store, caller:, env: {}).held or return nil
+    def pending(name)
+      { UNREAD_MARK => @store.unread(name), UNANSWERED_MARK => unanswered_requests(name) }
+        .to_h { |mark, messages| [mark, messages.reject { @store.marked?(name, it.id, mark) }] }
+    end
 
-      unread = @store.unread(name).select { @store.mark_once(name, it.id, UNREAD_MARK) }
-      unanswered = unanswered_requests(name).select { @store.mark_once(name, it.id, UNANSWERED_MARK) }
-      reason(name, unread, unanswered) unless unread.empty? && unanswered.empty?
+    def reminder(name, pending)
+      return nil if pending.values.all?(&:empty?)
+
+      reason(name, *pending.values_at(UNREAD_MARK, UNANSWERED_MARK))
     end
 
     def unanswered_requests(name)

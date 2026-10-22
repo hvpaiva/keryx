@@ -83,8 +83,7 @@ module CLIHelpers
       'CLAUDE_CODE_MESSAGING_SOCKET' => "/tmp/cc-#{pid}.sock" }
   end
 
-  def keryx(*argv, env: {}, input: '')
-    out = StringIO.new
+  def keryx(*argv, env: {}, input: '', out: StringIO.new)
     err = StringIO.new
     terminal = Keryx::CLI::Terminal.new(out:, err:, input: StringIO.new(input), env: base_env.merge(env))
     factory = lambda do |globals|
