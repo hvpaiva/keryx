@@ -137,6 +137,32 @@ class SpawnTest < Minitest::Test
     assert_match(/no claude session runs in pane w1:p2, and rev-1@athena has not joined; look at the pane$/, result.err)
   end
 
+  def test_spawn_returns_once_the_session_joins_while_herdr_still_waits
+    herdr.start_polls = Float::INFINITY
+    polls = 0
+    herdr.on_start = lambda do |socket, pane, name, kind|
+      herdr.put(socket, pane, lambda do
+        polls += 1
+        keryx('join', name, env: claude(500).merge(in_pane(socket, pane)).tap { alive << 500 }) if polls == 2
+        agent(pane, kind, 'working')
+      end)
+    end
+    result = spawn('rev-1', '--harness', 'claude', '--timeout', '10m')
+
+    assert_equal 0, result.status, result.err
+    assert_operator clock.now - NOW, :<=, 2
+    assert herdr.starts.first[:starting].stopped
+  end
+
+  def test_spawn_stops_herdr_when_it_gives_up
+    herdr.start_polls = Float::INFINITY
+    session_runs
+    result = spawn('rev-1', '--harness', 'claude', '--timeout', '3s')
+
+    assert_equal [3, 3.0], [result.status, clock.now - NOW]
+    assert herdr.starts.first[:starting].stopped
+  end
+
   def test_a_slow_start_still_waits_for_the_join
     herdr.start_outcome = Keryx::Herdr::Outcome.new(ok: false, code: 'timeout', detail: 'timed out waiting')
     session_joins

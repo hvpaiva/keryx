@@ -1,19 +1,26 @@
 # frozen_string_literal: true
 
 class FakeRunner
-  attr_reader :calls, :inputs, :timeouts
+  Job = Struct.new(:result, :stopped) do
+    def done?(**) = true
+
+    def stop = self.stopped = true
+  end
+
+  attr_reader :calls, :inputs, :jobs
 
   def initialize(responses = {})
     @responses = responses
     @calls = []
     @inputs = []
-    @timeouts = []
+    @jobs = []
   end
 
-  def call(argv, env: {}, input: nil, timeout: nil)
+  def start(argv, env: {}, input: nil) = Job.new(call(argv, env:, input:), false).tap { @jobs << it }
+
+  def call(argv, env: {}, input: nil)
     @calls << [argv, env]
     @inputs << input
-    @timeouts << timeout
     key = @responses.keys.select { argv.first(it.size) == it }.max_by(&:size)
     response = key ? @responses.fetch(key) : { success: false, err: "#{argv.first}: not found" }
     response = response.call(argv) if response.respond_to?(:call)
@@ -47,8 +54,22 @@ end
 class FakeHerdr
   OK = Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil)
 
+  # Polls before herdr agent start returns; Float::INFINITY keeps it waiting until spawn stops it.
+  class Starting
+    attr_reader :stopped
+
+    def initialize(outcome, polls)
+      @outcome = outcome
+      @polls = polls
+    end
+
+    def outcome = (@polls -= 1).negative? ? @outcome : nil
+
+    def stop = @stopped = true
+  end
+
   attr_reader :prompts, :splits, :created_tabs, :starts
-  attr_accessor :start_outcome, :on_start
+  attr_accessor :start_outcome, :start_polls, :on_start
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
     @agents = agents
@@ -61,6 +82,7 @@ class FakeHerdr
     @created_tabs = []
     @starts = []
     @start_outcome = OK
+    @start_polls = 0
   end
 
   def agent(socket, pane) = @agents[[socket, pane]].then { it.respond_to?(:call) ? it.call : it }
@@ -98,9 +120,10 @@ class FakeHerdr
   end
 
   def start(socket, pane, name:, kind:, arguments:, timeout:)
-    @starts << { pane:, name:, kind:, arguments:, timeout: }
+    starting = Starting.new(@start_outcome, @start_polls)
+    @starts << { pane:, name:, kind:, arguments:, timeout:, starting: }
     @on_start&.call(socket, pane, name, kind)
-    @start_outcome
+    starting
   end
 
   private

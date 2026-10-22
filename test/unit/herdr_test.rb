@@ -115,14 +115,28 @@ class HerdrTest < Minitest::Test
 
   def test_start_names_the_agent_and_passes_its_arguments_after_the_separator
     runner = FakeRunner.new(%w[herdr agent start] => {})
-    outcome = Keryx::Herdr.new(runner:).start(SOCKET, 'w1:p4', name: 'rev-1', kind: 'claude',
-                                                               arguments: ['--model', 'haiku', '--', 'You are rev-1'],
-                                                               timeout: 90)
+    starting = Keryx::Herdr.new(runner:).start(SOCKET, 'w1:p4', name: 'rev-1', kind: 'claude',
+                                                                arguments: ['--model', 'haiku', '--', 'You are rev-1'],
+                                                                timeout: 90)
 
-    assert outcome.ok
+    assert starting.outcome.ok
     assert_equal ['herdr', 'agent', 'start', 'rev-1', '--kind', 'claude', '--pane', 'w1:p4', '--timeout', '90000',
                   '--', '--model', 'haiku', '--', 'You are rev-1'], runner.argvs.first
-    assert_equal [95.0], runner.timeouts
+    assert_equal [{ 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.map(&:last)
+  end
+
+  def test_a_start_still_waiting_has_no_outcome_and_can_be_stopped
+    job = Struct.new(:stopped) do
+      def done?(**) = false
+
+      def stop = self.stopped = true
+    end.new(false)
+    starting = Keryx::Herdr::Starting.new(job)
+
+    assert_nil starting.outcome
+    starting.stop
+
+    assert job.stopped
   end
 
   def test_start_keeps_the_timeout_within_what_herdr_accepts
@@ -138,7 +152,7 @@ class HerdrTest < Minitest::Test
     blocked = { success: false,
                 err: '{"error":{"code":"agent_not_ready","message":"agent a is blocked during startup"}}' }
     outcome = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent start] => blocked))
-                          .start(SOCKET, 'w1:p4', name: 'a', kind: 'claude', arguments: [], timeout: 60)
+                          .start(SOCKET, 'w1:p4', name: 'a', kind: 'claude', arguments: [], timeout: 60).outcome
 
     assert_equal Keryx::Herdr::Outcome.new(ok: false, code: 'agent_not_ready',
                                            detail: 'agent a is blocked during startup'), outcome

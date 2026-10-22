@@ -102,7 +102,10 @@ before the session exists. `Spawner` splits the caller's pane, or uses a tab of 
 runs `herdr agent start`, which types the harness command into the new pane's shell. `Harness`
 builds that command's arguments, and the first prompt goes last, after a `--`, as the harness's own
 initial prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on
-it once the dialog is answered, so nothing is ever typed into the session itself.
+it once the dialog is answered, so nothing is ever typed into the session itself. herdr's start
+waits while the agent works, and the session starts working on that prompt at once, so it runs in
+the background through `Runner#start` while spawn watches the store, and spawn stops it when it is
+done.
 
 The new pane gets `KERYX_HOME`, and `KERYX_HOST` when it is set, through herdr, so the session joins
 the store spawn watches. Codex passes its commands only the variables its `shell_environment_policy`

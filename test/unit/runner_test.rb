@@ -36,13 +36,6 @@ class RunnerTest < Minitest::Test
     assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 5
   end
 
-  def test_a_call_can_set_its_own_deadline
-    result = Keryx::Runner.new(timeout: 30).call([RUBY, '-e', 'sleep 30'], timeout: 0.3)
-
-    refute result.success
-    assert_match(/did not finish within 0.3s/, result.err)
-  end
-
   def test_the_deadline_covers_a_child_that_keeps_the_output_open
     marker = File.join(Dir.tmpdir, "keryx-runner-#{Process.pid}-#{rand(1_000_000)}")
     script = "fork { sleep 2; File.write(#{marker.inspect}, 'survived') }; exit!(0)"
@@ -55,6 +48,32 @@ class RunnerTest < Minitest::Test
     refute_path_exists marker
   ensure
     FileUtils.rm_f(marker)
+  end
+
+  def test_a_started_command_can_be_polled_and_stopped
+    job = Keryx::Runner.new.start([RUBY, '-e', 'sleep 30'])
+    started = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+
+    refute_predicate job, :done?
+    job.stop
+
+    assert job.done?(within: 5)
+    assert_operator Process.clock_gettime(Process::CLOCK_MONOTONIC) - started, :<, 5
+  end
+
+  def test_a_started_command_gives_its_result_once_it_ends
+    job = Keryx::Runner.new.start([RUBY, '-e', 'print $stdin.read.upcase'], input: 'done')
+
+    assert job.done?(within: 10)
+    assert_equal Keryx::Runner::Result.new(out: 'DONE', err: '', success: true), job.result
+  end
+
+  def test_a_program_that_cannot_start_is_a_finished_job
+    job = Keryx::Runner.new.start(['keryx-no-such-program'])
+
+    assert_predicate job, :done?
+    assert_nil job.stop
+    assert_match(/keryx-no-such-program/, job.result.err)
   end
 
   def test_a_missing_program_is_a_failed_result

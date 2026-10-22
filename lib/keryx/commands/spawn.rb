@@ -225,10 +225,9 @@ module Keryx
 
       def launch(name, before)
         deadline = app.now + timeout
-        kind = options[:harness]
         @pane = place
-        spawner.start(@pane, name:, kind:, arguments: harness_arguments(name, @pane), deadline:)
-        @occupant = spawner.await_join(name, app.full(name), @pane, kind:, before:, deadline:)
+        @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
+                                                             arguments: harness_arguments(name, @pane))
       end
 
       def place

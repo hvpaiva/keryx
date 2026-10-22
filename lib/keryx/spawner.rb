@@ -35,28 +35,35 @@ module Keryx
       @herdr.split(@socket, last.id, direction: split, cwd:, env:)
     end
 
-    def start(pane, name:, kind:, arguments:, deadline:)
-      outcome = @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: deadline - @clock.call)
-      return if outcome.ok || outcome.code == START_TIMEOUT
-      return dialog(pane) if outcome.code == NOT_READY
-
-      raise Error, "herdr could not start #{kind} in pane #{pane}: #{[outcome.code, outcome.detail].compact.join(': ')}"
-    end
-
-    def await_join(name, address, pane, kind:, before:, deadline:)
+    def run(name, address, pane, kind:, arguments:, before:, deadline:)
+      starting = @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: deadline - @clock.call)
       loop do
         occupant = @store.occupant(name)
         return occupant if occupant && started?(occupant, pane, kind)
         raise Error, conflict(address, occupant, pane) if occupant && occupant != before
 
-        watch(address, pane, kind)
+        watch(address, pane, kind, ready?(starting, pane, kind))
         raise WaitTimeout, late(address, pane) if @clock.call >= deadline
 
         @sleeper.call(POLL_SECONDS)
       end
+    ensure
+      starting&.stop
     end
 
     private
+
+    def ready?(starting, pane, kind)
+      outcome = starting.outcome or return false
+      return true if outcome.ok || outcome.code == START_TIMEOUT
+      unless outcome.code == NOT_READY
+        raise Error, "herdr could not start #{kind} in pane #{pane}: " \
+                     "#{[outcome.code, outcome.detail].compact.join(': ')}"
+      end
+
+      dialog(pane)
+      true
+    end
 
     def started?(occupant, pane, kind)
       occupant.harness == kind && occupant.herdr_socket == @socket && occupant.herdr_pane == pane
@@ -67,12 +74,16 @@ module Keryx
         "'keryx who' shows it"
     end
 
-    def watch(address, pane, kind)
+    # herdr lists the agent once it detects it, so a pane without one means something only after the start ends.
+    def watch(address, pane, kind, ready)
       agent = @herdr.agent(@socket, pane)
-      unless agent&.kind == kind
-        raise Error, "no #{kind} session runs in pane #{pane}, and #{address} has not joined; look at the pane"
-      end
+      return shown(pane, agent) if agent&.kind == kind
+      return unless ready
 
+      raise Error, "no #{kind} session runs in pane #{pane}, and #{address} has not joined; look at the pane"
+    end
+
+    def shown(pane, agent)
       @dialog = agent.status == BLOCKED || Bell::DIALOG.match?(@herdr.screen(@socket, pane).to_s)
       dialog(pane) if @dialog
     end
