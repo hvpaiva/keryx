@@ -7,10 +7,12 @@ module ProcessRaces
   EXE = File.expand_path('../../exe/keryx', __dir__)
   LIB = File.expand_path('../../lib', __dir__)
   SECONDS = 5
-  # Loaded into each command: it stops before writing an occupant, or after the first occupant read of
-  # App#refresh, and marks when it asks for the lock.
+  # Loaded into each command: it stops before writing or removing an occupant, or after the first occupant
+  # read of App#refresh, marks when it finds the lock taken, and marks when it ends.
   PAUSE = <<~'RUBY'
     require 'keryx'
+
+    at_exit { Pause.mark('done') }
 
     module Pause
       def self.mark(stage) = File.write("#{ENV.fetch('PAUSE_AT')}.#{stage}", '')
@@ -26,19 +28,26 @@ module ProcessRaces
         @refreshed = true
       end
 
-      def with_occupants_lock(...)
-        Pause.mark('waiting')
+      def bind(...)
+        Pause.hold('ready') if ENV['PAUSE_ON'] == 'bind'
         super
       end
 
-      def bind(...)
-        Pause.hold('ready') if ENV['PAUSE_ON'] == 'bind'
+      def unbind(...)
+        Pause.hold('ready') if ENV['PAUSE_ON'] == 'unbind'
         super
       end
 
       def occupant(...)
         from = caller_locations(1, 1).first
         super.tap { Pause.hold('ready') if Pause.first_refresh?(from) }
+      end
+
+      private
+
+      def take(lock, within)
+        Pause.mark('waiting') unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+        super
       end
     end
 
@@ -82,6 +91,17 @@ module ProcessRaces
     File.write(tmp('release'), '')
     commands
   end
+
+  def stopped(command) = command.tap { wait_until("#{command.label} to stop") { marked?(command.label, 'ready') } }
+
+  # Started after another command stopped: it ends when nothing orders the two, or it waits for the lock.
+  def release_when_ended_or_waiting(paused, other)
+    wait_until("#{other.label} to end or to wait for the lock") { %w[done waiting].any? { marked?(other.label, it) } }
+    File.write(tmp('release'), '')
+    [paused, other]
+  end
+
+  def marked?(label, stage) = File.exist?(tmp("pause-#{label}.#{stage}"))
 
   def finish(commands)
     commands.to_h do |command|

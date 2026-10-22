@@ -67,12 +67,14 @@ the address, releases the others and writes the occupant under an exclusive `flo
 drops the lock when a process ends, so a crash never leaves it held, but the lock does not make
 those writes one transaction, and a join cut off between releasing and writing leaves the session
 with no address until it joins again. `App#me` records a new process or socket under the same lock,
-from the occupant it reads again there, so it never writes back an address a join released.
+from the occupant it reads again there, so it never writes back an address a join released. `leave`
+finds the session's address and removes it under the lock too, so a refresh cannot write it back
+and the occupant of a session that took the address over in between is never removed.
 
-A join waits at most 15 seconds for the lock, longer than the herdr call a holder may make, and
-then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all; when
-another command holds the lock, it leaves the record to a later command, so `wait`, `spawn` and
-every other command keep their deadlines.
+A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
+make, and then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all;
+when another command holds the lock, it leaves the record to a later command, so `wait`, `spawn`
+and every other command keep their deadlines.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
 keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the

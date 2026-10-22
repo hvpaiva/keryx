@@ -42,4 +42,24 @@ class JoinRaceTest < Minitest::Test
     assert_equal [0, 0], [joined.status, finish([inbox]).fetch('inbox')]
     assert_equal ['beta'], held
   end
+
+  def test_a_leave_while_the_session_is_recorded_again_stays_done
+    keryx('join', 'alpha', env: claude(111))
+    restarted = claude(111).merge('CLAUDE_PID' => '222')
+    inbox = stopped(start('inbox', 'inbox', env: restarted))
+    statuses = finish(release_when_ended_or_waiting(inbox, start('leave', 'leave', env: restarted, pause: 'none')))
+
+    assert_equal({ 'inbox' => 0, 'leave' => 0 }, statuses)
+    assert_empty held
+  end
+
+  def test_a_late_leave_spares_the_session_that_took_the_address_over
+    keryx('join', 'alpha', env: { 'CODEX_THREAD_ID' => 'first' })
+    leave = stopped(start('leave', 'leave', env: { 'CODEX_THREAD_ID' => 'first' }, pause: 'unbind'))
+    join = start('join', 'join', 'alpha', '--force', env: { 'CODEX_THREAD_ID' => 'second' }, pause: 'none')
+    statuses = finish(release_when_ended_or_waiting(leave, join))
+
+    assert_equal({ 'leave' => 0, 'join' => 0 }, statuses)
+    assert_equal 'second', store.occupant('alpha')&.session_id
+  end
 end
