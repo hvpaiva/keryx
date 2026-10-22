@@ -91,9 +91,9 @@ request is answered.
 
 ## More
 
-- [Setting up the agents](docs/agents.md), with the Claude Code settings and agents in herdr.
-- [Using keryx](docs/usage.md), with every command, long text, JSON output, the environment and
-  exit statuses.
+- [Setting up the agents](docs/agents.md), with the stop hook of each harness and agents in herdr.
+- `keryx --help` for the commands, the environment and the exit statuses, and
+  `keryx COMMAND --help` for each command.
 - [Shell completion](docs/shell-completion.md) for bash, zsh and fish.
 - [Troubleshooting](docs/troubleshooting.md) and [compatibility and limits](docs/compatibility.md).
 - [How keryx works](ARCHITECTURE.md) and its [security model](SECURITY.md).

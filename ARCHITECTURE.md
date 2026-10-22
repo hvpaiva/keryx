@@ -89,8 +89,8 @@ hook cannot hold a session in a loop.
 `Keryx.run` builds a `CLI::Dispatcher` over the command classes in `Commands::ALL`. The dispatcher
 parses the global options, finds the command, parses its options with `OptionParser`, checks the
 number of arguments and calls it. Every error becomes a message on standard error and one of the
-[exit statuses](docs/usage.md#exit-status), never a backtrace. Help lists the commands of each
-section in the order of `Commands::ALL`.
+exit statuses `keryx --help` lists, never a backtrace. Help lists the commands of each section in
+the order of `Commands::ALL`.
 
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
