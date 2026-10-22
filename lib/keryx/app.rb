@@ -36,7 +36,7 @@ module Keryx
 
     def now = clock.call
 
-    def store = @store ||= Store.new(Paths.new(env).root)
+    def store = @store ||= Store.new(Paths.new(env).root, clock:, sleeper:)
 
     def host = @host ||= Address.local_host(env)
 
@@ -82,10 +82,12 @@ module Keryx
       return unless caller.agent? && renewed(occupant) != occupant
 
       # A join may have moved the session since the read above, so only the occupant read under the lock counts.
-      store.with_occupants_lock do
+      store.with_occupants_lock(within: 0) do
         current = store.occupant(name)
         store.bind(name, renewed(current)) if current && caller.holds?(current)
       end
+    rescue Store::Busy
+      nil # The record can wait for a later command; the command that called App#me cannot wait for the lock.
     end
 
     def renewed(occupant) = caller.occupant(occupant.joined_at).with(cwd: occupant.cwd)

@@ -69,6 +69,11 @@ those writes one transaction, and a join cut off between releasing and writing l
 with no address until it joins again. `App#me` records a new process or socket under the same lock,
 from the occupant it reads again there, so it never writes back an address a join released.
 
+A join waits at most 15 seconds for the lock, longer than the herdr call a holder may make, and
+then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all; when
+another command holds the lock, it leaves the record to a later command, so `wait`, `spawn` and
+every other command keep their deadlines.
+
 An agent session that joined nothing is refused, so it cannot speak as the person at the
 keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the
 first message sent to it.
