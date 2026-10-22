@@ -4,6 +4,7 @@ require 'shellwords'
 require_relative '../cli/command'
 require_relative '../duration'
 require_relative '../harness'
+require_relative '../paths'
 require_relative '../postman'
 require_relative '../spawner'
 require_relative '../text'
@@ -33,7 +34,8 @@ module Keryx
                                    'inbox. spawn waits for the join and prints the address, harness, pane and ' \
                                    "request id.\n\n" \
                                    'The session starts in this directory, or in --cwd, with KERYX_HOME set to this ' \
-                                   'store and KERYX_HOST passed on when it is set. Claude Code also gets the ' \
+                                   'store, XDG_CONFIG_HOME to the directory this keryx reads its config from, and ' \
+                                   'KERYX_HOST passed on when it is set. Claude Code also gets the ' \
                                    'settings that let the bells in and run the stop ' \
                                    'hook, for that session only. Codex runs a new hook only after you trust it and ' \
                                    'Cursor reads hooks only from its hooks.json, so spawn installs no hook for them; ' \
@@ -167,7 +169,8 @@ module Keryx
 
       def session_env
         host = app.env['KERYX_HOST'].to_s.empty? ? nil : app.host
-        { 'KERYX_HOME' => app.store.root, 'KERYX_HOST' => host }.compact
+        { 'KERYX_HOME' => app.store.root, 'XDG_CONFIG_HOME' => Paths.new(app.env).config_home,
+          'KERYX_HOST' => host }.compact
       end
 
       def harness_arguments(name, pane)

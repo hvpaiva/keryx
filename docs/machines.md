@@ -20,9 +20,14 @@ it only ever talk to the keryx installed there.
    host = athena
    ```
 
-   Every keryx process on the machine reads the file, so sessions whose harness drops `KERYX_*`
-   variables, sessions in herdr panes and the courier all agree on the name. `KERYX_HOST` still
-   wins over the file for the commands that see it.
+   Every keryx process that finds the same file agrees on the name, including sessions whose harness
+   drops `KERYX_*` variables and sessions in herdr panes, and `keryx spawn` passes its config
+   directory to the sessions it starts. Keep the file at its default path where you can. A custom
+   `XDG_CONFIG_HOME` has to reach every keryx process, including the courier's service and the
+   non-interactive SSH session that receives mail, which often skips the shell setup that exports
+   it. For that session, set `KERYX_REMOTE_COMMAND` on the sending machine to a command that sets
+   it, such as `env XDG_CONFIG_HOME=/path/to/config keryx`. `KERYX_HOST` still wins over the file
+   for the commands that see it.
 4. Check that keryx starts in a non-interactive SSH session, which often skips the shell setup that
    puts tools on the `PATH`.
 
@@ -57,7 +62,8 @@ WantedBy=default.target
 ```
 
 `ExecStart` takes the path `command -v keryx` prints. Add the same `KERYX_*` variables your shell
-sets, and `SSH_AUTH_SOCK` when the key lives in an agent. Then start it.
+sets, `XDG_CONFIG_HOME` when you set it, and `SSH_AUTH_SOCK` when the key lives in an agent. Then
+start it.
 
 ```sh
 systemctl --user daemon-reload
