@@ -5,7 +5,7 @@ module Keryx
     class Style
       MODES = %w[auto always never].freeze
       ROLES = {
-        header: '1', id: '33', address: '36', unread: '32', read: '90', request: '35', overdue: '31',
+        header: '1', id: '33', address: '36', unread: '32', read: '90', taken: '36', request: '35', overdue: '31',
         rung: '32', deferred: '33', failed: '31', absent: '90', queued: '33', forwarded: '90', refused: '31',
         muted: '90', error: '31', warning: '33',
         command: '32', flag: '36', comment: '90;3'

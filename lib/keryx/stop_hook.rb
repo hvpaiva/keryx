@@ -8,8 +8,9 @@ module Keryx
   class StopHook
     UNREAD_MARK = 'nudge'
     UNANSWERED_MARK = 'reply-nudge'
-    ANSWER = "and answer every request with 'keryx reply ID TEXT' before ending the turn; if a request cannot be " \
-             'done, reply saying why.'
+    ANSWER = "and answer every request with 'keryx reply ID TEXT' before ending the turn, or with " \
+             "'keryx send --re ID TEXT' if you took it and its work goes on; if a request cannot be done, reply " \
+             'saying why.'
 
     def initialize(store:, herdr:, caller:, meter:)
       @store = store

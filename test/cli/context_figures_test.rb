@@ -43,7 +43,7 @@ class ContextFiguresTest < Minitest::Test
                                'HERDR_PANE_ID' => pane })
   end
 
-  def who = keryx('who', '--all').out.lines.drop(1).to_h { it.strip.split(/ {3,}/).values_at(0, 4) }
+  def who = keryx('who', '--all').out.lines.drop(1).to_h { it.strip.split(/ {3,}/).values_at(0, 5) }
 
   def who_json
     JSON.parse(keryx('who', '--all', '-o', 'json').out)['addresses'].to_h { [it['address'], it['context']] }
@@ -78,7 +78,7 @@ class ContextFiguresTest < Minitest::Test
     output = keryx('status').out
     data = JSON.parse(keryx('status', '-o', 'json').out)
 
-    assert_match(/^orq@athena\s+orchestrator\s+live\s+121k\s+0\s+0$/, output)
+    assert_match(/^orq@athena\s+orchestrator\s+live\s+\S+ ago\s+121k\s+0\s+0$/, output)
     assert_equal({ 'used' => 121_203, 'window' => nil }, data['addresses'].first['context'])
   end
 

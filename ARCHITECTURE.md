@@ -32,15 +32,22 @@ after it was read. Reading a message links it into `read/`, and the unread messa
 `mail/` missing from `read/`, found without opening the files that were read.
 
 Nothing else records state. A request is answered when some mailbox holds a reply from its
-recipient, in its thread, whose `in_reply_to` is the request's id; it is withdrawn when one holds
-a withdrawal from its sender to its recipient the same way; it is open until either; and it is
-read when its name is in `read/`. `keryx withdraw` writes the withdrawal where the request is, in
-the mailbox that holds it or in the outbox for its host, with the request's own sender and
-recipient, since those may carry a name the machine had before. The sender is the address of the
-same name on the machine that sent the request, which the store shows without a list of former
-names: only this machine writes its outbox, and a message from another machine never has its
-recipient's host, so a request in a mailbox whose sender and recipient share a host was sent from
-here. Because no ordinary mailbox operation has to change two files together, none takes a lock
+recipient, in its thread, whose `in_reply_to` is the request's id; it is withdrawn when one holds a
+withdrawal from its sender to its recipient the same way; it is open until either; while open, it is
+taken when one holds a plain message from its recipient to its sender the same way, which
+`keryx send --re` writes; and it is read when its name is in `read/`. A taken request still waits
+for its reply, so `keryx wait` keeps waiting and `keryx retire` still counts it as open.
+`keryx send --re` refuses a request whose reply or withdrawal it sees in a mailbox here or in the
+outbox. A withdrawal still on its way from another machine is not seen yet, so the message goes, and
+the requester's machine shows nothing new, since the request is settled there. The message is of
+format 1 with `thread` and `in_reply_to` set, so a machine with an older keryx stores it as a plain
+message and keeps showing the request read or forwarded. `keryx withdraw` writes the withdrawal
+where the request is, in the mailbox that holds it or in the outbox for its host, with the request's
+own sender and recipient, since those may carry a name the machine had before. The sender is the
+address of the same name on the machine that sent the request, which the store shows without a list
+of former names: only this machine writes its outbox, and a message from another machine never has
+its recipient's host, so a request in a mailbox whose sender and recipient share a host was sent
+from here. Because no ordinary mailbox operation has to change two files together, none takes a lock
 and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
 decision, which takes `outcomes.lock`, as the forwarding section explains, and writing a context
 notice, which takes `occupants.lock`, as the section on context explains. A change of occupants
@@ -255,12 +262,13 @@ Only an outcome file that holds no decision is written again, under `outcomes.lo
 repair keeps the first. Without a receipt the message stays in `new/`, and another file in
 `receipts/` counts the attempts.
 
-The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the
-machine that answers closes a request as soon as the reply is written, and the sender's machine
-once the reply arrives; a withdrawal closes it on the sender's machine at once and on the
-recipient's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
-schedule, rings again for bells that did not reach a session, and sends the deadline and context notices
-from `keryx@HOST`.
+The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the machine that
+answers closes a request as soon as the reply is written, and the sender's machine once the reply arrives; a
+withdrawal closes it on the sender's machine at once and on the recipient's once it arrives. A message sent with
+`keryx send --re` shows the request taken on the recipient's machine once it is in the outbox and on the
+sender's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
+schedule, rings again for bells that did not reach a session, and sends the deadline and context notices from
+`keryx@HOST`.
 
 ## Starting a session
 
@@ -322,7 +330,10 @@ Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to e
 it and the environment. When there are unread messages or read requests without a reply, it keeps
 the turn going, with a block decision for Claude Code and Codex and a follow-up message for Cursor.
 An unread request whose withdrawal from its sender is in the same mailbox is left out, as is the
-closing call to answer every request when nothing listed is a request.
+closing call to answer every request when nothing listed is a request. A read request the session
+took with `keryx send --re` is left out too, since its work goes on, and the closing call names that
+command beside `keryx reply`, so a session that took work does not close the request early to quiet
+the hook.
 The hook prepares a marker in `receipts/` for each reminder before it prints the decision and keeps
 it once the decision is out. Every message is reminded about once, again only when the hook was cut
 off before it answered, and a marker the hook cannot write ends the turn with the error, so the hook
@@ -355,6 +366,18 @@ leads to another session's file. A transcript or rollout is read from its end, a
 costs only its last lines. The meter parses only the lines that can carry the figure (a Claude Code assistant line
 with usage, a Codex token count event, and a rollout's first line), keeps only their numbers, and takes a count
 above a billion tokens, more than any window holds, for no figure.
+
+The meter also tells when the harness last wrote the file it keeps for the session, which who and status show as
+ACTIVE. It takes the file's mtime and reads nothing in it. That is the last write and not a liveness check, since a
+session on a long tool call writes nothing until the call ends. For Claude Code the file is the transcript, and for
+Codex the rollout, that the context figure comes from; the meter keeps both paths for its life, one command or one
+courier round, so the column costs one open and stat of a path it already found, with no second glob or listing.
+For Cursor keryx departs from the footer it reads for context, which carries no time: telling when it changed would
+take a record per address, written from who and status, and the footer changes only with its share or its labels.
+Cursor keeps each conversation in `~/.cursor/chats/MD5(cwd)/CONVERSATION_ID/`, a layout of its own that it does not
+document, where the directory is the MD5 of the directory the session runs in and the conversation id is the one
+Cursor gives the session in `CURSOR_CONVERSATION_ID`. The time is the later mtime of `store.db` and `store.db-wal`
+there, read under the same rule of no link on the way, and a session whose files are missing has none.
 
 A session may have a ceiling in tokens, given to `keryx join --ceiling`, and kept on its occupant with its
 director, the address that spawned it. spawn puts its `--ceiling` in the join line of the first prompt, so a session

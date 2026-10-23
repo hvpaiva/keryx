@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../cli/activity_view'
 require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/short_view'
@@ -16,6 +17,11 @@ module Keryx
                 'context ceiling (keryx join --help) it shows the tokens, their share of the ceiling and the ' \
                 'ceiling, as in 101k 81% of 125k, in yellow from 80% and red at the ceiling. It is unknown when ' \
                 'keryx could not read it, and - when no session runs.'
+      ACTIVE = 'ACTIVE is how long ago the harness last wrote the file it keeps for the session: the transcript ' \
+               'Claude Code writes, the rollout Codex writes, or the store Cursor keeps for the conversation under ' \
+               '~/.cursor/chats. It is the time of the last write and nothing in the file, so a session on a long ' \
+               'tool call looks quiet; it is not a liveness check. It is unknown when keryx could not tell, and - ' \
+               'when no session runs. With -o json, last_activity is that time in ISO 8601 UTC, or null.'
 
       define 'who', section: 'Session Commands',
                     summary: 'List the addresses on this machine',
@@ -26,7 +32,7 @@ module Keryx
                                  'SESSION is none when no session holds the address, gone when the session ended, ' \
                                  "live when its process runs, or herdr's view of the agent (idle, working, " \
                                  "blocked, done) when herdr sees it in its pane.\n\n" \
-                                 "#{CONTEXT}",
+                                 "#{CONTEXT}\n\n#{ACTIVE}",
                     examples: [['See who can receive messages', 'who'],
                                ['List every address, those nobody holds included', 'who --all'],
                                ['List addresses for a script', 'who -o json']]
@@ -52,7 +58,7 @@ module Keryx
       def print_table(entries)
         return if entries.empty?
 
-        terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE HARNESS SESSION CONTEXT UNREAD],
+        terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE HARNESS SESSION ACTIVE CONTEXT UNREAD],
                                         entries.map { row(it) }))
       end
 
@@ -60,14 +66,16 @@ module Keryx
 
       def row(entry)
         [[:address, app.full(entry.name)], entry.role || '-', entry.occupant&.harness || '-',
-         [SESSION_ROLES[entry.session], entry.session], CLI::ContextView.cell(app, entry), unread(entry.unread)]
+         [SESSION_ROLES[entry.session], entry.session], CLI::ActivityView.cell(app, entry),
+         CLI::ContextView.cell(app, entry), unread(entry.unread)]
       end
 
       def unread(count) = count.positive? ? [:unread, count.to_s] : '0'
 
       def record(entry)
         { 'address' => app.full(entry.name), 'role' => entry.role, 'harness' => entry.occupant&.harness,
-          'session' => entry.session, 'context' => CLI::ContextView.record(app, entry),
+          'session' => entry.session, 'last_activity' => CLI::ActivityView.record(app, entry),
+          'context' => CLI::ContextView.record(app, entry),
           'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread }
       end
     end

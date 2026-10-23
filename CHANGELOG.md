@@ -48,5 +48,9 @@ All notable changes to this project are documented here. The format follows
 - `keryx spawn` quotes a dialog that stops the new session and sends it as a message from keryx to
   the address spawn runs as, whose bell rings while spawn still waits.
 - Shell completion for bash, zsh and fish.
+- `keryx send --re ID`, which sends a message to the sender of a request in its thread and shows the
+  request as taken in `status`, open until the reply, with no reminder from the stop hook.
+- An ACTIVE column in `who` and `status`, and `last_activity` in their JSON, with when the harness
+  last wrote the session's transcript, rollout or Cursor conversation store.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

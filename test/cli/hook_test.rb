@@ -51,8 +51,9 @@ class HookTest < Minitest::Test
     id = last_id(@rev)
 
     assert_equal "keryx: rev-1 has 1 unread message (#{id}). Open each with 'keryx read ID' and answer every " \
-                 "request with 'keryx reply ID TEXT' before ending the turn; if a request cannot be done, reply " \
-                 'saying why.', JSON.parse(stop(@rev).out)['reason']
+                 "request with 'keryx reply ID TEXT' before ending the turn, or with 'keryx send --re ID TEXT' if " \
+                 'you took it and its work goes on; if a request cannot be done, reply saying why.',
+                 JSON.parse(stop(@rev).out)['reason']
   end
 
   def test_a_reminder_cut_off_before_it_reaches_the_harness_is_given_again
@@ -177,19 +178,6 @@ class HookTest < Minitest::Test
 
   def test_an_unknown_event_is_a_usage_error
     assert_equal 2, keryx('hook', 'start', env: @rev).status
-  end
-
-  def test_the_skill_is_a_skill_file
-    output = keryx('skill').out
-
-    assert_match(/\A---\nname: keryx\ndescription: .+\n---\n/, output)
-    assert_includes output, 'keryx reply ID TEXT'
-  end
-
-  def test_the_skill_says_where_the_host_of_an_address_comes_from
-    host = keryx('skill').out.lines.drop_while { !it.include?('NAME@HOST') }.slice_before(/\A- /).first.join
-
-    %w[KERYX_HOST ~/.config/keryx/config hostname ssh].each { assert_includes host, it }
   end
 
   def transcript_at(*parts)

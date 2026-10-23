@@ -65,6 +65,18 @@ class MessageTest < Minitest::Test
     refute reply.answers?(request.with(kind: 'message'))
   end
 
+  def test_only_the_recipients_message_in_the_thread_takes_a_request
+    request = build_message
+    taken = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'message', from: 'rev-1@athena', to: 'orq@athena',
+                          in_reply_to: request.id, due_at: nil)
+
+    assert taken.takes?(request)
+    refute taken.answers?(request)
+    { kind: 'reply', from: 'orq@athena', to: 'rev-1@athena', thread: taken.id, in_reply_to: taken.id }
+      .each { |field, value| refute taken.with(field => value).takes?(request), field }
+    refute taken.takes?(request.with(kind: 'message'))
+  end
+
   def test_only_the_senders_withdrawal_in_the_thread_withdraws_a_request
     request = build_message
     withdrawal = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'withdrawal', in_reply_to: request.id,

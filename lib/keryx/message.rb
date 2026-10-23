@@ -88,6 +88,12 @@ module Keryx
         from == request.to && to == request.from
     end
 
+    # A message, not a reply, from the request's recipient in its thread: the request is taken and stays open.
+    def takes?(request)
+      kind == 'message' && request.request? && in_reply_to == request.id && thread == request.thread &&
+        from == request.to && to == request.from
+    end
+
     def withdraws?(request)
       withdrawal? && request.request? && in_reply_to == request.id && thread == request.thread &&
         from == request.from && to == request.to
