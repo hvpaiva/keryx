@@ -30,6 +30,10 @@ reason.
   leaving, and `keryx leave --as NAME` releases the address so that the next session to join it
   finds the message. While `who` shows it live, leave refuses, and `keryx join NAME --force` from
   the session that should hold it takes it over.
+- `the session that joined pane ... recorded no process, as one that joined under an older keryx`
+  means herdr shows that pane's agent without a session id, so keryx tells the session by the
+  process it records, and this session joined before keryx recorded one. Any keryx command run in
+  that session, such as `keryx whoami`, records it, and `keryx ring` then reaches it.
 - `herdr did not answer ...`, `herdr did not say ...` or `ps did not say ...` means keryx could not
   check the pane, so the bell waits and the courier tries again.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not

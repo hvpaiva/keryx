@@ -11,6 +11,8 @@ module Keryx
       def there? = verdict == :there
     end
     LABELS = { 'codex' => 'thread', 'cursor' => 'conversation' }.freeze
+    NO_PROCESS = 'the session that joined pane %<pane>s recorded no process, as one that joined under an older ' \
+                 'keryx; a keryx command it runs from that pane, such as keryx whoami, records it'
 
     def initialize(herdr:, processes:)
       @herdr = herdr
@@ -54,7 +56,8 @@ module Keryx
 
     def by_process(occupant, agent)
       pane = occupant.herdr_pane
-      unless occupant.pid && occupant.started
+      return sighting(:unproven, format(NO_PROCESS, pane:)) unless occupant.pid
+      unless occupant.started
         return sighting(:unproven, "nothing shows that pane #{pane} still runs the session that joined")
       end
 
