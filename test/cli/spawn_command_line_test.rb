@@ -39,7 +39,48 @@ class SpawnCommandLineTest < Minitest::Test
     assert_empty runner.calls
   end
 
+  # A Claude Code caller names its harness itself, so herdr is not asked who runs the caller's pane.
+  def test_a_line_its_quotes_take_past_the_limit_is_refused_before_herdr_is_asked
+    runner = unreached_herdr
+    result = spawn('rev-1', '--harness', 'claude', 'Review it', '--', "don't " * 600, env: claude(111))
+
+    assert_equal 2, result.status
+    assert_match(/the command herdr would type into the new pane's shell is \d+ bytes, and a shell line holds at /,
+                 result.err)
+    assert_match(/at most 4000 here before the terminal cuts it; give long text as the request, with TEXT or --file, /,
+                 result.err)
+    assert_match(/long values such as PATH through the environment of the pane \(the shell's rc or the herdr /,
+                 result.err)
+    refute store.address?('rev-1')
+    assert_empty runner.calls
+  end
+
+  def test_a_command_line_that_fills_a_shell_line_starts
+    session_joins
+    fill = padding(4000)
+
+    assert_equal 2, spawn('rev-1', '--harness', 'claude', '--', "#{fill}x").status
+    assert_equal 0, spawn('rev-1', '--harness', 'claude', '--', fill).status
+    assert_equal fill, herdr.starts.last[:arguments][-3]
+  end
+
+  def test_macos_holds_a_shorter_line
+    @host_os = 'darwin24'
+    session_joins
+    fill = padding(1000)
+
+    assert_match(/a shell line holds at most 1000 here/, spawn('rev-1', '--harness', 'claude', '--', "#{fill}x").err)
+    assert_equal 0, spawn('rev-1', '--harness', 'claude', '--', fill).status
+  end
+
   private
+
+  # The refusal of a padding as long as the limit gives the rest of the line, and so the padding that fills it.
+  def padding(limit)
+    result = spawn('rev-1', '--harness', 'claude', '--', 'x' * limit)
+    bytes = result.err[/is (\d+) bytes/, 1] or flunk("spawn measured no line: #{result.err.inspect}")
+    'x' * ((2 * limit) - Integer(bytes))
+  end
 
   # Every herdr command goes through the runner, which records it.
   def unreached_herdr

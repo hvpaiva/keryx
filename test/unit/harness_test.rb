@@ -52,4 +52,16 @@ class HarnessTest < Minitest::Test
     assert_equal "You are impl@athena, started by keryx spawn. Run 'keryx join impl', then run 'keryx skill' and " \
                  "follow it, then run 'keryx inbox'.", Keryx::Harness.first_prompt('impl@athena', name: 'impl')
   end
+
+  def test_the_command_line_single_quotes_the_harness_and_each_argument
+    assert_equal "'claude' 'it'\\''s' 'a b'", Keryx::Harness.command_line('claude', ["it's", 'a b'])
+  end
+
+  def test_a_system_of_no_known_line_limit_gets_the_smaller_one
+    error = assert_raises(Keryx::UsageError) do
+      Keryx::Harness.check_line('claude', ['x' * 1000], host_os: 'freebsd14.1')
+    end
+
+    assert_match(/is 1011 bytes, and a shell line holds at most 1000 here/, error.message)
+  end
 end

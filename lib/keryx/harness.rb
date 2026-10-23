@@ -14,6 +14,8 @@ module Keryx
     )
     CURSOR_EFFORT = "cursor takes no --effort; give the effort in the model, as in --model 'NAME[effort=high]'"
     PROMPT_BYTES = 2048
+    # herdr types into a shell still starting, whose terminal keeps 4095 bytes of a line on Linux and 1024 on macOS.
+    LINE_BYTES = { 'linux' => 4000, 'darwin' => 1000 }.freeze
 
     module_function
 
@@ -37,6 +39,20 @@ module Keryx
                           'arguments into a shell'
       end
     end
+
+    def check_line(kind, arguments, host_os:)
+      bytes = command_line(kind, arguments).bytesize
+      limit = LINE_BYTES.fetch(host_os[/\A[a-z]+/], LINE_BYTES['darwin'])
+      return if bytes <= limit
+
+      raise UsageError, "the command herdr would type into the new pane's shell is #{bytes} bytes, and a shell line " \
+                        "holds at most #{limit} here before the terminal cuts it; give long text as the request, " \
+                        'with TEXT or --file, and long values such as PATH through the environment of the pane ' \
+                        "(the shell's rc or the herdr server's environment) rather than as harness arguments"
+    end
+
+    # The line herdr agent start types, taken as each word single-quoted, which is close to what herdr does.
+    def command_line(kind, arguments) = [kind, *arguments].map { "'#{it.b.gsub("'") { "'\\''" }}'" }.join(' ')
 
     def arguments(kind, name:, model: nil, effort: nil, env: {})
       case kind

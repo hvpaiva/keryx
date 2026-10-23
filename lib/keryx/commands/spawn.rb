@@ -43,7 +43,8 @@ module Keryx
                                    'Arguments after -- go to the harness unchanged. They and the first prompt, ' \
                                    "--prompt included, are part of the harness's command line, which any local " \
                                    'process can read, so none of them may carry a secret; the request goes to the ' \
-                                   "mailbox, in files only your user can read.\n\n" \
+                                   'mailbox, in files only your user can read. spawn refuses a command line over ' \
+                                   "4000 bytes on Linux or 1000 on macOS, which the pane's terminal would cut.\n\n" \
                                    'A dialog in the new pane, such as a folder trust or permission question, is ' \
                                    'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
@@ -138,7 +139,12 @@ module Keryx
         due_at
         first_prompt(name)
         directory
-        herdr_caller
+        check_line(name)
+      end
+
+      # The new pane's id is not known yet, and this pane's has the same form.
+      def check_line(name)
+        Harness.check_line(options[:harness], harness_arguments(name, herdr_caller.herdr_pane), host_os: app.host_os)
       end
 
       def check_setting(key)

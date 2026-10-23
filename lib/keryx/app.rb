@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'rbconfig'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'caller'
@@ -24,13 +25,15 @@ module Keryx
     HERDR_VARIABLES = %w[HERDR_SOCKET_PATH HERDR_PANE_ID].freeze
     SESSION_VARIABLES = { 'codex' => 'CODEX_THREAD_ID', 'cursor' => 'CURSOR_CONVERSATION_ID' }.freeze
 
-    attr_reader :env, :cwd, :as, :clock, :sleeper, :processes
+    attr_reader :env, :cwd, :as, :clock, :sleeper, :processes, :host_os
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
                    claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new, remote: nil,
-                   sleeper: ->(seconds) { sleep(seconds) }, processes: Processes.new)
+                   sleeper: ->(seconds) { sleep(seconds) }, processes: Processes.new,
+                   host_os: RbConfig::CONFIG['host_os'])
       @env = env
       @cwd = cwd
+      @host_os = host_os
       @as = as || present(env['KERYX_AS'])
       @clock = clock
       @herdr = herdr
