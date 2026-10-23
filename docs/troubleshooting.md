@@ -24,8 +24,11 @@ reason.
   session's pane, because the thread was closed or never ran in herdr. keryx does not queue a bell
   for it, since Codex would run a closed thread on its own.
 - `no agent runs in pane ...`, `pane ... runs ..., not ...` or `pane ... runs thread ..., not ...`
-  means the session that held the address left its pane. When it ended without leaving,
-  `keryx leave --as NAME` releases the address, and the next session to join it finds the message.
+  means herdr does not show the session that holds the address in its pane, so keryx did not type
+  the bell there. When `keryx who` shows that session as none, gone or unknown, it ended without
+  leaving, and `keryx leave --as NAME` releases the address so that the next session to join it
+  finds the message. While `who` shows it live, leave refuses, and `keryx join NAME --force` from
+  the session that should hold it takes it over.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not
   type into a herdr pane while the agent waited on something else. Answer the dialog, then run
   `keryx ring`.
