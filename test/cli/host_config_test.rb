@@ -54,6 +54,32 @@ class HostConfigTest < Minitest::Test
     assert_equal "error: cannot read #{config_path}: not a regular file\n", result.err
   end
 
+  def test_the_courier_warns_about_the_config_before_its_first_wait
+    write_config("hots = zeus\nhost = zeus\n")
+    err = StringIO.new
+    terminal = Keryx::CLI::Terminal.new(out: StringIO.new, err:, env: base_env.merge('KERYX_HOST' => ''))
+    seen = nil
+    sleeper = lambda do |_seconds|
+      seen = err.string.dup
+      raise Interrupt
+    end
+    factory = lambda do |_globals|
+      Keryx::App.new(env: terminal.env, herdr:, remote:, clock:, claude_socket: sockets, codex:, sleeper:,
+                     process: FakeProcesses.new(alive))
+    end
+
+    assert_equal 130, Keryx.run(%w[courier], terminal:, app_factory: factory)
+    assert_equal "warning: #{config_path}:1: unknown key \"hots\", ignored\n", seen
+    assert_equal "#{seen}\n", err.string
+  end
+
+  def test_a_warning_printed_early_is_not_printed_again_at_the_end
+    write_config("hots = zeus\nhost = zeus\n")
+
+    assert_equal "warning: #{config_path}:1: unknown key \"hots\", ignored\n",
+                 keryx('courier', '--once', env: { 'KERYX_HOST' => '' }).err
+  end
+
   def test_without_a_file_or_keryx_host_the_machine_name_is_used
     expected = Keryx::Address.local_host({})
 

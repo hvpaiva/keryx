@@ -2,6 +2,7 @@
 
 require 'io/console'
 require 'stringio'
+require_relative '../text'
 require_relative 'style'
 
 module Keryx
@@ -32,6 +33,8 @@ module Keryx
       def print(*parts) = write(:out) { out.print(*parts) }
 
       def warn(*lines) = write(:err) { err.puts(*lines) }
+
+      def warning(text) = warn("#{paint_err(:warning, 'warning:')} #{Text.plain(text)}")
 
       def paint(role, text) = style.paint(role, text)
 

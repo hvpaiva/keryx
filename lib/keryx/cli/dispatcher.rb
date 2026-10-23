@@ -192,9 +192,7 @@ module Keryx
       end
 
       def warn_problems
-        Array(@app&.problems).uniq.each do |problem|
-          @terminal.warn("#{@terminal.paint_err(:warning, 'warning:')} #{Text.plain(problem)}")
-        end
+        Array(@app&.take_problems).each { @terminal.warning(it) }
       end
     end
   end

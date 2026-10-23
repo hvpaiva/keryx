@@ -33,6 +33,7 @@ module Keryx
       @remote = remote
       @sleeper = sleeper
       @process = process
+      @reported = []
     end
 
     def now = clock.call
@@ -76,7 +77,11 @@ module Keryx
 
     def full(name) = "#{name}@#{host}"
 
-    def problems = [*@config&.problems, *@store&.problems]
+    def take_problems
+      fresh = [*@config&.problems, *@store&.problems].uniq - @reported
+      @reported.concat(fresh)
+      fresh
+    end
 
     private
 
