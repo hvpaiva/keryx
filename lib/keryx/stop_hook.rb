@@ -8,6 +8,8 @@ module Keryx
   class StopHook
     UNREAD_MARK = 'nudge'
     UNANSWERED_MARK = 'reply-nudge'
+    ANSWER = "and answer every request with 'keryx reply ID TEXT' before ending the turn; if a request cannot be " \
+             'done, reply saying why.'
 
     def initialize(store:, herdr:, caller:, meter:)
       @store = store
@@ -76,8 +78,11 @@ module Keryx
 
     def own?(occupant, path) = !@meter.transcript(path, occupant).nil?
 
+    # A withdrawn request needs no reminder, and its withdrawal, while unread, gets one of its own.
     def pending(name)
-      { UNREAD_MARK => @store.unread(name), UNANSWERED_MARK => unanswered_requests(name) }
+      unread = @store.unread(name)
+      withdrawn = @store.withdrawals(name, unread)
+      { UNREAD_MARK => unread.reject { withdrawn.key?(it.id) }, UNANSWERED_MARK => unanswered_requests(name) }
         .to_h { |mark, messages| [mark, messages.reject { @store.marked?(name, it.id, mark) }] }
     end
 
@@ -99,8 +104,8 @@ module Keryx
       unless unanswered.empty?
         parts << "#{count(unanswered.size, 'request')} read but not answered (#{ids(unanswered, from: true)})"
       end
-      "keryx: #{name} has #{parts.join(' and ')}. Open each with 'keryx read ID' and answer every request with " \
-        "'keryx reply ID TEXT' before ending the turn; if a request cannot be done, reply saying why."
+      closing = unread.any?(&:request?) || !unanswered.empty? ? ANSWER : 'before ending the turn.'
+      "keryx: #{name} has #{parts.join(' and ')}. Open each with 'keryx read ID' #{closing}"
     end
 
     def count(number, noun) = "#{number} #{noun}#{'s' unless number == 1}"

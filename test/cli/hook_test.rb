@@ -41,8 +41,18 @@ class HookTest < Minitest::Test
     decision = JSON.parse(stop(@rev).out)
 
     assert_equal 'block', decision['decision']
-    assert_match(/\Akeryx: rev-1 has 1 unread message \(#{id}\)\. Open each with 'keryx read ID'/, decision['reason'])
+    assert_equal "keryx: rev-1 has 1 unread message (#{id}). Open each with 'keryx read ID' before ending the turn.",
+                 decision['reason']
     assert_empty stop(@rev).out
+  end
+
+  def test_an_unread_request_is_to_be_answered
+    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    id = last_id(@rev)
+
+    assert_equal "keryx: rev-1 has 1 unread message (#{id}). Open each with 'keryx read ID' and answer every " \
+                 "request with 'keryx reply ID TEXT' before ending the turn; if a request cannot be done, reply " \
+                 'saying why.', JSON.parse(stop(@rev).out)['reason']
   end
 
   def test_a_reminder_cut_off_before_it_reaches_the_harness_is_given_again
@@ -84,7 +94,8 @@ class HookTest < Minitest::Test
     keryx('read', env: @rev)
     decision = JSON.parse(stop(@rev).out)
 
-    assert_match(/1 request read but not answered \(#{id} from orq@athena\)/, decision['reason'])
+    assert_match(/1 request read but not answered \(#{id} from orq@athena\)\. .* answer every request with/,
+                 decision['reason'])
     assert_empty stop(@rev).out
   end
 

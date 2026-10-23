@@ -57,8 +57,10 @@ module Keryx
       # JSON escapes C0 controls only; these characters occur only inside strings, so an escape keeps the value.
       def print_json(data) = terminal.puts(JSON.pretty_generate(data).gsub(JSON_ESCAPED) { format('\u%04x', it.ord) })
 
-      def show_message(message)
-        json? ? print_json(message.record) : terminal.puts(MessageView.render(terminal, message, app.now))
+      def show_message(message, withdrawal = nil)
+        return print_json(MessageView.record(message, withdrawal)) if json?
+
+        terminal.puts(MessageView.render(terminal, message, app.now, withdrawal))
       end
 
       def body_option(parser)

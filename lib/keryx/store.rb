@@ -127,6 +127,15 @@ module Keryx
       messages_in(File.join(box(name), MAIL)) { !read.include?(it) }
     end
 
+    # By id, each request among MESSAGES that its own sender withdrew in the mailbox of NAME, with that withdrawal.
+    def withdrawals(name, messages)
+      requests = messages.select(&:request?)
+      return {} if requests.empty?
+
+      pulled = messages_in(File.join(box(name), MAIL)).select(&:withdrawal?).group_by(&:in_reply_to)
+      requests.to_h { |request| [request.id, pulled[request.id]&.find { it.withdraws?(request) }] }.compact
+    end
+
     def find(name, reference)
       reference = Store.reference(reference)
       ids = ids_in(File.join(box(name), MAIL)).select { it.start_with?(reference) }

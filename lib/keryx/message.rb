@@ -18,6 +18,8 @@ module Keryx
     MAX_BODY_BYTES = 64 * 1024
     FIELDS = %w[id kind from to thread in_reply_to created_at due_at body].freeze
     ADDRESS = /\A[a-z][a-z0-9-]{0,31}@[a-z0-9][a-z0-9-]{0,62}\z/
+    # The body of a withdrawal whose sender gave no reason.
+    WITHDRAWN = 'Request %<id>s is withdrawn and needs no reply.'
 
     def self.from_json(text)
       data = JSON.parse(text)

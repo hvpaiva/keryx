@@ -21,10 +21,11 @@ module Keryx
 
       def call(_arguments)
         stored = listed
-        return print_json(stored.map { it.message.record.merge('state' => it.state.to_s) }) if json?
+        withdrawn = app.store.withdrawals(app.me, stored.map(&:message))
+        return print_json(stored.map { record(it, withdrawn) }) if json?
         return terminal.puts(nothing) if stored.empty?
 
-        terminal.puts(CLI::Table.render(terminal, headers, stored.map { row(it) }))
+        terminal.puts(CLI::Table.render(terminal, headers, stored.map { row(it, withdrawn) }))
       end
 
       private
@@ -39,13 +40,23 @@ module Keryx
 
       def headers = %w[ID KIND FROM AGE DUE] + (options[:all] ? ['STATE'] : []) + ['SUMMARY']
 
-      def row(stored)
+      def record(stored, withdrawn)
+        CLI::MessageView.record(stored.message, withdrawn[stored.message.id]).merge('state' => stored.state.to_s)
+      end
+
+      def row(stored, withdrawn)
         message = stored.message
-        due = CLI::MessageView.due(message, app.now)
         cells = [[:id, message.id], message.request? ? [:request, message.kind] : message.kind, message.from,
-                 age(message.created_at), due.start_with?('overdue') ? [:overdue, due] : due]
+                 age(message.created_at), due(message, withdrawn[message.id])]
         cells << [stored.state, stored.state.to_s] if options[:all]
         cells << message.summary
+      end
+
+      def due(message, withdrawal)
+        return [:muted, 'withdrawn'] if withdrawal
+
+        due = CLI::MessageView.due(message, app.now)
+        due.start_with?('overdue') ? [:overdue, due] : due
       end
     end
   end
