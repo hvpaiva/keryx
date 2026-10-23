@@ -163,6 +163,14 @@ module Keryx
       false
     end
 
+    # The first value claimed stays, so every process that claims the same id gets the value the first one wrote.
+    def claim(name, id, kind, value)
+      path = receipt_file(name, id, kind)
+      return value if write_once(path, value) == :delivered
+
+      read_regular(path) or raise Error, "#{path} is not a regular file"
+    end
+
     # Preparing writes and renames in the receipts as keeping does, so a mark that could not be kept fails here.
     def prepare_mark(name, id, kind) = write_atomic(pending_mark(name, id, kind), '')
 

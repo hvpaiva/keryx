@@ -13,6 +13,7 @@ module Keryx
     NAME = 'keryx'
     OVERDUE_MARK = 'overdue'
     CONTEXT_MARK = 'context'
+    CONTEXT_CLAIM = 'context-id'
     UNREACHABLE = %w[none gone].freeze
 
     def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:)
@@ -98,16 +99,19 @@ module Keryx
       @open_requests.filter_map { |holder, stored| stored.message if holder == name }.min_by(&:id)
     end
 
-    # Once per recipient for each join and ceiling, and never nearing the ceiling once told it reached it. The notice
-    # takes the time it is sent, so the recipient reads them in order.
+    # Once per recipient for each join and ceiling, and never nearing the ceiling once told it reached it. The first
+    # courier to tell a notice claims its id, with the time it is sent so the recipient reads notices in order, and
+    # every later post uses that id, so the store keeps one copy however many couriers or rounds post it. Only the
+    # courier that writes the mark reports it.
     def tell(name, recipient, occupant, context, stage)
       mark = context_mark(occupant, stage, recipient)
       return if @store.marked?(name, mark, CONTEXT_MARK)
       return if stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), CONTEXT_MARK)
 
       body = notice(name, context, occupant.ceiling, stage)
-      @postman.post(sender: NAME, recipient:, kind: 'message', body:)
-      @store.mark_once(name, mark, CONTEXT_MARK)
+      @postman.post(sender: NAME, recipient:, kind: 'message', id: notice_id(name, mark), body:)
+      return unless @store.mark_once(name, mark, CONTEXT_MARK)
+
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
     rescue Error, SystemCallError => e
       @errors << "could not tell #{recipient} about the context of #{name}@#{@host}; #{e.message}"
@@ -116,6 +120,13 @@ module Keryx
 
     def context_mark(occupant, stage, recipient)
       Ulid.derive(occupant.joined_at, "context #{stage} #{occupant.ceiling} #{recipient}")
+    end
+
+    def notice_id(name, mark)
+      id = @store.claim(name, mark, CONTEXT_CLAIM, Ulid.generate(@clock.call))
+      return id if Ulid.valid?(id)
+
+      raise Error, "the id claimed for the notice #{mark} is damaged"
     end
 
     def notice(name, context, ceiling, stage)

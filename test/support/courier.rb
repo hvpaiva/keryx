@@ -36,8 +36,10 @@ module CourierHelpers
 
   def meters = @meters ||= []
 
-  def courier
-    @courier ||= Keryx::Courier.new(
+  def courier = @courier ||= build_courier
+
+  def build_courier
+    Keryx::Courier.new(
       store:, bell: QuietBell.new, postman:, host: 'athena', clock: -> { LATER },
       meter: -> { meter.tap { meters << it } },
       forwarder: Keryx::Forwarder.new(store:, remote: nil, clock: -> { LATER }),

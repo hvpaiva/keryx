@@ -14,7 +14,7 @@ addresses/NAME/occupant.json   the session holding it, while one does
 addresses/NAME/tmp/            messages being written
 addresses/NAME/mail/           every message, under its id, never moved
 addresses/NAME/read/           a hard link for each message read
-addresses/NAME/receipts/       bell results and hook reminders, one file per message
+addresses/NAME/receipts/       bell results and hook reminders, one file per message, and context notice marks
 occupants.lock                 locked while a command changes which session holds an address
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
@@ -267,6 +267,12 @@ oldest request the session has not answered when no director was recorded, from 
 to each recipient for a join and a ceiling, marked in the session's `receipts/`, so a session that joins again or
 gets another ceiling can be told again; a recipient the post failed for is tried again alone in the next round. A
 session first seen at or past the ceiling is told only that it reached it, and the comparison uses whole numbers.
+
+Before it posts a notice, the courier claims the notice's id in `receipts/`: the first courier writes an id with the
+current time, so a recipient reads the notices in order, and every other courier or later round reads that id back.
+A second post of the notice is then a duplicate the mailbox or the outbox keeps once, and rings no bell, whether two
+couriers passed the mark's check together or the mark failed to be written after the post. Only the courier that
+writes the mark reports the notice.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not

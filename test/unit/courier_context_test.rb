@@ -112,6 +112,43 @@ class CourierContextTest < Minitest::Test
     assert_equal [1, 1], [bodies('impl').size, bodies('orq').size]
   end
 
+  def test_a_notice_whose_mark_was_not_kept_is_not_stored_again
+    impl(director: 'orq')
+    meter.figures['session-impl'] = 100_000
+    original = store.method(:mark_once)
+    failures = [Errno::ENOSPC.new('receipts')]
+    store.define_singleton_method(:mark_once) do |name, id, kind|
+      raise failures.shift if kind == 'context' && failures.any?
+
+      original.call(name, id, kind)
+    end
+    first = courier.round
+
+    assert_equal [[['orq@athena', :near]], 1], [told.call(first), first.errors.size]
+    assert_equal [['impl@athena', :near]], told.call(build_courier.round)
+    assert_equal [1, 1], [bodies('impl').size, bodies('orq').size]
+  end
+
+  def test_two_couriers_that_tell_the_same_notice_at_once_store_it_once
+    impl
+    meter.figures['session-impl'] = 100_000
+    other = build_courier
+    interleaved = nil
+    original = postman.method(:post)
+    # The other courier runs its whole round between this one's claim of the id and its post.
+    postman.define_singleton_method(:post) do |**args|
+      unless interleaved
+        interleaved = :running
+        interleaved = other.round
+      end
+      original.call(**args)
+    end
+    first = courier.round
+
+    assert_equal [[], [], [['impl@athena', :near]]], [first.errors, told.call(first), told.call(interleaved)]
+    assert_equal 1, bodies('impl').size
+  end
+
   def test_sessions_without_a_ceiling_or_that_ended_are_not_read
     impl(ceiling: nil)
     store.create_address('docs')
