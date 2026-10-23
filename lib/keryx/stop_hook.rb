@@ -2,7 +2,6 @@
 
 require_relative 'error'
 require_relative 'identity'
-require_relative 'meter'
 require_relative 'roster'
 
 module Keryx
@@ -10,10 +9,11 @@ module Keryx
     UNREAD_MARK = 'nudge'
     UNANSWERED_MARK = 'reply-nudge'
 
-    def initialize(store:, herdr:, caller:)
+    def initialize(store:, herdr:, caller:, meter:)
       @store = store
       @herdr = herdr
       @caller = caller
+      @meter = meter
     end
 
     # Prepares the marks before the block and keeps them after it, so a hook cut off in between reminds again.
@@ -54,7 +54,8 @@ module Keryx
     end
 
     # Claude Code names a session's transcript only to its hooks, and the meter derives it otherwise. Recording is
-    # best effort and never waits for the lock, so it cannot hold up the end of a turn.
+    # optional: it never waits for the lock, and a value it cannot use, whatever the error, changes nothing the hook
+    # decides.
     def record_transcript(name, caller, payload)
       path = new_transcript(name, payload) or return
 
@@ -62,18 +63,18 @@ module Keryx
         current = @store.occupant(name)
         @store.bind(name, current.with(transcript: path)) if current && caller.holds?(current) && own?(current, path)
       end
-    rescue Error, SystemCallError
+    rescue StandardError
       nil
     end
 
     # Only the transcript of the session the occupant records, which a session restarted under the same process is not.
     def new_transcript(name, payload)
       occupant = name && @store.occupant(name) or return
-      path = Meter.transcript(payload['transcript_path'], payload['session_id'])
-      path if path && occupant.transcript != path && own?(occupant, path)
+      path = payload['transcript_path']
+      path if payload['session_id'] == occupant.session_id && occupant.transcript != path && own?(occupant, path)
     end
 
-    def own?(occupant, path) = File.basename(path) == "#{occupant.session_id}.jsonl"
+    def own?(occupant, path) = !@meter.transcript(path, occupant).nil?
 
     def pending(name)
       { UNREAD_MARK => @store.unread(name), UNANSWERED_MARK => unanswered_requests(name) }

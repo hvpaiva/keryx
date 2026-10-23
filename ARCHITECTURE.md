@@ -236,20 +236,24 @@ and never from the conversation itself. `Meter` has one reader per harness. A fi
 so measuring never fails the command that asked.
 
 - Claude Code writes a transcript for every session. The figure is the last assistant turn that is not a
-  subagent's: its input tokens plus the tokens it read from the cache and wrote to it. Claude Code names the
-  transcript only to its hooks, so the stop hook records the path on the occupant, when it is the file of the
-  session the occupant records, in a folder under a `projects` directory. Without it, keryx looks under `$CLAUDE_CONFIG_DIR/projects` or
-  `~/.claude/projects`, in the folder Claude Code names after the session's directory, and then in whichever
-  single folder holds a file of that session. The transcript does not say whether the model runs a 200K or a 1M
-  window, so a Claude Code figure has tokens only.
-- Codex writes a rollout for each thread under `$CODEX_HOME/sessions` or `~/.codex/sessions`. The figure is the
-  last token count event's input tokens and the model's context window. A thread with no rollout, or with more
-  than one, has no figure.
+  subagent's and names the session's own id: its input tokens plus the tokens it read from the cache and wrote to
+  it. Claude Code names the transcript only to its hooks, so the stop hook records the path on the occupant when it
+  is the file of the session the occupant records, in a folder under the `projects` directory keryx itself reads,
+  `$CLAUDE_CONFIG_DIR/projects` or `~/.claude/projects`. Without it, keryx looks there, in the folder Claude Code
+  names after the session's directory, and then in whichever single folder holds a file of that session. The
+  transcript does not say whether the model runs a 200K or a 1M window, so a Claude Code figure has tokens only.
+- Codex writes a rollout for each thread under `$CODEX_HOME/sessions` or `~/.codex/sessions`, and keryx lists them
+  once per command or courier round. The rollout must open with its thread's own id, and the figure is the last
+  token count event's input tokens and the model's context window. A thread with no rollout, or with more than
+  one, has no figure.
 - Cursor records neither, so keryx reads the footer in the last lines of its herdr pane, where Cursor shows the
   model's window and the share of it in use, and only while the pane runs the session that joined.
 
-A transcript or rollout is read from its end, at most 8 MiB back, so a long one costs only its last lines, and
-only the lines that carry usage are parsed.
+No link is followed anywhere from the root keryx derives down to a transcript or rollout, so a file name never
+leads to another session's file. A transcript or rollout is read from its end, at most 8 MiB back, so a long one
+costs only its last lines. The meter parses only the lines that can carry the figure (a Claude Code assistant line
+with usage, a Codex token count event, and a rollout's first line), keeps only their numbers, and takes a count
+above a billion tokens, more than any window holds, for no figure.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not

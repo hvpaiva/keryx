@@ -16,16 +16,20 @@ class ContextFiguresTest < Minitest::Test
     @orq = join_claude('orq', 111, role: 'orchestrator')
   end
 
-  def copy(fixture, *parts)
+  # The fixtures belong to session-1 and thread-1, and each line keryx reads must name the session it measures.
+  def copy(fixture, session, *parts)
     path = tmp('home', *parts)
     FileUtils.mkdir_p(File.dirname(path))
-    FileUtils.cp(File.join(FIXTURES, fixture), path)
+    File.write(path, File.read(File.join(FIXTURES, fixture)).gsub(/"(session|thread)-1"/, %("#{session}")))
   end
 
-  def claude_transcript(pid) = copy('claude-transcript.jsonl', '.claude', 'projects', '-work', "session-#{pid}.jsonl")
+  def claude_transcript(pid)
+    copy('claude-transcript.jsonl', "session-#{pid}", '.claude', 'projects', '-work', "session-#{pid}.jsonl")
+  end
 
   def codex_rollout(thread)
-    copy('codex-rollout.jsonl', '.codex', 'sessions', '2026', '10', '22', "rollout-2026-10-22T17-00-00-#{thread}.jsonl")
+    copy('codex-rollout.jsonl', thread, '.codex', 'sessions', '2026', '10', '22',
+         "rollout-2026-10-22T17-00-00-#{thread}.jsonl")
   end
 
   def join_codex(name, thread)
