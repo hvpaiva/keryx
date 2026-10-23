@@ -106,10 +106,15 @@ finds the session's address and removes it under the lock too, so a refresh cann
 and the occupant of a session that took the address over in between is never removed.
 `leave --as NAME` releases an address for a session that ended without leaving. Under the same
 lock it refuses when the roster sees the occupant live, as join does, and removes the occupant
-otherwise, so a session that joins in between keeps the address.
+otherwise, so a session that joins in between keeps the address. spawn checks the address for
+the last time under the lock, right before it starts the harness. When it frees the herdr name its
+own pane kept from an address the session there left, it clears the name in that same hold, so a
+join lands before the check, which stops spawn, or after the clear, which then freed the name of
+an address no session held.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
-make, and then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all;
+make, and then fails, so a stopped holder cannot block it for good. spawn waits as long, but not
+past its own timeout. `App#me` does not wait at all;
 when another command holds the lock, it leaves the record to a later command, so `wait`, `spawn`
 and every other command keep their deadlines.
 
@@ -236,8 +241,17 @@ from `keryx@HOST`.
 `keryx spawn` starts a harness in a herdr pane and waits for it to join. It checks every option and
 the address first, then creates the address and posts the request, so the request is in the mailbox
 before the session exists. It rings no bell for it, because the address may still name a session
-that ended and the new session opens its inbox from its first prompt. `Spawner` splits the caller's
-pane, or uses a tab of its workspace, labels the new pane with the address's name, and runs
+that ended and the new session opens its inbox from its first prompt. `Spawner` places the session
+by `herdr pane layout`, read for the caller's tab or for each tab `--tab` names. herdr gives a new
+pane the floor of half the pane it splits, so spawn splits the pane that leaves the new one the most
+room along the split direction, provided the terminal in the new one gets at least 80 columns and
+24 rows, and otherwise opens a new tab. herdr's layout gives outer rectangles and no terminal size, so
+spawn takes off the three columns and two rows herdr 0.9.5's default borders and scrollbar use. That minimum is the classic terminal: Cursor's trust box (about 76
+columns), its footer and Codex's hooks screen keep whole lines, which the bell and the context
+reading need, and it holds the 20 lines the bell reads with Cursor's 4 footer lines. When herdr
+gives no layout for one of those panes, spawn opens the new tab too, with a notice, and never splits
+a pane it could not measure. Splitting is the only change spawn makes to a pane it did not create. `Spawner` then labels the new
+pane with the address's name, and runs
 `herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
 that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial
 prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on it once
@@ -257,11 +271,23 @@ herdr socket and pane, as `-c shell_environment_policy.set` values.
 spawn then polls the store until the address has an occupant of the harness it started, in the herdr
 socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,
 reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
-`agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog count as a dialog, and
-a screen the bell finds too narrow to tell, or one where a queued message is being edited, is
-reported as such; spawn reports the first of them once while it keeps waiting. It stops when the pane has no agent of that harness left or `--timeout`, counted
-from the moment spawn starts, passes. A join recorded after
-that moment counts as too late, however soon spawn notices it.
+`agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog mean that one may show,
+and `Dialog` then reads the pane as a person sees it, with `herdr pane read --source visible`. It
+quotes only a read the bell's rule takes for a dialog below the command herdr typed, since that
+command holds the first prompt, whose words could pass for one. The quote is the dialog block, from
+the last box top or rule with the dialog still below it, at most 24 lines of 160 characters, with
+control characters made visible. spawn prints it once and posts the same text once, as a message
+from keryx to the address spawn runs as, which rings that address while spawn keeps waiting; with no
+such address it posts nothing, since the post would create one. A read that is not a dialog yet
+spends nothing, and the next poll reads again. A screen the bell finds too narrow to tell, or one
+where a queued message is being edited, is reported as such, once, and quoted to no one. spawn stops
+when the pane has no agent of that harness left or `--timeout`, counted from the moment spawn
+starts, passes. The error at the timeout reads the pane again and reports what that read shows: the
+dialog the pane shows then, quoted; a screen too narrow to tell; a queued message being edited; or,
+when it shows none of those, only the pane to look at. A dialog quoted before goes into the error
+only when that read fails, worded as what the pane showed when spawn read it earlier, since the pane
+may no longer show it. A join recorded after that moment counts as too late, however soon spawn
+notices it.
 
 ## The stop hook
 

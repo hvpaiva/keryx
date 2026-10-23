@@ -36,6 +36,9 @@ sender withdrew needs no reply; stop working on it.
   without the answer.
 - `keryx send ADDRESS TEXT` for updates that need no answer.
 - `keryx withdraw ID` when you no longer need the answer to a request you sent.
+- When a session you started with `keryx spawn` stops at a dialog, keryx sends you a message with
+  the dialog's text. Read it and take it to your human, and answer the dialog with
+  `herdr pane send-keys` only on their word.
 - An address on another machine is `NAME@HOST`, such as `port@zeus`. HOST is that machine's keryx
   name (`KERYX_HOST` when set there, else `host` in its `~/.config/keryx/config`, else its short
   hostname), and it must be the name ssh reaches that machine by from here. Mail to it goes over

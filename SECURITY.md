@@ -44,8 +44,13 @@ language models.
   the keystrokes can still receive the bell, since herdr cannot type only into a given session.
 - `keryx spawn` types nothing into an agent. herdr types the harness command, each argument quoted,
   into the shell of the pane spawn just created, and the first prompt travels as an argument of
-  that command. spawn refuses harness arguments that hold control characters, makes those in
-  `--prompt` visible, and leaves every dialog in the new pane for you to answer.
+  that command. That puts the first prompt, `--prompt` included, in the harness's command line,
+  which any local process can read through `/proc/PID/cmdline`, `ps` or `herdr pane process-info`,
+  and the pane's shell may keep the typed command in its history, so neither the first prompt nor
+  `--prompt` may carry a secret. The request, given as TEXT or with `--file`, goes to the mailbox
+  instead, in files of mode 0600. spawn refuses harness arguments that hold control characters,
+  makes those in `--prompt` visible, and quotes a dialog in the new pane to you and, in a message
+  from keryx, to the address it runs as, but still answers none.
 - Mailbox directories are created with mode 0700 and files with 0600.
 
 `crossSessionInbound: "accept"` in a Claude Code session's settings lets any process of your user

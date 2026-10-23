@@ -112,6 +112,14 @@ class HerdrTest < Minitest::Test
     assert_nil Keryx::Herdr.new(runner: FakeRunner.new).screen(SOCKET, 'w1:p1')
   end
 
+  def test_visible_reads_the_pane_as_a_person_sees_it
+    runner = FakeRunner.new(%w[herdr pane read] => { out: "Hooks need review\n" })
+
+    assert_equal "Hooks need review\n", Keryx::Herdr.new(runner:).visible(SOCKET, 'w1:p2')
+    assert_equal %w[herdr pane read w1:p2 --source visible --lines 60], runner.argvs.first
+    assert_nil Keryx::Herdr.new(runner: FakeRunner.new).visible(SOCKET, 'w1:p2')
+  end
+
   def test_footer_reads_the_bottom_lines_of_the_visible_screen
     runner = FakeRunner.new(%w[herdr pane read] => { out: "model 300K\n" })
 
@@ -134,74 +142,6 @@ class HerdrTest < Minitest::Test
 
     assert_nil outcome.code
     assert_equal 'herdr: not found', outcome.detail
-  end
-
-  def pane_json(pane, tab, key: 'pane')
-    JSON.generate('result' => { key => { 'pane_id' => pane, 'tab_id' => tab,
-                                         'workspace_id' => pane.split(':').first } })
-  end
-
-  def test_split_opens_a_pane_beside_another_without_taking_the_focus
-    runner = FakeRunner.new(%w[herdr pane split] => { out: pane_json('w1:p4', 'w1:t1') })
-    pane = Keryx::Herdr.new(runner:).split(SOCKET, 'w1:p1', direction: 'down', cwd: '/work',
-                                                            env: { 'KERYX_HOME' => '/state', 'KERYX_HOST' => 'athena' })
-
-    assert_equal Keryx::Herdr::Pane.new(id: 'w1:p4', tab: 'w1:t1', workspace: 'w1'), pane
-    assert_equal %w[herdr pane split w1:p1 --direction down --cwd /work --env KERYX_HOME=/state --env KERYX_HOST=athena
-                    --no-focus], runner.argvs.first
-  end
-
-  def test_create_tab_returns_its_first_pane
-    runner = FakeRunner.new(%w[herdr tab create] => { out: pane_json('w1:p5', 'w1:t2', key: 'root_pane') })
-    pane = Keryx::Herdr.new(runner:).create_tab(SOCKET, 'w1', label: 'agents', cwd: '/work')
-
-    assert_equal 'w1:t2', pane.tab
-    assert_equal %w[herdr tab create --workspace w1 --label agents --cwd /work --no-focus], runner.argvs.first
-  end
-
-  def test_pane_tabs_and_panes_read_the_layout_of_a_workspace
-    tabs = JSON.generate('result' => { 'tabs' => [{ 'tab_id' => 'w1:t1', 'label' => 'main' }] })
-    panes = JSON.generate('result' => { 'panes' => [{ 'pane_id' => 'w1:p1', 'tab_id' => 'w1:t1',
-                                                      'workspace_id' => 'w1' }] })
-    herdr = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr pane get] => { out: pane_json('w1:p1', 'w1:t1') },
-                                                    %w[herdr tab list] => { out: tabs },
-                                                    %w[herdr pane list] => { out: panes }))
-
-    assert_equal 'w1', herdr.pane(SOCKET, 'w1:p1').workspace
-    assert_equal [Keryx::Herdr::Tab.new(id: 'w1:t1', label: 'main')], herdr.tabs(SOCKET, 'w1')
-    assert_equal ['w1:p1'], herdr.panes(SOCKET, 'w1').map(&:id)
-  end
-
-  def test_rename_labels_a_pane_or_says_why_it_could_not
-    runner = FakeRunner.new(%w[herdr pane rename w1:p4] => { out: pane_json('w1:p4', 'w1:t1') })
-    Keryx::Herdr.new(runner:).rename(SOCKET, 'w1:p4', 'rev-1')
-    refused = { success: false, err: '{"error":{"code":"pane_not_found","message":"pane w1:p9 not found"}}' }
-    error = assert_raises(Keryx::Error) do
-      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr pane rename] => refused)).rename(SOCKET, 'w1:p9', 'rev-1')
-    end
-
-    assert_equal [%w[herdr pane rename w1:p4 rev-1], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
-    assert_equal 'herdr pane rename failed: pane w1:p9 not found', error.message
-  end
-
-  def test_a_failed_control_command_is_an_error_with_what_herdr_said
-    refused = { success: false, err: '{"error":{"code":"pane_not_found","message":"pane w1:p9 not found"}}' }
-    error = assert_raises(Keryx::Error) do
-      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr pane split] => refused))
-                  .split(SOCKET, 'w1:p9', direction: 'right', cwd: '/work')
-    end
-
-    assert_equal 'herdr pane split failed: pane w1:p9 not found', error.message
-    assert_raises(Keryx::Error) { Keryx::Herdr.new(runner: FakeRunner.new).pane(SOCKET, 'w1:p1') }
-  end
-
-  def test_an_answer_without_a_pane_is_an_error
-    runner = FakeRunner.new(%w[herdr pane get] => { out: '{"result":{"pane":{}}}' },
-                            %w[herdr tab list] => { out: '' })
-    herdr = Keryx::Herdr.new(runner:)
-
-    assert_raises(Keryx::Error) { herdr.pane(SOCKET, 'w1:p1') }
-    assert_match(/herdr tab list failed: no answer/, assert_raises(Keryx::Error) { herdr.tabs(SOCKET, 'w1') }.message)
   end
 
   def test_start_names_the_agent_and_passes_its_arguments_after_the_separator

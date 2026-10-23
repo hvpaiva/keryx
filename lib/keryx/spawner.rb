@@ -1,8 +1,11 @@
 # frozen_string_literal: true
 
 require_relative 'bell'
+require_relative 'dialog'
 require_relative 'error'
 require_relative 'spawned'
+require_relative 'store'
+require_relative 'text'
 
 module Keryx
   class Spawner
@@ -11,32 +14,76 @@ module Keryx
     # herdr returns agent_not_ready when the agent stops at a dialog while it starts.
     NOT_READY = 'agent_not_ready'
     START_TIMEOUT = 'timeout'
+    # The classic terminal, which keeps Cursor's dialogs and footer on one line and the screen lines the bell reads.
+    MIN_COLUMNS = 80
+    MIN_ROWS = 24
+    # herdr's layout gives a pane's outer rectangle, and its default chrome takes a border on each side and a scrollbar
+    # column from a split pane's terminal, and a border above and below; herdr 0.9.5 reports no terminal size.
+    CHROME_COLUMNS = 3
+    CHROME_ROWS = 2
+    DOWN = 'down'
+    PLACEMENT = 'spawn runs in a herdr pane. Of the panes in this tab, or with --tab in every tab labelled LABEL, it ' \
+                'splits the one that leaves the new pane the most room along --split, provided the terminal in the ' \
+                "new pane gets at least #{MIN_COLUMNS} columns and #{MIN_ROWS} rows inside herdr's default borders " \
+                "and scrollbar, which keep a harness's dialogs and footer on whole lines; when no pane has that " \
+                'room, it opens a new tab labelled LABEL, or NAME without --tab. ' \
+                'When herdr gives no layout for one of those panes, it opens that new tab too, and never splits a ' \
+                'pane it could not measure. Splitting is the only change spawn makes to a pane it did not create, ' \
+                'and it labels the new pane NAME.'.freeze
+    WAITING = 'A dialog in the new pane, such as a folder trust or permission question, stops the session. spawn ' \
+              'quotes the dialog once, on stderr and in a message from keryx to the address spawn runs as, when ' \
+              'there is one, which rings that address, and keeps waiting; it never answers the dialog. The session ' \
+              'holds its first prompt behind the dialog and joins once it is answered, even after spawn gave up. ' \
+              '--timeout counts from the moment spawn starts, and spawn exits with status 3 when it passes before ' \
+              'the join; its error reads the pane again and quotes the dialog it then shows, if any, or, when that ' \
+              'read fails, the dialog spawn quoted earlier, as what the pane showed then. A herdr call already ' \
+              'started may finish after it, but spawn checks the timeout before each next step and starts no harness ' \
+              'once it passed, so a pane it opened by then holds only a shell.'
 
-    def initialize(herdr:, store:, socket:, clock:, sleeper:, notice:)
+    # vacant(name, advice) raises the error Spawn's claim raises when a session holds the address.
+    def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:, post:, vacant:)
       @herdr = herdr
       @store = store
       @socket = socket
       @clock = clock
       @sleeper = sleeper
+      @deadline = deadline
       @notice = notice
-      @noticed = false
-      @dialog = false
+      @post = post
+      @vacant = vacant
       @seen = false
     end
 
-    def place(from, label:, **placement)
-      placed(from, **placement).tap { name(it.id, label) }
+    def place(from, label:, address:, kind:, **placement)
+      opening = opening(from, label, **placement)
+      due("the timeout passed before spawn opened a pane; it started no session for #{address}")
+      opening.call.tap do |pane|
+        due(opened(pane.id, kind))
+        name(pane.id, label)
+      end
     end
 
-    def run(name, address, pane, kind:, arguments:, before:, deadline:)
-      starting = @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: deadline - @clock.call)
+    # herdr names agents apart from keryx, so a session that left its address keeps its herdr name, in its own pane.
+    def claim_name(name, own)
+      agent = @herdr.agent(@socket, name) or return
+      return @kept = agent.pane if agent.pane == own
+
+      pane = Text.plain(agent.pane)
+      raise Error, "herdr already runs an agent named #{name}, in pane #{pane}; choose another name, or free it with " \
+                   "'herdr agent rename #{pane} NEWNAME'"
+    end
+
+    def run(name, address, pane, kind:, arguments:, before:, director:, prompt:)
+      starting = start(name, pane, kind, arguments, director)
+      @dialog = Dialog.new(herdr: @herdr, socket: @socket, pane:, address:, director:, prompt:, notice: @notice,
+                           post: @post)
       loop do
         occupant = arrived(name, before)
-        return on_time(occupant, address, pane, deadline) if occupant && started?(occupant, pane, kind)
+        return on_time(occupant, address, pane) if occupant && started?(occupant, pane, kind)
         raise Error, conflict(address, occupant, pane) if occupant
 
         watch(address, pane, kind, ready?(starting, pane, kind))
-        raise WaitTimeout, late(address, pane) if @clock.call >= deadline
+        raise WaitTimeout, @dialog.late if @clock.call >= @deadline
 
         @sleeper.call(POLL_SECONDS)
       end
@@ -55,17 +102,109 @@ module Keryx
 
     private
 
-    def placed(from, split:, tab:, cwd:, env:)
-      return @herdr.split(@socket, from, direction: split, cwd:, env:) unless tab
+    # No step that changes something starts after the deadline, and none is cut short at it, since a split cut short
+    # could leave a pane whose id spawn never learns.
+    def due(late)
+      raise WaitTimeout, late if @clock.call >= @deadline
+    end
+
+    def opened(pane, kind)
+      "the timeout passed after spawn opened pane #{pane}, and it started no #{kind} session there; #{shell(pane)}"
+    end
+
+    def shell(pane) = "the pane holds only a shell, which 'herdr pane close #{pane}' closes"
+
+    # spawn checked the address and the herdr name before it opened the pane, and a session can change either meanwhile.
+    def start(name, pane, kind, arguments, director)
+      late = opened(pane, kind)
+      due(late)
+      direct(name, pane, kind, director) if director
+      due(late)
+      kept = @kept && keeps?(name)
+      stopped = "spawn started no #{kind} session in pane #{pane}; #{shell(pane)}"
+      held(late, stopped) do
+        @vacant.call(name, "it joined after spawn checked the address, and #{stopped}")
+        free_name(name, late) if kept
+      end
+      due(late)
+      @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: @deadline - @clock.call)
+    end
+
+    # The lookup can take long, so it runs before the hold, and the address check and the timeout's come after it. keryx
+    # holds no herdr name, and herdr clears whatever name the pane holds when the rename runs, so the pane can still
+    # change names between the lookup and the clear.
+    def keeps?(name) = herdr_name(name) { @herdr.agent(@socket, name)&.pane == @kept }
+
+    # join takes this lock too, so a join lands before the address check, which stops spawn, or after the clear, which
+    # then freed the name of an address no session held. spawn waits for it as a join does, but not past its timeout.
+    def held(late, stopped, &)
+      within = (@deadline - @clock.call).clamp(0, Store::LOCK_SECONDS)
+      @store.with_occupants_lock(within:, &)
+    rescue Store::Busy => e
+      raise WaitTimeout, late if within < Store::LOCK_SECONDS
+
+      raise Store::Busy, "#{e.message}; #{stopped}"
+    end
+
+    def free_name(name, late)
+      due(late)
+      herdr_name(name) { @herdr.clear_name(@socket, @kept) }
+    end
+
+    def herdr_name(name)
+      yield
+    rescue Error => e
+      raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
+    end
+
+    # The step that opens the new pane, once the reads that choose it are done.
+    def opening(from, label, split:, tab:, cwd:, env:)
+      return fitted([from], label, split:, cwd:, env:) { @herdr.pane(@socket, from).workspace } unless tab
 
       workspace = @herdr.pane(@socket, from).workspace
-      found = @herdr.tabs(@socket, workspace).find { it.label == tab }
-      return @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) unless found
+      tabs = @herdr.tabs(@socket, workspace).select { it.label == tab }
+      return -> { @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) } if tabs.empty?
 
-      last = @herdr.panes(@socket, workspace).select { it.tab == found.id }.last
-      raise Error, "herdr lists no pane in the tab #{tab}" unless last
+      fitted(last_panes(workspace, tabs, tab), tab, split:, cwd:, env:) { workspace }
+    end
 
-      @herdr.split(@socket, last.id, direction: split, cwd:, env:)
+    def last_panes(workspace, tabs, label)
+      panes = @herdr.panes(@socket, workspace)
+      last = tabs.filter_map { |tab| panes.select { it.tab == tab.id }.last&.id }
+      raise Error, "herdr lists no pane in the tab #{label}" if last.empty?
+
+      last
+    end
+
+    # A split of the pane of these panes' tabs that leaves the new one the most room, or else a new tab.
+    def fitted(through, label, split:, cwd:, env:)
+      best = layouts(through)&.then { roomiest(it, split) }
+      return -> { @herdr.split(@socket, best.pane, direction: split, cwd:, env:) } if best
+
+      workspace = yield
+      -> { @herdr.create_tab(@socket, workspace, label:, cwd:, env:) }
+    end
+
+    def layouts(through)
+      through.flat_map do |pane|
+        @herdr.layout(@socket, pane)
+      rescue Error => e
+        @notice.call("spawn could not read the layout of pane #{pane}: #{e.message}; it opens a new tab rather than " \
+                     'split a pane it could not measure.')
+        return nil
+      end
+    end
+
+    def roomiest(rects, split)
+      rooms = rects.to_h { [it, room(it, split)] }
+      rooms.select { |_, (columns, rows)| columns >= MIN_COLUMNS && rows >= MIN_ROWS }
+           .max_by { |_, (columns, rows)| split == DOWN ? rows : columns }&.first
+    end
+
+    # herdr gives the new pane the smaller half: the floor of half the width, or of the height when it splits down.
+    def room(rect, split)
+      columns, rows = split == DOWN ? [rect.width, rect.height / 2] : [rect.width / 2, rect.height]
+      [columns - CHROME_COLUMNS, rows - CHROME_ROWS]
     end
 
     def name(pane, label)
@@ -85,12 +224,12 @@ module Keryx
                      "#{[outcome.code, outcome.detail].compact.join(': ')}"
       end
 
-      dialog(pane)
+      @dialog.signal(:dialog)
       true
     end
 
-    def on_time(occupant, address, pane, deadline)
-      return occupant if occupant.joined_at <= deadline
+    def on_time(occupant, address, pane)
+      return occupant if occupant.joined_at <= @deadline
 
       raise WaitTimeout, "#{address} joined only after the timeout passed; its session runs in pane #{pane}"
     end
@@ -115,46 +254,7 @@ module Keryx
 
     def shown(pane, agent)
       @seen = true
-      @dialog = agent.status == BLOCKED ? :dialog : Bell.obstacle(@herdr.screen(@socket, pane))
-      dialog(pane, @dialog) if @dialog
-    end
-
-    def dialog(pane, obstacle = :dialog)
-      @dialog = obstacle
-      return if @noticed
-
-      @noticed = true
-      if obstacle == :editor
-        return @notice.call("Pane #{pane} #{shows(obstacle)}; keryx types nothing into it. The session joins once " \
-                            'it is closed.')
-      end
-
-      @notice.call("Pane #{pane} #{shows(obstacle)}, such as a folder trust or permission question. " \
-                   "#{obstacle == :cramped ? 'Look at it' : 'Answer it'} there; keryx never answers one. The session " \
-                   "joins once #{obstacle == :cramped ? 'any dialog' : 'it'} is answered.")
-    end
-
-    def late(address, pane)
-      return "#{address} has not joined yet; look at pane #{pane}" unless @dialog
-      if @dialog == :editor
-        return "#{address} has not joined yet: pane #{pane} #{shows(:editor)}, and the session joins by itself once " \
-               'it is closed'
-      end
-      if @dialog == :cramped
-        return "#{address} has not joined yet: pane #{pane} #{shows(:cramped)}; look at it, and the session joins by " \
-               'itself once any dialog is answered'
-      end
-
-      "#{address} has not joined yet: pane #{pane} shows a dialog for you to answer, and the session joins by itself " \
-        'once it is answered'
-    end
-
-    def shows(obstacle)
-      case obstacle
-      when :cramped then 'is too narrow to tell whether it shows a dialog'
-      when :editor then 'shows a queued message being edited'
-      else 'shows a dialog'
-      end
+      @dialog.signal(agent.status == BLOCKED ? :dialog : Bell.obstacle(@herdr.screen(@socket, pane)))
     end
   end
 end

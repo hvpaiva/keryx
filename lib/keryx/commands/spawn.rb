@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../courier'
 require_relative '../duration'
 require_relative '../harness'
 require_relative '../paths'
@@ -26,26 +27,25 @@ module Keryx
                       passthrough: true,
                       summary: 'Start an agent session in a herdr pane and give it an address',
                       description: 'Start an agent session in a new herdr pane, give it the address NAME and hand it ' \
-                                   "its first request.\n\n" \
-                                   'spawn runs in a herdr pane and splits it, or uses the tab --tab names, and ' \
-                                   'labels the new pane NAME. It creates NAME and, when TEXT or --file gives one, ' \
-                                   'posts the request from this session before the new session exists, without a ' \
-                                   'bell, since nothing holds NAME yet but a session that may have ended. The ' \
-                                   'harness then starts with a first prompt that tells the session to join NAME, ' \
-                                   'follow the keryx skill and open its inbox. spawn waits for the join and prints ' \
-                                   "the address, harness, pane and request id.\n\n" \
+                                   "its first request.\n\n#{Spawner::PLACEMENT}\n\n" \
+                                   'spawn creates NAME and, when TEXT or --file gives one, posts the request from ' \
+                                   'this session before the new session exists, without a bell, since nothing ' \
+                                   'holds NAME yet but a session that may have ended. The harness then starts with ' \
+                                   'a first prompt that tells the session to join NAME, follow the keryx skill and ' \
+                                   'open its inbox. spawn waits for the join and prints the address, harness, pane ' \
+                                   "and request id.\n\n" \
                                    'The session starts in this directory, or in --cwd, with KERYX_HOME set to this ' \
                                    'store, XDG_CONFIG_HOME to the directory this keryx reads its config from, and ' \
                                    'KERYX_HOST passed on when it is set. Claude Code also gets the settings that let ' \
                                    'the bells in and run the stop hook, for that session only. Codex runs a new hook ' \
                                    'only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
                                    "spawn installs no hook for them; 'keryx hook --help' shows how to add it. " \
-                                   "Arguments after -- go to the harness unchanged.\n\n" \
-                                   'A dialog in the new pane, such as a folder trust or permission question, is ' \
-                                   'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
-                                   'first prompt behind the dialog and joins once it is answered, even after spawn ' \
-                                   'gave up. --timeout counts from the moment spawn starts, and spawn exits with ' \
-                                   "status 3 when it passes before the join.\n\n" \
+                                   'Arguments after -- go to the harness unchanged. They and the first prompt, ' \
+                                   "--prompt included, are part of the harness's command line, which any local " \
+                                   'process can read, so none of them may carry a secret; the request goes to the ' \
+                                   'mailbox, in files only your user can read. spawn refuses a command line over ' \
+                                   "4000 bytes on Linux or 1000 on macOS, which the pane's terminal would cut.\n\n" \
+                                   "#{Spawner::WAITING}\n\n" \
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
                                    "after spawn gave up; 'keryx join --help' explains both.",
@@ -96,10 +96,9 @@ module Keryx
       end
 
       def placement_options(parser)
-        parser.on('--split DIRECTION', DIRECTIONS, 'Split the pane right or down (default: right)') do |direction|
-          options[:split] = direction
-        end
-        parser.on('--tab LABEL', 'Use the tab LABEL of this workspace, created when missing') do |label|
+        split = 'Split right, halving the width, or down, halving the height (default: right)'
+        parser.on('--split DIRECTION', DIRECTIONS, split) { options[:split] = it }
+        parser.on('--tab LABEL', 'Place the session in a tab labelled LABEL, a new one when none has room') do |label|
           options[:tab] = label
         end
         parser.on('--cwd PATH', 'Start the session in PATH (default: the current directory)') { options[:cwd] = it }
@@ -108,7 +107,9 @@ module Keryx
       def harness_options(parser)
         parser.on('--model MODEL', 'Ask the harness for MODEL') { options[:model] = it }
         parser.on('--effort LEVEL', 'Ask claude or codex for this reasoning effort') { options[:effort] = it }
-        parser.on('--prompt TEXT', 'Add TEXT to the first prompt the session gets') { options[:prompt] = it }
+        parser.on('--prompt TEXT', 'Add TEXT, up to 2 KiB, to the first prompt the session gets') do |text|
+          options[:prompt] = text
+        end
         Join.ceiling_option(parser, options)
       end
 
@@ -126,14 +127,19 @@ module Keryx
         Postman.check_body(text) if text
 
         %i[model effort].each { check_setting(it) }
-        Harness.check(options[:harness], effort: options[:effort])
-        checked_passthrough
+        Harness.check(options[:harness], **options.slice(:effort, :prompt))
+        self.passthrough = Harness.passthrough(passthrough)
         check_label
         timeout
         due_at
         first_prompt(name)
         directory
-        herdr_caller
+        check_line(name)
+      end
+
+      # The new pane's id is not known yet, and this pane's has the same form.
+      def check_line(name)
+        Harness.check_line(options[:harness], harness_arguments(name, herdr_caller.herdr_pane), host_os: app.host_os)
       end
 
       def check_setting(key)
@@ -184,15 +190,6 @@ module Keryx
          *passthrough, '--', first_prompt(name)]
       end
 
-      def checked_passthrough
-        passthrough.each do |argument|
-          next unless Text::CONTROL.match?(argument)
-
-          raise UsageError, "harness argument #{argument.inspect} holds a control character, and spawn types the " \
-                            'arguments into a shell'
-        end
-      end
-
       def first_prompt(name)
         @first_prompt ||= begin
           Tokens.parse(options[:ceiling]) if options[:ceiling]
@@ -202,9 +199,7 @@ module Keryx
 
       def claim(name)
         Join.refuse_taken(app, name, FREE)
-        agent = app.herdr.agent(herdr_caller.herdr_socket, name)
-        raise Error, "herdr already runs an agent named #{name}, in pane #{Text.plain(agent.pane)}; #{FREE}" if agent
-
+        spawner.claim_name(name, herdr_caller.herdr_pane)
         app.store.create_address(name, role: options[:role])
         # An earlier spawn's session may never have joined, and this spawn records a director only when it has one.
         app.store.forget_spawned(name)
@@ -215,31 +210,38 @@ module Keryx
                          due_at:, ring: false).message
       end
 
+      # The request goes on the first line, since a dialog's text can follow it.
       def waiting(request)
         yield
       rescue Error => e
         raise unless request
 
-        raise e.class, "#{e.message}; the request #{request.id} waits in its mailbox"
+        raise e.class, e.message.sub(/$/, "; the request #{request.id} waits in its mailbox")
       end
 
       def launch(name, before, director)
-        deadline = @started + timeout
         @pane = place(name)
-        spawner.direct(name, @pane, options[:harness], director) if director
-        @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
+        @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, director:,
+                                                             prompt: first_prompt(name),
                                                              arguments: harness_arguments(name, @pane))
       end
 
       def place(name)
-        spawner.place(herdr_caller.herdr_pane, label: name, split: options[:split] || DIRECTIONS.first,
-                                               tab: options[:tab], cwd: directory, env: session_env).id
+        spawner.place(herdr_caller.herdr_pane, label: name, address: app.full(name), kind: options[:harness],
+                                               split: options[:split] || DIRECTIONS.first, tab: options[:tab],
+                                               cwd: directory, env: session_env).id
       end
 
       def spawner
         @spawner ||= Spawner.new(herdr: app.herdr, store: app.store, socket: herdr_caller.herdr_socket,
-                                 clock: app.clock, sleeper: app.sleeper,
-                                 notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) })
+                                 clock: app.clock, sleeper: app.sleeper, deadline: @started + timeout,
+                                 notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) },
+                                 post: method(:tell), vacant: ->(name, advice) { Join.refuse_taken(app, name, advice) })
+      end
+
+      def tell(name, body)
+        app.postman.post(sender: Keryx::Courier::NAME, recipient: Address.new(name:, host: app.host), kind: 'message',
+                         body:)
       end
 
       def report(name, request)

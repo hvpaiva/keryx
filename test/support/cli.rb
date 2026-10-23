@@ -104,6 +104,9 @@ module CLIHelpers
 
   def processes = @processes ||= FakeProcesses.new(alive, lineage)
 
+  # The operating system keryx runs on, whatever machine runs the tests.
+  def host_os = @host_os ||= 'linux-gnu'
+
   def base_env
     { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person',
       'HOME' => tmp('home') }
@@ -120,7 +123,7 @@ module CLIHelpers
     factory = lambda do |globals|
       Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets, codex:,
                      remote:, sleeper: ->(seconds) { [clock, monotonic].each { it.advance(seconds) } }, processes:,
-                     monotonic:)
+                     host_os:, monotonic:)
     end
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)
   end

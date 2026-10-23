@@ -11,9 +11,12 @@ module Keryx
     end
     Outcome = Data.define(:ok, :code, :detail)
     Pane = Data.define(:id, :tab, :workspace)
+    Rect = Data.define(:pane, :width, :height)
     Tab = Data.define(:id, :label)
+    NO_LAYOUT = 'herdr answered without a pane layout'
     SCREEN_LINES = '20'
     FOOTER_LINES = 4
+    VISIBLE_LINES = '60'
     # herdr answered that the pane is gone or runs no agent, which is not the same as not answering.
     NONE = :none
     NOT_FOUND = %w[agent_not_found pane_not_found].freeze
@@ -83,6 +86,12 @@ module Keryx
       result.success ? result.out : nil
     end
 
+    # The pane as a person sees it, tall enough for a dialog with the command herdr typed above it.
+    def visible(socket, pane)
+      result = run(socket, 'pane', 'read', pane, '--source', 'visible', '--lines', VISIBLE_LINES)
+      result.success ? result.out : nil
+    end
+
     def prompt(socket, pane, text) = Herdr.outcome(run(socket, 'agent', 'prompt', pane, text))
 
     def pane(socket, id) = pane_of(control(socket, 'pane', 'get', id)['pane'])
@@ -97,7 +106,18 @@ module Keryx
       end
     end
 
+    # Every pane of the tab that holds pane, with the size herdr gives it.
+    def layout(socket, pane)
+      layout = control(socket, 'pane', 'layout', '--pane', pane)['layout']
+      panes = layout['panes'] if layout.is_a?(Hash)
+      raise Error, NO_LAYOUT unless panes.is_a?(Array) && !panes.empty?
+
+      panes.map { rect_of(it) }
+    end
+
     def rename(socket, pane, label) = control(socket, 'pane', 'rename', pane, label)
+
+    def clear_name(socket, pane) = control(socket, 'agent', 'rename', pane, '--clear')
 
     def split(socket, pane, direction:, cwd:, env: {})
       pane_of(control(socket, 'pane', 'split', pane, '--direction', direction, '--cwd', cwd, *env_options(env),
@@ -149,6 +169,14 @@ module Keryx
       raise Error, 'herdr answered without a pane' unless data.is_a?(Hash) && data['pane_id']
 
       Pane.new(id: data['pane_id'], tab: data['tab_id'], workspace: data['workspace_id'])
+    end
+
+    def rect_of(data)
+      rect = data['rect'] if data.is_a?(Hash)
+      width, height = rect.values_at('width', 'height') if rect.is_a?(Hash)
+      raise Error, NO_LAYOUT unless [width, height].all?(Integer) && data['pane_id'].is_a?(String)
+
+      Rect.new(pane: data['pane_id'], width:, height:)
     end
 
     def env_options(env) = env.flat_map { |key, value| ['--env', "#{key}=#{value}"] }
