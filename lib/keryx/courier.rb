@@ -119,12 +119,11 @@ module Keryx
     end
 
     def notice(name, context, ceiling, stage)
-      used = "#{name}@#{@host} has #{Tokens.short(context.used)} tokens of context in use"
-      return "#{used} and reached its #{Tokens.short(ceiling)} ceiling. It should reach a stopping point now." if
-        stage == :ceiling
+      used = "#{name}@#{@host} has #{Tokens.short(context.used)} tokens of context in use, " \
+             "#{context.share_of(ceiling)}% of its #{Tokens.short(ceiling)} ceiling."
+      return "#{used} It reached its ceiling and should reach a stopping point now." if stage == :ceiling
 
-      "#{used}, #{(context.used * 100r / ceiling).round}% of its #{Tokens.short(ceiling)} ceiling. It should reach a " \
-        'stopping point.'
+      "#{used} It should reach a stopping point."
     end
 
     def remind(sender, request)

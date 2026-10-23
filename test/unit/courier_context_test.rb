@@ -40,8 +40,8 @@ class CourierContextTest < Minitest::Test
 
     assert_equal ['impl@athena has 100k tokens of context in use, 80% of its 125k ceiling. It should reach a ' \
                   'stopping point.',
-                  'impl@athena has 126k tokens of context in use and reached its 125k ceiling. It should reach a ' \
-                  'stopping point now.'], bodies('orq').sort
+                  'impl@athena has 126k tokens of context in use, 101% of its 125k ceiling. It reached its ceiling ' \
+                  'and should reach a stopping point now.'], bodies('orq').sort
     assert_equal bodies('orq').sort, bodies('impl').sort
     assert(store.unread('orq').none?(&:context))
   end
