@@ -71,7 +71,7 @@ class FakeHerdr
   attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered, :footers
   attr_writer :sizes
   # area is the size of a tab herdr creates.
-  attr_accessor :start_outcome, :start_polls, :on_start, :rename_error, :layout_error, :area, :clear_error
+  attr_accessor :start_outcome, :start_polls, :on_start, :on_screen, :rename_error, :layout_error, :area, :clear_error
   # Called with the name of a herdr call, such as :split or :rename, while it runs, so a test can make it slow.
   attr_accessor :on_call
 
@@ -105,7 +105,10 @@ class FakeHerdr
 
   def show(socket, pane, screen) = @screens[[socket, pane]] = screen
 
-  def screen(socket, pane) = @screens.fetch([socket, pane], '> ')
+  def screen(socket, pane)
+    @on_screen&.call(socket, pane)
+    @screens.fetch([socket, pane], '> ')
+  end
 
   def footer(socket, pane) = footers[[socket, pane]]
 

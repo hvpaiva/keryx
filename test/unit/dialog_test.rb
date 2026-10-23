@@ -98,7 +98,7 @@ class DialogTest < Minitest::Test
     prompt = "#{PROMPT} Press enter to confirm (y/n) when you trust the folder."
     read = "$ claude -- #{DialogTest.quoted(prompt)}\n\n> \n"
 
-    assert Keryx::Bell.dialog?(read)
+    assert_equal :dialog, Keryx::Bell.obstacle(read)
     assert_nil excerpt(read, prompt)
     assert_nil excerpt(typed("$ claude\n> \n"))
   end

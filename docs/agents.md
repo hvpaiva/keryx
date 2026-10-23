@@ -86,6 +86,7 @@ of them sets it.
 Run them in a [herdr](https://herdr.dev) pane. keryx knows them by the pane, asks herdr which agent
 runs there and whether it is idle, and rings them by typing a one-line bell into the pane. It types
 only when herdr reports the agent idle, done or working and nothing on the bottom of the screen
-looks like a dialog the typing could answer.
+looks like a dialog the typing could answer. When the agent's composer shows there, only the lines
+below it count, so a transcript that quotes a dialog does not hold the bell back.
 
 herdr also gives `keryx who` and `keryx status` the state of each agent, whatever its harness.

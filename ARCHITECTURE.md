@@ -139,6 +139,41 @@ and the id, never the body. It tries two ways, in order.
    harness no longer holds the session, so the bell is absent there rather than typed into whoever
    took the pane.
 
+   Every dialog keryx knows takes the place of the harness's composer, the prompt line under its
+   transcript (`›` for Codex, `❯` for Claude Code, `→` for Cursor). So when the screen shows a
+   composer, the phrases, options and footer are looked for only on the lines below the last one,
+   and a transcript that quotes a dialog's words does not count; without one, every line is read.
+   A prompt line that marks an option, or has a line beside it at the column of its text as the
+   selected entry of a menu has, is no composer. The cost is that a dialog drawn above a live
+   composer goes unseen, and none of the known ones is. The narrow pane rule reads every line.
+   Cursor's follow-ups box, which lists the messages Cursor queued for the end of its turn above its
+   composer, ends with "enter steer · ↑ select/edit · esc cancel", a footer like a dialog's, so it
+   is never read, from its `┌─ follow-ups` title through its `└─┘` bottom border, or through the
+   last line when that border is below the screen. Unless one of its messages is open for editing:
+   then its footer reads "editing · enter done · esc close", the focus is in the box while the
+   composer stays drawn below it, and a typed bell would land in the queued message. That footer is
+   looked for first, on every line of the box and with no spaces so that a narrow box that wraps it
+   still counts, and the bell defers, saying the screen shows a queued message being edited.
+   Matching inside the box, not anywhere, keeps a transcript that quotes that footer from holding
+   the bell back. A queued message taller than the pane can put the box's title above the screen,
+   so the footer is also looked for in the framed lines, between `│` borders, that the screen
+   starts with. Those lines are not dropped before the dialog rule, since a dialog's box can be cut
+   the same way. When the footer itself is above the screen, nothing on it shows the edit.
+
+   The rule does not read what the composer holds, and the follow-ups box is the only editor it
+   knows. Codex's shift+← moves the last queued message back into its composer to be edited, which
+   nothing here recognizes, so a bell typed into the pane then is added to that message. A bell to
+   Codex is typed in two cases only. When herdr shows the session in its pane by its process alone,
+   with no thread id, the bell is typed without trying the queue. When herdr shows the thread and
+   `codex queue --thread ID` fails, the bell falls back to the pane, which is looked at and read
+   again first. The queue itself types nothing into the composer.
+
+   The detail of a deferral for a dialog or an edited message names what matched, the words keryx's own patterns took or
+   a marked option, and the line of the screen it showed on, as in
+   `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt reaches the sender,
+   on whatever machine, so it never holds the rest of that line, and its control characters are
+   made visible.
+
 Cursor has no channel of its own, so it is always rung by typing.
 
 Before typing into a pane, `Lookout` checks that the pane still runs the session that joined, and
@@ -147,7 +182,11 @@ a pane; when herdr reports one, it must equal the occupant's, and an occupant th
 not taken for it. When herdr reports none, which is how a Codex session whose hooks are not trusted
 looks, the pane's foreground process group must be the process the occupant records, with the
 start time it records. Anything else is absent. When herdr or `ps` does not answer, the bell is
-deferred.
+deferred. Reading the screen can take seconds, so `Bell` asks `Lookout` again once the screen shows
+no dialog, right before typing, and types only if the pane still runs the session and herdr still
+reports the agent idle, done or working. herdr types into a pane, not into a given session, so a
+session that takes the pane in the moment between that last check and the keystrokes can still
+receive the bell.
 
 A Codex thread is queued only while herdr shows its id in the session's pane. `codex queue` hands
 the message to whichever Codex app-server has the thread loaded, and Codex's shared server keeps a
@@ -233,12 +272,12 @@ the last box top or rule with the dialog still below it, at most 24 lines of 160
 control characters made visible. spawn prints it once and posts the same text once, as a message
 from keryx to the address spawn runs as, which rings that address while spawn keeps waiting; with no
 such address it posts nothing, since the post would create one. A read that is not a dialog yet
-spends nothing, and the next poll reads again. A screen the bell finds too narrow to tell is
-reported as such, once, and quoted to no one. spawn stops when the pane has no agent of that harness
-left or `--timeout`, counted from the moment spawn starts, passes. After a quote, the error at the
-timeout reads the pane again and quotes the dialog it shows then, or the one quoted before when that
-read shows none. A join recorded after that moment counts as too late, however soon spawn notices
-it.
+spends nothing, and the next poll reads again. A screen the bell finds too narrow to tell, or one
+where a queued message is being edited, is reported as such, once, and quoted to no one. spawn stops
+when the pane has no agent of that harness left or `--timeout`, counted from the moment spawn
+starts, passes. After a quote, the error at the timeout reads the pane again and quotes the dialog
+it shows then, or the one quoted before when that read shows none. A join recorded after that moment
+counts as too late, however soon spawn notices it.
 
 ## The stop hook
 

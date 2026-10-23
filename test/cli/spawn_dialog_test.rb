@@ -137,6 +137,16 @@ class SpawnDialogTest < Minitest::Test
     assert_equal [0, []], [notices(result), from_keryx('orq')]
   end
 
+  def test_a_queued_message_being_edited_is_reported_once_and_posted_to_no_one
+    orq = join_claude('orq', 111)
+    session_runs(screen: Screens.session('cursor-follow-up-editor'))
+    result = spawn('impl', '--harness', 'cursor', '--timeout', '3s', env: orq)
+
+    assert_equal 3, result.status
+    assert_equal 1, result.err.scan('shows a queued message being edited; keryx types nothing').size
+    assert_equal [0, []], [notices(result), from_keryx('orq')]
+  end
+
   def test_a_blocked_agent_whose_pane_is_too_narrow_to_read_is_reported_as_such
     orq = join_claude('orq', 111)
     stops_at(Screens.captured.fetch('claude-4'))

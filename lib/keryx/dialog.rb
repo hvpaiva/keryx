@@ -18,12 +18,13 @@ module Keryx
     RULE = /\A\u2500+\z/
     CUT = "\u2026"
     CRAMPED = 'is too narrow to tell whether it shows a dialog'
+    EDITOR = 'shows a queued message being edited'
 
     # The dialog a read of the pane shows below the command herdr typed, as the lines spawn quotes, or nil when it
     # shows none. That command holds the first prompt, whose words could pass for a dialog.
     def self.excerpt(read, prompt)
       lines = below(read, prompt)
-      block(lines).filter_map { quoted(it) }.last(LINES) if Bell.dialog?(lines.join("\n"))
+      block(lines).filter_map { quoted(it) }.last(LINES) if dialog?(lines)
     end
 
     def self.cramped?(read, prompt) = Bell.cramped?(below(read, prompt).join("\n"))
@@ -43,7 +44,7 @@ module Keryx
     # From the last box top or rule that still has the dialog below it, else from the first line.
     def self.block(lines)
       borders = lines.each_index.select { border?(lines[it]) }
-      start = borders.reverse.find { Bell.dialog?(lines.drop(it + 1).join("\n")) }
+      start = borders.reverse.find { dialog?(lines.drop(it + 1)) }
       start ? lines.drop(start + 1) : lines
     end
 
@@ -57,8 +58,9 @@ module Keryx
       text.size > WIDTH ? "#{text[0, WIDTH - 1]}#{CUT}" : text
     end
 
+    def self.dialog?(lines) = Bell.obstacle(lines.join("\n")) == :dialog
     def self.letters(text) = text.to_s.gsub(/[^[:alnum:]]/, '')
-    private_class_method :below, :block, :border?, :quoted, :letters
+    private_class_method :below, :block, :dialog?, :border?, :quoted, :letters
 
     def initialize(herdr:, socket:, pane:, address:, director:, prompt:, notice:, post:)
       @herdr = herdr
@@ -72,25 +74,26 @@ module Keryx
       @shown = nil
       @quoted = nil
       @cramped = false
+      @edited = false
     end
 
     # What a poll found: :dialog when herdr or the screen says a dialog may show, :cramped when the screen is too narrow
-    # to tell, or nil. A dialog is quoted once a read of the pane shows one, and until then each signal reads again.
+    # to tell, :editor when a queued message is being edited, or nil. A dialog is quoted once a read of the pane shows
+    # one, and until then each signal reads again.
     def signal(obstacle)
       @shown = obstacle
-      return cramped if obstacle == :cramped
-      return if obstacle.nil? || @quoted
-
-      read = @herdr.visible(@socket, @pane) or return
-      excerpt = Dialog.excerpt(read, @prompt)
-      return quote(excerpt) if excerpt
-
-      cramped if Dialog.cramped?(read, @prompt)
+      case obstacle
+      when :cramped then cramped
+      when :editor then editor
+      when :dialog then look unless @quoted
+      end
     end
 
     def late
       waiting = "#{@address} has not joined yet"
-      if @quoted
+      if @shown == :editor
+        "#{waiting}: pane #{@pane} #{EDITOR}, and the session joins by itself once it is closed"
+      elsif @quoted
         "#{waiting}: pane #{@pane} shows the dialog below, and the session joins by itself once it is answered; " \
           "keryx never answers one\n#{indented(again)}"
       elsif @shown == :cramped
@@ -102,6 +105,14 @@ module Keryx
     end
 
     private
+
+    def look
+      read = @herdr.visible(@socket, @pane) or return
+      excerpt = Dialog.excerpt(read, @prompt)
+      return quote(excerpt) if excerpt
+
+      cramped if Dialog.cramped?(read, @prompt)
+    end
 
     # The deadline reads the pane again, since the dialog may have changed, such as from a folder trust to a permission
     # question.
@@ -131,6 +142,13 @@ module Keryx
       @cramped = true
       @notice.call("Pane #{@pane} #{CRAMPED}, such as a folder trust or permission question. Look at it there; " \
                    'keryx never answers one. The session joins once any dialog is answered.')
+    end
+
+    def editor
+      return if @edited
+
+      @edited = true
+      @notice.call("Pane #{@pane} #{EDITOR}; keryx types nothing into it. The session joins once it is closed.")
     end
 
     def indented(lines) = lines.map { "  #{it}" }.join("\n")

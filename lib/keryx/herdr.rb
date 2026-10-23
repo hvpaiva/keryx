@@ -20,6 +20,7 @@ module Keryx
     # herdr answered that the pane is gone or runs no agent, which is not the same as not answering.
     NONE = :none
     NOT_FOUND = %w[agent_not_found pane_not_found].freeze
+    AGENT_FIELDS = %w[pane_id agent agent_status].freeze
     START_TIMEOUT_MS = (3001..300_000)
 
     class Starting
@@ -58,21 +59,21 @@ module Keryx
 
     def look(socket, pane)
       data = Herdr.json(run(socket, 'agent', 'get', pane))
-      agent = data&.dig('result', 'agent')
-      return agent_of(agent) if agent.is_a?(Hash)
+      agent = agent_of(dig(data, 'result', 'agent'))
+      return agent if agent
 
       NOT_FOUND.include?(Herdr.error_of(data)['code']) ? NONE : nil
     end
 
     def foreground(socket, pane)
       data = Herdr.json(run(socket, 'pane', 'process-info', '--pane', pane))
-      group = data&.dig('result', 'process_info', 'foreground_process_group_id')
+      group = dig(data, 'result', 'process_info', 'foreground_process_group_id')
       group if group.is_a?(Integer) && group.positive?
     end
 
     def agents(socket)
-      data = Herdr.json(run(socket, 'agent', 'list'))
-      Array(data&.dig('result', 'agents')).map { agent_of(it) }
+      listed = dig(Herdr.json(run(socket, 'agent', 'list')), 'result', 'agents')
+      listed.is_a?(Array) ? listed.filter_map { agent_of(it) } : []
     end
 
     def screen(socket, pane)
@@ -150,10 +151,18 @@ module Keryx
       raise Error, "herdr #{arguments.first(2).join(' ')} failed: #{reason.to_s.empty? ? 'no answer' : reason}"
     end
 
+    # herdr may answer JSON of any shape, so each level is read only from a Hash.
+    def dig(data, *keys) = keys.reduce(data) { |level, key| level[key] if level.is_a?(Hash) }
+
     def agent_of(data)
-      session = data['agent_session']
-      Agent.new(pane: data['pane_id'], kind: data['agent'], status: data['agent_status'],
-                session: (session['value'] if session.is_a?(Hash) && session['kind'] == 'id'))
+      return unless data.is_a?(Hash) && data.values_at(*AGENT_FIELDS).all?(String)
+
+      pane, kind, status = data.values_at(*AGENT_FIELDS)
+      Agent.new(pane:, kind:, status:, session: session_of(data['agent_session']))
+    end
+
+    def session_of(data)
+      data['value'] if data.is_a?(Hash) && data['kind'] == 'id' && data['value'].is_a?(String)
     end
 
     def pane_of(data)

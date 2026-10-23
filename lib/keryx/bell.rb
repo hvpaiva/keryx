@@ -7,6 +7,7 @@ require_relative 'herdr'
 require_relative 'lookout'
 require_relative 'processes'
 require_relative 'runner'
+require_relative 'text'
 
 module Keryx
   class Bell
@@ -37,15 +38,44 @@ module Keryx
     CRAMPED_CHARACTERS = 3
     CRAMPED_LINES = 4
     BOX_DRAWING = /[\u2500-\u257f]/
-    OBSTACLES = { dialog: 'the screen shows a dialog',
+    # The prompt before Codex's, Claude Code's and Cursor's composer, the line a dialog takes the place of.
+    COMPOSER = /\A\s*[\u203a\u276f\u2192]\s*/
+    # The box above Cursor's composer that lists the follow-ups it queued, from its title to its bottom border.
+    FOLLOW_UPS = /\A\s*\u250c\u2500*\s*follow-ups/
+    BOTTOM_BORDER = /\A\s*\u2514\u2500*\u2518/
+    # A line inside a box, between its side borders.
+    FRAMED = /\A\s*\u2502.*\u2502\s*\z/
+    # The footer of that box, with no spaces, while one of its messages is open for editing and holds the focus.
+    EDITING = /editing\u00b7enterdone\u00b7escclose/i
+    # The longest evidence a deferral quotes, since a bell's receipt reaches the sender, on any machine.
+    EVIDENCE_CHARACTERS = 60
+    OBSTACLES = { dialog: 'the screen shows a dialog', editor: 'the screen shows a queued message being edited',
                   cramped: 'the pane is too narrow to tell whether it shows a dialog' }.freeze
 
+    # An obstacle, as a key of OBSTACLES or nil, and what on the screen showed it: only the words keryx's own patterns
+    # matched and their line, never the rest of the screen.
+    Reading = Data.define(:obstacle, :evidence) do
+      def note = evidence ? "#{OBSTACLES.fetch(obstacle)} (#{evidence})" : OBSTACLES.fetch(obstacle)
+    end
+    Word = Data.define(:text, :row, :column)
+
     # A narrow pane wraps a dialog over several lines, often inside a box, so its phrases are matched on the lines
-    # joined, its options line by line, and its footer with no spaces at all, whatever the width.
-    def self.dialog?(screen)
+    # joined, its options line by line, and its footer with no spaces at all, whatever the width. A dialog takes the
+    # place of the harness's composer, so what shows above a composer is its transcript, and only the lines below the
+    # last composer are read. Cursor's follow-ups box ends with a footer like a dialog's, so it is never read, unless
+    # one of its messages is being edited, which takes the focus from the composer drawn below it. A message taller
+    # than the pane puts the box's title above the screen, so that footer counts in the frame the screen starts with.
+    def self.reading(screen)
       lines = lines(screen)
-      DIALOG.match?(lines.join(' ').split.join(' ')) || options?(lines) ||
-        SQUEEZED_FOOTER.match?(lines.join.gsub(/\s+/, ''))
+      raw = screen.to_s.lines.map(&:chomp)
+      box = follow_ups(raw)
+      editing = footer(lines, [*cut_off(raw), *box], EDITING)
+      return Reading.new(obstacle: :editor, evidence: editing) if editing
+
+      evidence = sighting(lines.each_with_index.map { |line, row| box.cover?(row) ? '' : line })
+      return Reading.new(obstacle: :dialog, evidence:) if evidence
+
+      Reading.new(obstacle: (:cramped if cramped?(screen)), evidence: nil)
     end
 
     def self.cramped?(screen)
@@ -54,26 +84,92 @@ module Keryx
     end
 
     # What keeps a bell from typing into a screen, as a key of OBSTACLES, or nil.
-    def self.obstacle(screen)
-      return :dialog if dialog?(screen)
+    def self.obstacle(screen) = reading(screen).obstacle
 
-      :cramped if cramped?(screen)
+    # The last line with a prompt that marks no option and has no line beside it at its text's column, as the entries
+    # of a menu have.
+    def self.composer(lines)
+      lines.each_index.reverse_each.find do |row|
+        column = COMPOSER.match(lines[row])&.end(0)
+        column && !LABEL.match?(lines[row], column) &&
+          [row - 1, row + 1].none? { it >= 0 && lines[it]&.index(/\S/) == column }
+      end
+    end
+
+    # The rows of the last follow-ups box, if any, through its bottom border or the last line when the border is below
+    # the screen, found on the screen as herdr gave it since the lines the rules read drop the box drawing of its frame.
+    def self.follow_ups(raw)
+      top = raw.rindex { FOLLOW_UPS.match?(it) } or return 0...0
+      bottom = ((top + 1)...raw.size).find { BOTTOM_BORDER.match?(raw[it]) }
+      top..(bottom || (raw.size - 1))
+    end
+
+    # The framed lines the screen starts with, a box whose top is above the screen. It may be the follow-ups box, but a
+    # dialog's box can be cut the same way, so these lines are only searched for the editing footer, never dropped.
+    def self.cut_off(raw) = 0...(raw.index { !FRAMED.match?(it) } || raw.size)
+
+    # What shows a dialog on the lines below the last composer, or on all of them when no composer shows.
+    def self.sighting(lines)
+      rows = (composer(lines)&.succ || 0)...lines.size
+      phrase(lines, rows) || option(lines, rows) || footer(lines, rows)
+    end
+
+    def self.phrase(lines, rows)
+      words = words(lines, rows)
+      match = DIALOG.match(words.map(&:text).join(' ')) or return
+      quote(lines, words, ' ', match)
+    end
+
+    def self.footer(lines, rows, pattern = SQUEEZED_FOOTER)
+      words = words(lines, rows)
+      match = pattern.match(words.map(&:text).join) or return
+      quote(lines, words, '', match)
+    end
+
+    def self.option(lines, rows)
+      row = rows.find { option?(lines, it) } or return
+      "a marked option on line #{row + 1} of #{lines.size}"
     end
 
     # A marked option and, before a blank line, another option at the same column.
-    def self.options?(lines)
-      lines.each_with_index.any? do |line, index|
-        column = MARKER.match(line)&.end(0)
-        next false unless column && LABEL.match?(line, column)
+    def self.option?(lines, row)
+      column = MARKER.match(lines[row])&.end(0)
+      return false unless column && LABEL.match?(lines[row], column)
 
-        lines[(index + 1)..].take_while { !it.strip.empty? }.any? do |other|
-          other[0, column].strip.empty? && LABEL.match?(other, column)
-        end
+      lines[(row + 1)..].take_while { !it.strip.empty? }.any? do |other|
+        other[0, column].strip.empty? && LABEL.match?(other, column)
+      end
+    end
+
+    def self.words(lines, rows)
+      rows.flat_map do |row|
+        lines[row].to_enum(:scan, /\S+/).map { Word.new(text: it, row:, column: Regexp.last_match.begin(0)) }
+      end
+    end
+
+    # The screen's text from the first character the match took to its last, which holds nothing but the match and
+    # the blanks between its characters, with the line it starts on.
+    def self.quote(lines, words, gap, match)
+      first, last = [match.begin(0), match.end(0) - 1].map { spot(words, gap, it) }
+      shown = (first.row..last.row).map do |row|
+        lines[row][(row == first.row ? first.column : 0)..(row == last.row ? last.column : -1)]
+      end
+      text = Text.plain(shown.join(' ').split.join(' '))[0, EVIDENCE_CHARACTERS]
+      %("#{text}", line #{first.row + 1} of #{lines.size})
+    end
+
+    # Where the character at offset in the words joined by gap shows on the screen.
+    def self.spot(words, gap, offset)
+      words.each do |word|
+        return word.with(column: word.column + offset) if offset < word.text.size
+
+        offset -= word.text.size + gap.size
       end
     end
 
     def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
-    private_class_method :options?, :lines
+    private_class_method :composer, :follow_ups, :cut_off, :sighting, :phrase, :footer, :option, :option?, :words,
+                         :quote, :spot, :lines
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
                    lookout: Lookout.new(herdr:, processes: Processes.new))
@@ -155,10 +251,18 @@ module Keryx
       screen = @herdr.screen(socket, pane)
       return outcome(DEFERRED, 'herdr', 'the screen could not be read') if screen.nil?
 
-      obstacle = Bell.obstacle(screen)
-      return outcome(DEFERRED, 'herdr', OBSTACLES.fetch(obstacle)) if obstacle
+      reading = Bell.reading(screen)
+      return outcome(DEFERRED, 'herdr', reading.note) if reading.obstacle
 
-      typed(@herdr.prompt(socket, pane, text))
+      untypable(occupant) || typed(@herdr.prompt(socket, pane, text))
+    end
+
+    # Reading the screen can take seconds and herdr types into a pane, not a session, so the pane is looked at again.
+    def untypable(occupant)
+      seen = @lookout.in_pane(occupant)
+      return unseen(seen) unless seen.there?
+
+      outcome(DEFERRED, 'herdr', "the agent is #{seen.agent.status}") unless TYPABLE.include?(seen.agent.status)
     end
 
     # herdr or ps not answering may pass, so that bell waits to ring again; anything else is not the session.
