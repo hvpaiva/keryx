@@ -38,6 +38,20 @@ class LookoutTest < Minitest::Test
     assert_equal :live, presence(pid: 7, started: 'started 7')
   end
 
+  def test_a_session_id_herdr_reports_never_matches_a_record_without_one
+    processes.alive << 7
+    herdr.foregrounds[[SOCKET, 'w1:p2']] = 7
+    occupant = build_occupant(harness: 'codex', session_id: nil, pid: 7, started: 'started 7',
+                              **in_pane(codex('t-2')))
+    sighting = Keryx::Lookout.new(herdr:, processes:).in_pane(occupant)
+
+    assert_equal :unproven, sighting.verdict
+    assert_equal 'pane w1:p2 runs thread t-2, and the session that joined recorded no thread', sighting.detail
+    herdr.put(SOCKET, 'w1:p2', codex(nil))
+
+    assert_predicate Keryx::Lookout.new(herdr:, processes:).in_pane(occupant), :there?
+  end
+
   def test_without_a_process_the_pane_decides_and_only_what_it_shows_is_gone
     assert_equal :live, presence(harness: 'codex', session_id: 't-1', **in_pane(codex('t-1')))
     assert_equal :gone, presence(harness: 'codex', session_id: 't-1', **in_pane(codex('t-2')))

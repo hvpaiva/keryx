@@ -50,7 +50,8 @@ the commands it runs.
 - Codex sets `CODEX_THREAD_ID`.
 - Cursor sets `CURSOR_CONVERSATION_ID`.
 - herdr sets `HERDR_SOCKET_PATH` and `HERDR_PANE_ID` in its panes, and answers which agent runs in
-  a pane.
+  a pane, with its session id when the harness's herdr integration reports one. A harness that sets
+  none of the variables above is named by herdr and takes that session id.
 
 A harness started from another harness's shell inherits the outer one's variables, so keryx reads
 Cursor's and Codex's before Claude Code's.
@@ -117,10 +118,11 @@ Cursor has no channel of its own, so it is always rung by typing.
 
 Before typing into a pane, `Lookout` checks that the pane still runs the session that joined, and
 not a session that took the pane over. herdr's integrations report the session id of the agent in
-a pane; when herdr reports one, it must equal the occupant's. When herdr reports none, which is how
-a Codex session whose hooks are not trusted looks, the pane's foreground process group must be the
-process the occupant records, with the start time it records. Anything else is absent. When herdr
-or `ps` does not answer, the bell is deferred.
+a pane; when herdr reports one, it must equal the occupant's, and an occupant that recorded none is
+not taken for it. When herdr reports none, which is how a Codex session whose hooks are not trusted
+looks, the pane's foreground process group must be the process the occupant records, with the
+start time it records. Anything else is absent. When herdr or `ps` does not answer, the bell is
+deferred.
 
 A Codex thread is queued only while herdr shows its id in the session's pane. `codex queue` hands
 the message to whichever Codex app-server has the thread loaded, and Codex's shared server keeps a

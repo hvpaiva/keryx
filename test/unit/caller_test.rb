@@ -29,7 +29,16 @@ class CallerTest < Minitest::Test
 
     assert_equal 'codex', caller.harness
     assert_nil caller.pid
+    assert_nil caller.session_id
     assert_predicate caller, :agent?
+  end
+
+  def test_a_harness_named_by_herdr_takes_the_session_id_herdr_reports
+    agent = Keryx::Herdr::Agent.new('w1:p2', 'codex', 'idle', 'thread-9')
+    caller = caller_from({ 'HERDR_SOCKET_PATH' => HERDR_SOCKET, 'HERDR_PANE_ID' => 'w1:p2' },
+                         herdr: FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => agent }))
+
+    assert_equal %w[codex thread-9], [caller.harness, caller.session_id]
   end
 
   def test_a_codex_session_is_named_by_its_thread

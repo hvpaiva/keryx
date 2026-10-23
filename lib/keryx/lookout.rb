@@ -27,7 +27,7 @@ module Keryx
       if agent.kind != occupant.harness
         return sighting(:elsewhere, "pane #{pane} runs #{agent.kind}, not #{occupant.harness}")
       end
-      return by_session(occupant, agent) if agent.session && occupant.session_id
+      return by_session(occupant, agent) if agent.session
 
       by_process(occupant, agent)
     end
@@ -42,11 +42,14 @@ module Keryx
 
     private
 
+    # The process only stands in for a session id herdr does not report.
     def by_session(occupant, agent)
-      return sighting(:there, nil, agent) if agent.session == occupant.session_id
+      runs = "pane #{occupant.herdr_pane} runs #{label(occupant)} #{agent.session}"
+      recorded = occupant.session_id
+      return sighting(:unproven, "#{runs}, and the session that joined recorded no #{label(occupant)}") unless recorded
+      return sighting(:there, nil, agent) if agent.session == recorded
 
-      sighting(:elsewhere, "pane #{occupant.herdr_pane} runs #{label(occupant)} #{agent.session}, not " \
-                           "#{occupant.session_id}")
+      sighting(:elsewhere, "#{runs}, not #{recorded}")
     end
 
     def by_process(occupant, agent)

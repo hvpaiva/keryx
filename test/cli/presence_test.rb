@@ -46,6 +46,22 @@ class PresenceTest < Minitest::Test
     assert_equal(['thread-2', 900], store.occupant('impl').then { [it.session_id, it.pid] })
   end
 
+  def test_a_session_id_herdr_reports_is_compared_even_when_the_session_has_none_of_its_own
+    runs_in('w1:p3', 500)
+    show('w1:p3', 'codex', 'idle', 'old-thread')
+    keryx('join', 'impl', env: { 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p3' })
+
+    assert_equal 'old-thread', store.occupant('impl').session_id
+    show('w1:p3', 'codex', 'idle', 'new-thread')
+
+    assert_match(/\(pane w1:p3 runs thread new-thread, not old-thread\)/, keryx('send', 'impl', 'hello').out)
+    store.bind('impl', store.occupant('impl').with(session_id: nil))
+
+    assert_match(/\(pane w1:p3 runs thread new-thread, and the session that joined recorded no thread\)/,
+                 keryx('send', 'impl', 'hello again').out)
+    assert_empty herdr.prompts
+  end
+
   def test_a_lookup_that_does_not_answer_keeps_the_recorded_process
     runs_in('w1:p3', 500)
     env = codex_in('w1:p3', 'thread-1')
