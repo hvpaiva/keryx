@@ -32,6 +32,18 @@ class OverviewTest < Minitest::Test
     assert_equal %w[orq@athena rev-1@athena failed], section(output, 'NOT RUNG')[1][1..3]
   end
 
+  def test_a_deadline_reads_as_it_was_set_a_few_seconds_later
+    %w[90s 2m 90m 4h 2d].each { keryx('ask', 'rev-1', "Within #{it}", '--within', it, env: @orq) }
+    clock.advance(5)
+    due = -> { section(keryx('status').out, 'OPEN REQUESTS').drop(1).to_h { [it.last, it[4]] } }
+
+    assert_equal({ 'Within 90s' => 'in 85s', 'Within 2m' => 'in 2m', 'Within 90m' => 'in 90m',
+                   'Within 4h' => 'in 4h', 'Within 2d' => 'in 2d' }, due.call)
+    clock.advance(14_400)
+
+    assert_equal 'overdue 2h', due.call.fetch('Within 90m')
+  end
+
   def test_a_reply_closes_the_request
     keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
     keryx('reply', last_id(@rev), 'Done', env: @rev)

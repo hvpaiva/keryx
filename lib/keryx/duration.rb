@@ -7,6 +7,8 @@ module Keryx
     UNITS = { 'd' => 86_400, 'h' => 3600, 'm' => 60, 's' => 1 }.freeze
     FORMAT = /\A(?:\d+[dhms])+\z/
     PART = /(\d+)([dhms])/
+    SCALE = [['s', 1, 120], ['m', 60, 120], ['h', 3600, 48], ['d', 86_400, nil]].freeze
+    GRACE_SECONDS = 15
 
     module_function
 
@@ -21,13 +23,18 @@ module Keryx
       seconds
     end
 
-    def short(seconds)
-      seconds = [seconds.to_i, 0].max
-      return "#{seconds}s" if seconds < 120
-      return "#{seconds / 60}m" if seconds < 7200
-      return "#{seconds / 3600}h" if seconds < 172_800
+    def short(seconds) = scaled(seconds, :floor, 0)
 
-      "#{seconds / 86_400}d"
+    # Rounded up, so a deadline reads as it was set until a whole unit passes, and seconds give way to minutes early.
+    def ahead(seconds) = scaled(seconds, :ceil, GRACE_SECONDS)
+
+    def scaled(seconds, rounding, grace)
+      span = [seconds.to_r, 0].max
+      SCALE.each do |unit, size, limit|
+        count = (span / size).public_send(rounding)
+        return "#{count}#{unit}" if limit.nil? || (count < limit && span + grace < limit * size)
+      end
     end
+    private_class_method :scaled
   end
 end

@@ -15,7 +15,7 @@ module Keryx
         return '-' unless message.request? && message.due_at
 
         left = message.due_at - now
-        left.negative? ? "overdue #{Duration.short(-left)}" : "in #{Duration.short(left)}"
+        left.negative? ? "overdue #{Duration.short(-left)}" : "in #{Duration.ahead(left)}"
       end
 
       def render(terminal, message, now)
