@@ -18,6 +18,21 @@ class SpawnerTest < Minitest::Test
     assert_equal 'herdr lists no pane in the tab agents', error.message
   end
 
+  def test_the_smallest_pane_spawn_makes_shows_cursor_dialog_and_footer_lines_whole
+    box = Screens.captured.fetch('cursor-120').lines.find { it.include?('Use arrow keys') }
+    instruction = box.delete([0x2502].pack('U')).strip
+    dot = [0xB7].pack('U')
+    model = "  Grok 4.7 256K Extra High #{dot} MAX #{dot} 7.8%"
+    mode = 'Run Everything -- INSERT --'
+    footer = "#{model}#{' ' * (Keryx::Spawner::MIN_COLUMNS - model.size - mode.size)}#{mode}"
+
+    assert_equal 67, instruction.size
+    # The box keeps as many columns after its text as before it: a margin, its border and a padding.
+    assert_operator instruction.size + (2 * box.index(instruction)), :<=, Keryx::Spawner::MIN_COLUMNS
+    assert_match Keryx::Meter::CURSOR_FOOTER, footer.strip
+    assert_equal Keryx::Spawner::MIN_ROWS, Integer(Keryx::Herdr::SCREEN_LINES, 10) + Keryx::Herdr::FOOTER_LINES
+  end
+
   def test_an_error_while_herdr_starts_the_agent_comes_through
     herdr = FakeHerdr.new
     herdr.on_start = ->(*) { raise Keryx::Error, 'herdr: not found' }

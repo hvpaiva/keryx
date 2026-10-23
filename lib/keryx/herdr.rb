@@ -11,7 +11,9 @@ module Keryx
     end
     Outcome = Data.define(:ok, :code, :detail)
     Pane = Data.define(:id, :tab, :workspace)
+    Rect = Data.define(:pane, :width, :height)
     Tab = Data.define(:id, :label)
+    NO_LAYOUT = 'herdr answered without a pane layout'
     SCREEN_LINES = '20'
     FOOTER_LINES = 4
     # herdr answered that the pane is gone or runs no agent, which is not the same as not answering.
@@ -96,6 +98,15 @@ module Keryx
       end
     end
 
+    # Every pane of the tab that holds pane, with the size herdr gives it.
+    def layout(socket, pane)
+      layout = control(socket, 'pane', 'layout', '--pane', pane)['layout']
+      panes = layout['panes'] if layout.is_a?(Hash)
+      raise Error, NO_LAYOUT unless panes.is_a?(Array) && !panes.empty?
+
+      panes.map { rect_of(it) }
+    end
+
     def rename(socket, pane, label) = control(socket, 'pane', 'rename', pane, label)
 
     def split(socket, pane, direction:, cwd:, env: {})
@@ -140,6 +151,14 @@ module Keryx
       raise Error, 'herdr answered without a pane' unless data.is_a?(Hash) && data['pane_id']
 
       Pane.new(id: data['pane_id'], tab: data['tab_id'], workspace: data['workspace_id'])
+    end
+
+    def rect_of(data)
+      rect = data['rect'] if data.is_a?(Hash)
+      width, height = rect.values_at('width', 'height') if rect.is_a?(Hash)
+      raise Error, NO_LAYOUT unless [width, height].all?(Integer) && data['pane_id'].is_a?(String)
+
+      Rect.new(pane: data['pane_id'], width:, height:)
     end
 
     def env_options(env) = env.flat_map { |key, value| ['--env', "#{key}=#{value}"] }

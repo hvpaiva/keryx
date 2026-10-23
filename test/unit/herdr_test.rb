@@ -116,6 +116,34 @@ class HerdrTest < Minitest::Test
     assert_equal ['w1:p1'], herdr.panes(SOCKET, 'w1').map(&:id)
   end
 
+  # As herdr 0.9.5 answers for a tab that holds one pane.
+  LAYOUT = '{"id":"cli:pane:layout","result":{"layout":{"area":{"height":48,"width":205,"x":0,"y":0},' \
+           '"focused_pane_id":"wY:p4A","panes":[{"focused":true,"pane_id":"wY:p4A","rect":{"height":48,' \
+           '"width":205,"x":0,"y":0}}],"splits":[],"tab_id":"wY:t19","workspace_id":"wY","zoomed":false},' \
+           '"type":"pane_layout"}}'
+
+  def test_layout_reads_the_size_of_every_pane_in_the_tab
+    runner = FakeRunner.new(%w[herdr pane layout] => { out: LAYOUT })
+
+    assert_equal [Keryx::Herdr::Rect.new(pane: 'wY:p4A', width: 205, height: 48)],
+                 Keryx::Herdr.new(runner:).layout(SOCKET, 'wY:p4A')
+    assert_equal [%w[herdr pane layout --pane wY:p4A], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
+  end
+
+  def test_a_layout_herdr_does_not_give_is_an_error_with_its_reason
+    refused = { success: false, err: '{"error":{"code":"pane_not_found","message":"pane w1:p9 not found"}}' }
+    layouts = ['null', '[]', '{"panes":[]}', '{"panes":{}}', '{"panes":[{"pane_id":"w1:p9"}]}',
+               '{"panes":[{"rect":{"width":80,"height":24}}]}',
+               '{"panes":[{"pane_id":"w1:p9","rect":{"width":"80","height":24}}]}']
+    errors = [refused, *layouts.map { { out: %({"result":{"layout":#{it}}}) } }].map do |answer|
+      herdr = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr pane layout] => answer))
+      assert_raises(Keryx::Error) { herdr.layout(SOCKET, 'w1:p9') }.message
+    end
+
+    assert_equal ['herdr pane layout failed: pane w1:p9 not found', *['herdr answered without a pane layout'] * 7],
+                 errors
+  end
+
   def test_rename_labels_a_pane_or_says_why_it_could_not
     runner = FakeRunner.new(%w[herdr pane rename w1:p4] => { out: pane_json('w1:p4', 'w1:t1') })
     Keryx::Herdr.new(runner:).rename(SOCKET, 'w1:p4', 'rev-1')

@@ -4,11 +4,22 @@ module SpawnHelpers
   SOCKET = '/h.sock'
   CALLER = { 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p1' }.freeze
   NOT_READY = Keryx::Herdr::Outcome.new(ok: false, code: 'agent_not_ready', detail: 'agent is blocked during startup')
+  # The size herdr gave a full tab in the terminal it was observed in.
+  AREA = [205, 48].freeze
 
   def setup
     super
-    @herdr = FakeHerdr.new(panes: [Keryx::Herdr::Pane.new(id: 'w1:p1', tab: 'w1:t1', workspace: 'w1')],
-                           tabs: { 'w1' => [Keryx::Herdr::Tab.new(id: 'w1:t1', label: 'main')] })
+    workspace(%w[w1:t1 main] => { 'w1:p1' => AREA })
+  end
+
+  # Lays out the workspace w1 as tabs of sized panes, such as { %w[w1:t1 main] => { 'w1:p1' => [205, 48] } }.
+  def workspace(tabs)
+    panes = tabs.flat_map do |(tab, _label), sizes|
+      sizes.keys.map { Keryx::Herdr::Pane.new(id: it, tab:, workspace: 'w1') }
+    end
+    @herdr = FakeHerdr.new(panes:, tabs: { 'w1' => tabs.keys.map { |id, label| Keryx::Herdr::Tab.new(id:, label:) } })
+    herdr.sizes = tabs.values.reduce({}) { |all, sizes| all.merge(sizes.transform_values(&:dup)) }
+    herdr.area = AREA
   end
 
   def spawn(*argv, env: {}, input: '') = keryx('spawn', *argv, env: CALLER.merge(env), input:)

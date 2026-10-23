@@ -11,6 +11,17 @@ module Keryx
     # herdr returns agent_not_ready when the agent stops at a dialog while it starts.
     NOT_READY = 'agent_not_ready'
     START_TIMEOUT = 'timeout'
+    # The classic terminal, which keeps Cursor's dialogs and footer on one line and the screen lines the bell reads.
+    MIN_COLUMNS = 80
+    MIN_ROWS = 24
+    DOWN = 'down'
+    PLACEMENT = 'spawn runs in a herdr pane. Of the panes in this tab, or with --tab in every tab labelled LABEL, it ' \
+                'splits the one that leaves the new pane the most room along --split, provided the new pane gets at ' \
+                "least #{MIN_COLUMNS} columns and #{MIN_ROWS} rows, which keep a harness's dialogs and footer on " \
+                'whole lines; when no pane has that room, it opens a new tab labelled LABEL, or NAME without --tab. ' \
+                'When herdr gives no layout, it splits this pane, or the last pane of the tab LABEL, without ' \
+                'checking its size. Splitting is the only change spawn makes to a pane it did not create, and it ' \
+                'labels the new pane NAME.'.freeze
 
     def initialize(herdr:, store:, socket:, clock:, sleeper:, notice:)
       @herdr = herdr
@@ -25,7 +36,7 @@ module Keryx
     end
 
     def place(from, label:, **placement)
-      placed(from, **placement).tap { name(it.id, label) }
+      placed(from, label, **placement).tap { name(it.id, label) }
     end
 
     def run(name, address, pane, kind:, arguments:, before:, deadline:)
@@ -55,18 +66,51 @@ module Keryx
 
     private
 
-    def placed(from, split:, tab:, cwd:, env:)
-      return @herdr.split(@socket, from, direction: split, cwd:, env:) unless tab
+    def placed(from, label, split:, tab:, cwd:, env:)
+      return fitted([from], label, split:, cwd:, env:) { @herdr.pane(@socket, from).workspace } unless tab
 
       workspace = @herdr.pane(@socket, from).workspace
-      found = @herdr.tabs(@socket, workspace).find { it.label == tab }
-      return @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) unless found
+      tabs = @herdr.tabs(@socket, workspace).select { it.label == tab }
+      return @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) if tabs.empty?
 
-      last = @herdr.panes(@socket, workspace).select { it.tab == found.id }.last
-      raise Error, "herdr lists no pane in the tab #{tab}" unless last
-
-      @herdr.split(@socket, last.id, direction: split, cwd:, env:)
+      fitted(last_panes(workspace, tabs, tab), tab, split:, cwd:, env:) { workspace }
     end
+
+    def last_panes(workspace, tabs, label)
+      panes = @herdr.panes(@socket, workspace)
+      last = tabs.filter_map { |tab| panes.select { it.tab == tab.id }.last&.id }
+      raise Error, "herdr lists no pane in the tab #{label}" if last.empty?
+
+      last
+    end
+
+    # Splits the pane of these panes' tabs that leaves the new one the most room, or else opens a tab.
+    def fitted(through, label, split:, cwd:, env:)
+      rects = layouts(through) or return @herdr.split(@socket, through.first, direction: split, cwd:, env:)
+      best = roomiest(rects, split)
+      return @herdr.split(@socket, best.pane, direction: split, cwd:, env:) if best
+
+      @herdr.create_tab(@socket, yield, label:, cwd:, env:)
+    end
+
+    def layouts(through)
+      through.flat_map do |pane|
+        @herdr.layout(@socket, pane)
+      rescue Error => e
+        @notice.call("spawn could not read the layout of pane #{pane}: #{e.message}; it splits pane #{through.first} " \
+                     'without checking its size.')
+        return nil
+      end
+    end
+
+    def roomiest(rects, split)
+      rooms = rects.to_h { [it, room(it, split)] }
+      rooms.select { |_, (columns, rows)| columns >= MIN_COLUMNS && rows >= MIN_ROWS }
+           .max_by { |_, (columns, rows)| split == DOWN ? rows : columns }&.first
+    end
+
+    # herdr gives the new pane the smaller half: the floor of half the width, or of the height when it splits down.
+    def room(rect, split) = split == DOWN ? [rect.width, rect.height / 2] : [rect.width / 2, rect.height]
 
     def name(pane, label)
       @herdr.rename(@socket, pane, label)

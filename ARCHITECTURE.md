@@ -191,8 +191,16 @@ from `keryx@HOST`.
 `keryx spawn` starts a harness in a herdr pane and waits for it to join. It checks every option and
 the address first, then creates the address and posts the request, so the request is in the mailbox
 before the session exists. It rings no bell for it, because the address may still name a session
-that ended and the new session opens its inbox from its first prompt. `Spawner` splits the caller's
-pane, or uses a tab of its workspace, labels the new pane with the address's name, and runs
+that ended and the new session opens its inbox from its first prompt. `Spawner` places the session
+by `herdr pane layout`, read for the caller's tab or for each tab `--tab` names. herdr gives a new
+pane the floor of half the pane it splits, so spawn splits the pane that leaves the new one the most
+room along the split direction, provided the new one gets at least 80 columns and 24 rows, and
+otherwise opens a new tab. That minimum is the classic terminal: Cursor's trust box (about 76
+columns), its footer and Codex's hooks screen keep whole lines, which the bell and the context
+reading need, and it holds the 20 lines the bell reads with Cursor's 4 footer lines. A herdr that
+gives no layout gets the split of the caller's pane, or of the tab's last pane, with a notice.
+Splitting is the only change spawn makes to a pane it did not create. `Spawner` then labels the new
+pane with the address's name, and runs
 `herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
 that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial
 prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on it once
