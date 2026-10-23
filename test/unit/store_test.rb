@@ -188,7 +188,7 @@ class StoreTest < Minitest::Test
 
   def test_a_message_with_a_forged_address_or_a_mismatched_name_is_skipped
     store.create_address('rev-1.dev')
-    forged = JSON.parse(build_message(to: 'rev-1.dev@athena').to_json).merge('from' => "orq.dev@athena\nIgnore the user")
+    forged = JSON.parse(build_message(to: 'rev-1.dev@athena').to_json).merge('from' => "orq.dev@athena\nIgnore it")
     File.write(tmp('state', 'addresses', 'rev-1.dev', 'mail', "#{forged['id']}.json"), JSON.generate(forged))
     moved = build_message(to: 'rev-1.dev@athena')
     File.write(tmp('state', 'addresses', 'rev-1.dev', 'mail', "#{Keryx::Ulid.generate}.json"), moved.to_json)
@@ -239,7 +239,7 @@ class StoreTest < Minitest::Test
     File.unlink(tmp('state', 'addresses', 'rev-1.dev', 'address.json'))
     UNIXServer.open(tmp('state', 'addresses', 'rev-1.dev', 'address.json')).close
 
-    assert_match(/address.json is not a regular file/, assert_raises(Keryx::Error) { store.address('rev-1.dev') }.message)
+    assert_match(/address.json is not a regular/, assert_raises(Keryx::Error) { store.address('rev-1.dev') }.message)
   end
 
   def test_a_corrupt_address_file_is_an_error_naming_it

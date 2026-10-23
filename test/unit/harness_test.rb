@@ -16,8 +16,8 @@ class HarnessTest < Minitest::Test
   end
 
   def test_claude_takes_the_model_and_the_effort_as_flags
-    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--model', 'haiku', '--effort', 'low', '--settings'],
-                 arguments('claude', model: 'haiku', effort: 'low')[0...-1]
+    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--model', 'haiku', '--effort', 'low',
+                  '--settings'], arguments('claude', model: 'haiku', effort: 'low')[0...-1]
   end
 
   def test_codex_gets_the_model_the_effort_and_the_store_through_its_config
@@ -46,11 +46,12 @@ class HarnessTest < Minitest::Test
     prompt = Keryx::Harness.first_prompt('impl.dev@athena', name: 'impl.dev', role: 'lead dev', ceiling: '125k',
                                                             extra: " Keep\nit short \e[2J")
 
-    assert_equal "You are impl.dev@athena, the lead dev, started by keryx spawn. Run 'keryx join impl.dev --role lead\\ dev " \
-                 "--ceiling 125k', then run 'keryx skill' and follow it, then run 'keryx inbox'. Keep it short ^[[2J",
-                 prompt
+    assert_equal "You are impl.dev@athena, the lead dev, started by keryx spawn. Run 'keryx join impl.dev --role " \
+                 "lead\\ dev --ceiling 125k', then run 'keryx skill' and follow it, then run 'keryx inbox'. Keep it " \
+                 'short ^[[2J', prompt
     assert_equal "You are impl.dev@athena, started by keryx spawn. Run 'keryx join impl.dev', then run 'keryx " \
-                 "skill' and follow it, then run 'keryx inbox'.", Keryx::Harness.first_prompt('impl.dev@athena', name: 'impl.dev')
+                 "skill' and follow it, then run 'keryx inbox'.",
+                 Keryx::Harness.first_prompt('impl.dev@athena', name: 'impl.dev')
   end
 
   def test_the_command_line_single_quotes_the_harness_and_each_argument

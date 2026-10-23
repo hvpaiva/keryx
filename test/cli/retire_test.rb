@@ -50,8 +50,8 @@ class RetireTest < Minitest::Test
     assert_equal 1, result.status
     assert_equal "error: rev-1.dev@athena has 2 open requests and retires once none is left: #{received} from " \
                  "orq.dev@athena waits for its answer ('keryx reply #{received} --as rev-1.dev', or its sender " \
-                 "withdraws it); #{sent} it sent to orq.dev@athena waits for a reply ('keryx withdraw #{sent} --as rev-1.dev')\n",
-                 result.err
+                 "withdraws it); #{sent} it sent to orq.dev@athena waits for a reply ('keryx withdraw #{sent} " \
+                 "--as rev-1.dev')\n", result.err
     keryx('reply', received, 'Done', '--as', 'rev-1.dev')
 
     assert_match(/rev-1.dev@athena has 1 open request and retires once none is left: #{sent} it sent/,
@@ -65,7 +65,8 @@ class RetireTest < Minitest::Test
     retired
     refusals = [%w[person], %w[port.dev@zeus], %w[ghost.dev], %w[rev-1.dev]].map { keryx('retire', *it).err }
 
-    assert_equal ['error: person.local@athena is the address a plain terminal on athena acts as, so it cannot be retired',
+    assert_equal ['error: person.local@athena is the address a plain terminal on athena acts as, ' \
+                  'so it cannot be retired',
                   "error: retire runs on the machine that holds the address; run 'keryx retire port.dev' on zeus",
                   'error: no address ghost.dev@athena',
                   'error: rev-1.dev@athena is retired already, since 2026-10-22 17:00:00 UTC by person.local@athena'],

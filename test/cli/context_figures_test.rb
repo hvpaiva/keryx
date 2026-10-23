@@ -59,11 +59,12 @@ class ContextFiguresTest < Minitest::Test
     claude_transcript(222)
     alive.delete(222)
 
-    assert_equal({ 'orq.dev@athena' => '121k', 'impl.dev@athena' => '137k/258k 53%', 'docs.dev@athena' => '244k/300k 81%',
-                   'rev-1.dev@athena' => '-' }, who)
+    assert_equal({ 'orq.dev@athena' => '121k', 'impl.dev@athena' => '137k/258k 53%',
+                   'docs.dev@athena' => '244k/300k 81%', 'rev-1.dev@athena' => '-' }, who)
     assert_equal({ 'orq.dev@athena' => { 'used' => 121_203, 'window' => nil },
                    'impl.dev@athena' => { 'used' => 137_000, 'window' => 258_400 },
-                   'docs.dev@athena' => { 'used' => 243_600, 'window' => 300_000 }, 'rev-1.dev@athena' => nil }, who_json)
+                   'docs.dev@athena' => { 'used' => 243_600, 'window' => 300_000 },
+                   'rev-1.dev@athena' => nil }, who_json)
   end
 
   def test_a_live_session_keryx_cannot_read_is_unknown

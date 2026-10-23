@@ -6,9 +6,10 @@ class MessageTest < Minitest::Test
   CREATED = Time.utc(2026, 10, 22, 17, 0, 0)
 
   def build_message(**overrides)
-    Keryx::Message.new(id: '01JB8Y2Q7M0000000000000000', kind: 'request', from: 'orq.dev@athena', to: 'rev-1.dev@athena',
-                       thread: '01JB8Y2Q7M0000000000000000', in_reply_to: nil, created_at: CREATED,
-                       due_at: CREATED + 1800, body: "Review PR #448\n\nFocus on the retry path.", **overrides)
+    Keryx::Message.new(id: '01JB8Y2Q7M0000000000000000', kind: 'request', from: 'orq.dev@athena',
+                       to: 'rev-1.dev@athena', thread: '01JB8Y2Q7M0000000000000000', in_reply_to: nil,
+                       created_at: CREATED, due_at: CREATED + 1800, body: "Review PR #448\n\nFocus on the retry path.",
+                       **overrides)
   end
 
   def test_json_round_trips_every_field
@@ -78,8 +79,8 @@ class MessageTest < Minitest::Test
 
   def test_only_the_recipients_reply_in_the_thread_answers_a_request
     request = build_message
-    reply = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'reply', from: 'rev-1.dev@athena', to: 'orq.dev@athena',
-                          in_reply_to: request.id, due_at: nil)
+    reply = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'reply', from: 'rev-1.dev@athena',
+                          to: 'orq.dev@athena', in_reply_to: request.id, due_at: nil)
 
     assert reply.answers?(request)
     refute reply.with(kind: 'message').answers?(request)
@@ -91,8 +92,8 @@ class MessageTest < Minitest::Test
 
   def test_only_the_recipients_message_in_the_thread_takes_a_request
     request = build_message
-    taken = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'message', from: 'rev-1.dev@athena', to: 'orq.dev@athena',
-                          in_reply_to: request.id, due_at: nil)
+    taken = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'message', from: 'rev-1.dev@athena',
+                          to: 'orq.dev@athena', in_reply_to: request.id, due_at: nil)
 
     assert taken.takes?(request)
     refute taken.answers?(request)

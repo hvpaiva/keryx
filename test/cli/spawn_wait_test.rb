@@ -33,8 +33,8 @@ class SpawnWaitTest < Minitest::Test
     id = store.unread('rev-1.dev').first.id
 
     assert_equal 3, result.status
-    assert_equal "error: rev-1.dev@athena has not joined yet; look at pane w1:p2; the request #{id} waits in its mailbox\n",
-                 result.err
+    assert_equal "error: rev-1.dev@athena has not joined yet; look at pane w1:p2; the request #{id} waits in " \
+                 "its mailbox\n", result.err
     assert_in_delta 5.0, herdr.starts.first[:timeout]
   end
 

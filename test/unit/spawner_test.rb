@@ -12,8 +12,8 @@ class SpawnerTest < Minitest::Test
     spawner = Keryx::Spawner.new(herdr:, store: nil, socket: '/h.sock', clock: -> { Factory::NOW }, sleeper: ->(_) {},
                                  deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
     error = assert_raises(Keryx::Error) do
-      spawner.place('w1:p1', label: 'rev-1.dev', address: 'rev-1.dev@athena', kind: 'claude', split: 'right', tab: 'agents',
-                             cwd: '/work', env: {})
+      spawner.place('w1:p1', label: 'rev-1.dev', address: 'rev-1.dev@athena', kind: 'claude', split: 'right',
+                             tab: 'agents', cwd: '/work', env: {})
     end
 
     assert_equal 'herdr lists no pane in the tab agents', error.message
@@ -58,8 +58,8 @@ class SpawnerTest < Minitest::Test
     store.create_address('impl.dev')
     spawner(store).direct('impl.dev', 'w1:p2', 'codex', 'orq.dev')
 
-    assert_equal Keryx::Spawned.new(director: 'orq.dev', harness: 'codex', herdr_socket: '/h.sock', herdr_pane: 'w1:p2'),
-                 store.spawned('impl.dev')
+    assert_equal Keryx::Spawned.new(director: 'orq.dev', harness: 'codex', herdr_socket: '/h.sock',
+                                    herdr_pane: 'w1:p2'), store.spawned('impl.dev')
   end
 
   def test_a_director_spawn_cannot_record_is_a_notice

@@ -18,8 +18,8 @@ class MailTest < Minitest::Test
     id = last_id(@rev)
 
     assert_equal 0, result.status
-    assert_match(/\AAsked rev-1.dev@athena \(#{id}\)\. The bell rang through claude\.\nThe reply will ring this session/,
-                 result.out)
+    assert_equal "Asked rev-1.dev@athena (#{id}). The bell rang through claude.", result.out.lines.first.chomp
+    assert_match(/\AThe reply will ring this session/, result.out.lines[1])
     assert_equal [['/tmp/cc-222.sock', "[keryx] New request for rev-1.dev@athena from orq.dev@athena (#{id}). " \
                                        "Run 'keryx read #{id}' to open it."]], sockets.posts
   end
@@ -61,8 +61,9 @@ class MailTest < Minitest::Test
     id = last_id(@rev)
 
     assert_equal 0, result.status, result.err
-    assert_equal "No session holds orq.dev@athena, so no bell rings for the reply; 'keryx --as orq.dev inbox' shows " \
-                 "it when it arrives, and 'keryx --as orq.dev wait #{id}' blocks until then.", result.out.lines.last.chomp
+    assert_equal "No session holds orq.dev@athena, so no bell rings for the reply; 'keryx --as orq.dev inbox' " \
+                 "shows it when it arrives, and 'keryx --as orq.dev wait #{id}' blocks until then.",
+                 result.out.lines.last.chomp
   end
 
   def test_asking_as_an_address_another_session_holds_names_that_session
@@ -90,8 +91,8 @@ class MailTest < Minitest::Test
     id = last_id(@rev)
     result = keryx('read', id[0, 8].downcase, env: @rev)
 
-    assert_match(/\Aid +#{id}\nkind +request\nfrom +orq.dev@athena\nto +rev-1.dev@athena\nsent .*\n\nReview PR #448\n\n/,
-                 result.out)
+    assert_match(/\Aid +#{id}\nkind +request\nfrom +orq.dev@athena\nto +rev-1.dev@athena\nsent .*\n\n/, result.out)
+    assert_match(/\n\nReview PR #448\n\n/, result.out)
     assert_match(/Answer with: keryx reply #{id} TEXT\n\z/, result.out)
     assert_match(/No unread messages for rev-1.dev@athena/, keryx('inbox', env: @rev).out)
   end

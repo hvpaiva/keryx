@@ -13,8 +13,8 @@ class RetirementTest < Minitest::Test
     message = build_message(to: 'rev-1.dev@athena')
     store.deliver('rev-1.dev', message)
     store.bind('rev-1.dev', build_occupant(pid: 42))
-    store.record_spawned('rev-1.dev', Keryx::Spawned.new(director: 'orq.dev', harness: 'claude', herdr_socket: '/h.sock',
-                                                         herdr_pane: 'w1:p2'))
+    store.record_spawned('rev-1.dev', Keryx::Spawned.new(director: 'orq.dev', harness: 'claude',
+                                                         herdr_socket: '/h.sock', herdr_pane: 'w1:p2'))
     store.retire('rev-1.dev', by: 'person.local@athena', now: NOW + 60)
 
     assert_equal Keryx::RetiredRecord.new(retired_at: NOW + 60, by: 'person.local@athena'), store.retired('rev-1.dev')

@@ -183,8 +183,8 @@ class WithdrawTest < Minitest::Test
 
   def test_a_withdrawal_from_anyone_but_the_sender_leaves_the_request_to_answer
     request = build_message(to: 'impl.dev@athena', from: 'orq.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
-    forged = build_message(to: 'impl.dev@athena', from: 'eve.dev@zeus', kind: 'withdrawal', id: Keryx::Ulid.generate(NOW + 1),
-                           in_reply_to: request.id, thread: request.id)
+    forged = build_message(to: 'impl.dev@athena', from: 'eve.dev@zeus', kind: 'withdrawal',
+                           id: Keryx::Ulid.generate(NOW + 1), in_reply_to: request.id, thread: request.id)
     keryx('__receive', input: [request, forged].map { "#{it.to_json}\n" }.join)
 
     assert_match(/has 2 unread messages \(#{request.id}, #{forged.id}\)\. .* answer every request with/,

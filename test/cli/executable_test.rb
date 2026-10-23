@@ -75,8 +75,9 @@ class ExecutableTest < Minitest::Test
   def test_a_message_in_utf8_arrives_and_reads_without_a_locale
     env = { 'LANG' => nil, 'LC_ALL' => 'C', 'LC_CTYPE' => nil }
     body = "Revis#{[0xE3].pack('U')}o conclu#{[0xED].pack('U')}da #{[0x2713].pack('U')}"
-    message = Keryx::Message.new(id: Keryx::Ulid.generate, kind: 'message', from: 'orq.dev@zeus', to: 'person.local@athena',
-                                 thread: nil, in_reply_to: nil, created_at: Time.now.utc, due_at: nil, body:)
+    message = Keryx::Message.new(id: Keryx::Ulid.generate, kind: 'message', from: 'orq.dev@zeus',
+                                 to: 'person.local@athena', thread: nil, in_reply_to: nil, created_at: Time.now.utc,
+                                 due_at: nil, body:)
     message = message.with(thread: message.id)
     out, err, = run_keryx('__receive', env:, input: "#{message.to_json}\n")
 

@@ -41,8 +41,8 @@ class HookTest < Minitest::Test
     decision = JSON.parse(stop(@rev).out)
 
     assert_equal 'block', decision['decision']
-    assert_equal "keryx: rev-1.dev has 1 unread message (#{id}). Open each with 'keryx read ID' before ending the turn.",
-                 decision['reason']
+    assert_equal "keryx: rev-1.dev has 1 unread message (#{id}). Open each with 'keryx read ID' before ending " \
+                 'the turn.', decision['reason']
     assert_empty stop(@rev).out
   end
 
