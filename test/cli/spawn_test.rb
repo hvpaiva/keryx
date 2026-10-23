@@ -37,6 +37,15 @@ class SpawnTest < Minitest::Test
     assert_equal 'Review it', store.unread('rev-1').first.body
   end
 
+  # Under an ASCII locale, such as LC_ALL=C, Ruby hands over every argument as a binary string.
+  def test_a_utf8_harness_argument_read_under_an_ascii_locale_reaches_the_harness_as_utf8
+    session_joins
+    result = spawn('rev-1', '--harness', 'claude', '--', '--append-system-prompt', "caf\u00E9".b)
+
+    assert_equal 0, result.status, result.err
+    assert_equal(["caf\u00E9", Encoding::UTF_8], herdr.starts.first[:arguments][-3].then { [it, it.encoding] })
+  end
+
   def test_codex_gets_the_store_and_the_config_directory_through_its_config
     session_joins
     result = spawn('impl', '--harness', 'codex', '--effort', 'low')

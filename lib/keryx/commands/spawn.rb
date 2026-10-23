@@ -127,7 +127,7 @@ module Keryx
 
         %i[model effort].each { check_setting(it) }
         Harness.check(options[:harness], effort: options[:effort])
-        checked_passthrough
+        self.passthrough = Harness.passthrough(passthrough)
         check_label
         timeout
         due_at
@@ -182,15 +182,6 @@ module Keryx
         env = session_env.merge('HERDR_SOCKET_PATH' => herdr_caller.herdr_socket, 'HERDR_PANE_ID' => pane)
         [*Harness.arguments(options[:harness], name:, model: options[:model], effort: options[:effort], env:),
          *passthrough, '--', first_prompt(name)]
-      end
-
-      def checked_passthrough
-        passthrough.each do |argument|
-          next unless Text::CONTROL.match?(argument)
-
-          raise UsageError, "harness argument #{argument.inspect} holds a control character, and spawn types the " \
-                            'arguments into a shell'
-        end
       end
 
       def first_prompt(name)

@@ -41,6 +41,17 @@ class SpawnChecksTest < Minitest::Test
     assert_empty herdr.splits
   end
 
+  def test_a_harness_argument_that_is_not_utf8_is_refused_before_herdr_is_asked
+    runner = FakeRunner.new
+    @herdr = Keryx::Herdr.new(runner:)
+    result = spawn('rev-1', '--harness', 'claude', '--', "--x\xFF".b)
+
+    assert_equal 2, result.status
+    assert_match(/harness argument "--x\\xFF" is not valid UTF-8/, result.err)
+    refute store.address?('rev-1')
+    assert_empty runner.calls
+  end
+
   def test_an_empty_request_leaves_an_existing_address_as_it_was
     store.create_address('rev-1', role: 'reviewer')
     result = spawn('rev-1', '--harness', 'claude', '--role', 'implementer', ' ')
