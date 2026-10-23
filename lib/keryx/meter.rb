@@ -16,9 +16,11 @@ module Keryx
     CLAUDE_LINE = ['"type":"assistant"', '"usage"'].freeze
     CODEX_LINE = '"type":"token_count"'
     CODEX_HEAD = '"type":"session_meta"'
-    # Cursor's footer names the model's window, as in "Opus 300K High", then a middle dot and the share in use, and
-    # only its mode, set apart by a wider gap, may follow on the same line.
-    CURSOR_FOOTER = /(?<!\S)(?<window>\d+)(?<unit>[KM])(?!\S).*\u00B7\s*(?<share>\d+(?:\.\d+)?)%(?:\s{2,}\S.*)?\z/
+    # Cursor's footer: the model's name, its window and labels, as in "Opus 5.5 300K Extra High", then after middle
+    # dots more labels and the share in use; only its mode, set apart by a wider gap, may follow on the line.
+    CURSOR_FOOTER = Regexp.new('\A[A-Za-z][\w.-]*(?: [\w.-]+)*? (?<window>\d+)(?<unit>[KM])(?: [A-Za-z][\w-]*)*' \
+                               '(?:(?: \u00B7 [A-Za-z][\w-]*(?: [A-Za-z][\w-]*)*)* \u00B7 (?<share>\d+(?:\.\d+)?)%)?' \
+                               '(?: {2,}\S.*)?\z')
     UNITS = { 'K' => 1000, 'M' => 1_000_000 }.freeze
     NO_COUNT = :no_count
 
@@ -132,17 +134,18 @@ module Keryx
       Context.new(used:, window: Context.count?(window) ? window : nil)
     end
 
+    # The footer sits above the directory Cursor shows under it, which may wrap, and the conversation never reaches
+    # these last lines. A footer that shows no share is no figure; no other line stands in for it.
     def cursor(occupant)
       return unless @lookout.in_pane(occupant).there?
 
       footer = @herdr.footer(occupant.herdr_socket, occupant.herdr_pane) or return
       lines = String.new(footer, encoding: Encoding::UTF_8).scrub.lines.last(Herdr::FOOTER_LINES).map(&:strip)
-      lines.reverse_each.lazy.filter_map { footer_context(it) }.first
+      match = lines.lazy.filter_map { CURSOR_FOOTER.match(it) }.first
+      footer_context(match) if match&.[](:share)
     end
 
-    # The directory Cursor shows under the footer may wrap, and the conversation never reaches these last lines.
-    def footer_context(line)
-      match = CURSOR_FOOTER.match(line) or return
+    def footer_context(match)
       window = Integer(match[:window], 10) * UNITS.fetch(match[:unit])
       used = (match[:share].to_r * window / 100).round
       Context.new(used:, window:) if Context.count?(used)

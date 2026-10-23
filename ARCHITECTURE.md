@@ -246,8 +246,9 @@ so measuring never fails the command that asked.
   once per command or courier round. The rollout must open with its thread's own id, and the figure is the last
   token count event's input tokens and the model's context window. A thread with no rollout, or with more than
   one, has no figure.
-- Cursor records neither, so keryx reads the footer in the last lines of its herdr pane, where Cursor shows the
-  model's window and the share of it in use, and only while the pane runs the session that joined.
+- Cursor records neither, so keryx reads the footer in the last lines of its herdr pane, the line that names the
+  model, its window and its labels and then the share of the window in use, and only while the pane runs the
+  session that joined. A footer without a share is no figure, and no other line stands in for it.
 
 No link is followed anywhere from the root keryx derives down to a transcript or rollout, so a file name never
 leads to another session's file. A transcript or rollout is read from its end, at most 8 MiB back, so a long one

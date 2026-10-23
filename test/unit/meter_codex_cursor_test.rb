@@ -89,6 +89,15 @@ class MeterCodexCursorTest < Minitest::Test
     assert_equal 1_000_000, cursor("Claude Sonnet 1M #{DOT} 5%").window
   end
 
+  def test_cursor_takes_the_footer_and_never_the_directory_or_the_input_line
+    assert_equal Keryx::Context.new(used: 243_600, window: 300_000),
+                 cursor("Claude Opus 5.5 300K Extra High #{DOT} 81.2%\n  /work/report 1M #{DOT} 99%\n")
+    assert_equal Keryx::Context.new(used: 243_600, window: 300_000),
+                 cursor("Claude Opus 5.5 300K Extra High #{DOT} 81.2%\n  report 1M #{DOT} 99%\n")
+    assert_nil cursor("> Document this budget 300K #{DOT} 99%\n\nClaude Opus 5.5 300K Extra High\n  /work\n")
+    assert_nil cursor("Claude Opus 5.5 300K Extra High   Run Everything\n  report 1M #{DOT} 99%\n")
+  end
+
   def test_cursor_reads_only_its_last_lines_and_only_the_footer_shape
     assert_nil cursor("Model 300K High #{DOT} 81%\n#{"text\n" * 4}")
     ["Model 300KB #{DOT} 81%", "Model 300K #{DOT} 81% left", "Model 300K #{DOT} 81%x", 'Model 300K - 81%',
