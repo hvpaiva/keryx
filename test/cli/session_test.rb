@@ -143,6 +143,17 @@ class SessionTest < Minitest::Test
     assert_equal 111, store.occupant('rev-1').pid
   end
 
+  def test_leave_as_refuses_a_codex_session_herdr_shows_in_its_pane
+    herdr.put('/h.sock', 'w1:p3', Keryx::Herdr::Agent.new(pane: 'w1:p3', kind: 'codex', status: 'idle'))
+    keryx('join', 'impl', env: { 'CODEX_THREAD_ID' => 'thread-1', 'HERDR_SOCKET_PATH' => '/h.sock',
+                                 'HERDR_PANE_ID' => 'w1:p3' })
+    result = keryx('leave', '--as', 'impl')
+
+    assert_equal 1, result.status
+    assert_match(/impl@athena is held by another live codex session \(thread thread-1, pane w1:p3\)/, result.err)
+    assert_equal 'thread-1', store.occupant('impl').session_id
+  end
+
   def test_leave_as_needs_an_address_that_a_session_holds
     env = join_claude('rev-1', 111)
     keryx('leave', env:)
