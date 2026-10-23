@@ -112,4 +112,18 @@ class CeilingTest < Minitest::Test
 
     assert_equal [{ 'used' => 121_203, 'window' => nil }, 125_000], record.values_at('context', 'ceiling')
   end
+
+  def test_the_courier_tells_the_session_and_its_director_once_and_says_so
+    claude_transcript(300)
+    join_with_ceiling('impl', 300, '125k')
+    join_claude('orq', 111)
+    store.bind('impl', store.occupant('impl').with(director: 'orq'))
+    output = keryx('courier', '--once').out
+    notice = JSON.parse(keryx('inbox', '-o', 'json', env: claude(111)).out).last
+
+    assert_equal "told impl@athena that impl@athena is at 121k 97% of 125k, near its context ceiling\n" \
+                 "told orq@athena that impl@athena is at 121k 97% of 125k, near its context ceiling\n", output
+    assert_equal ['keryx@athena', nil], notice.values_at('from', 'context')
+    assert_empty keryx('courier', '--once').out
+  end
 end

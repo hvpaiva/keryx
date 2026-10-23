@@ -15,6 +15,12 @@ module Keryx
                                      'messages queued for another machine, rings again for unread messages whose ' \
                                      'bell did not reach a session, and tells the sender of a request whose ' \
                                      "deadline passed without a reply.\n\n" \
+                                     'It also reads the context of each session that has a ceiling (keryx join ' \
+                                     '--help) and tells the session and its director to reach a stopping point, ' \
+                                     'once when the context reaches 80% of the ceiling and once when it reaches ' \
+                                     'the ceiling. The notice rings the session like any message: a Claude Code ' \
+                                     'session gets it when the bell rings, a Codex session after its next tool ' \
+                                     "call, and a Cursor session only when its turn ends.\n\n" \
                                      'Run it on each machine as a user service, so mail for a machine that was ' \
                                      'asleep or off the network goes out when it is back. It prints one line for ' \
                                      "each thing it does, the config file's warnings before its first round, and " \
@@ -49,6 +55,7 @@ module Keryx
         round.forwarded.each { |host, results| report_host(host, results, waiting) }
         round.rung.each { |name, bell| say("rang #{app.full(name)}: #{bell.status} #{bell.detail}".strip) }
         round.overdue.each { say("told #{it.from} that #{it.id} to #{it.to} is past its deadline") }
+        round.context.each { say(context_line(it)) }
         round.errors.each { say(it) }
       end
 
@@ -63,6 +70,11 @@ module Keryx
         line = queued.empty? ? nil : "#{queued.size} message(s) wait for #{host}: #{queued.first.detail}"
         say(line) if line && waiting[host] != line
         waiting[host] = line
+      end
+
+      def context_line(notice)
+        "told #{notice.recipient} that #{app.full(notice.name)} is at #{notice.context.against(notice.ceiling)}, " \
+          "#{'near ' if notice.stage == :near}its context ceiling"
       end
 
       def say(line) = terminal.puts(Text.plain(line))

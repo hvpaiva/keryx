@@ -182,8 +182,8 @@ The outbox counts with the mailboxes when keryx decides what is answered or with
 machine that answers closes a request as soon as the reply is written, and the sender's machine
 once the reply arrives; a withdrawal closes it on the sender's machine at once and on the
 recipient's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
-schedule, rings again for bells that did not reach a session, and sends the deadline notices from
-`keryx@HOST`.
+schedule, rings again for bells that did not reach a session, and sends the deadline and context notices
+from `keryx@HOST`.
 
 ## Starting a session
 
@@ -238,10 +238,10 @@ so measuring never fails the command that asked.
 - Claude Code writes a transcript for every session. The figure is the last assistant turn that is not a
   subagent's: its input tokens plus the tokens it read from the cache and wrote to it. Claude Code names the
   transcript only to its hooks, so the stop hook records the path on the occupant, when it is the file of the
-  session the occupant records, in a folder under a `projects` directory. Without it, keryx looks under `$CLAUDE_CONFIG_DIR/projects` or
-  `~/.claude/projects`, in the folder Claude Code names after the session's directory, and then in whichever
-  single folder holds a file of that session. The transcript does not say whether the model runs a 200K or a 1M
-  window, so a Claude Code figure has tokens only.
+  session the occupant records, in a folder under a `projects` directory. Without it, keryx looks under
+  `$CLAUDE_CONFIG_DIR/projects` or `~/.claude/projects`, in the folder Claude Code names after the session's
+  directory, and then in whichever single folder holds a file of that session. The transcript does not say
+  whether the model runs a 200K or a 1M window, so a Claude Code figure has tokens only.
 - Codex writes a rollout for each thread under `$CODEX_HOME/sessions` or `~/.codex/sessions`. The figure is the
   last token count event's input tokens and the model's context window. A thread with no rollout, or with more
   than one, has no figure.
@@ -255,6 +255,13 @@ A session may have a ceiling in tokens, given to `keryx join --ceiling`, and kep
 director, the address that spawned it. spawn puts its `--ceiling` in the join line of the first prompt, so a session
 that joins after spawn gave up still has it, and records the director itself once it sees the join, on that
 occupant only. A command that records the session's process again keeps both, and a new join starts without them.
+
+In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
+of the ceiling, and again once it reaches the ceiling, it tells the session and its director, or the sender of the
+oldest request the session has not answered when no director was recorded, from `keryx@HOST`. Each notice goes once
+to each recipient for a join and a ceiling, marked in the session's `receipts/`, so a session that joins again or
+gets another ceiling can be told again; a recipient the post failed for is tried again alone in the next round. A
+session first seen at or past the ceiling is told only that it reached it, and the comparison uses whole numbers.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not
