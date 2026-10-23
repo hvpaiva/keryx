@@ -139,6 +139,16 @@ module Keryx
 
     def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
 
+    # Only this machine writes its outbox, and nothing that arrives from another machine has the host of its
+    # recipient, so these are the requests NAME sent from here, under whatever name the machine had then.
+    def sent_requests(name)
+      all_messages.filter_map do |holder, stored|
+        request = stored.message
+        sender, host = request.from.split('@')
+        [holder, request] if request.request? && sender == name && (holder.nil? || host == request.to.split('@').last)
+      end
+    end
+
     def write_receipt(name, id, kind, data)
       write_atomic(receipt_file(name, id, kind), JSON.generate(data))
     end

@@ -29,8 +29,15 @@ after it was read. Reading a message links it into `read/`, and the unread messa
 `mail/` missing from `read/`, found without opening the files that were read.
 
 Nothing else records state. A request is answered when some mailbox holds a reply from its
-recipient, in its thread, whose `in_reply_to` is the request's id; it is read when its name is in
-`read/`. Because no mail operation has to change two files together, mail takes no locks and a
+recipient, in its thread, whose `in_reply_to` is the request's id; it is withdrawn when one holds
+a withdrawal from its sender to its recipient the same way; it is open until either; and it is
+read when its name is in `read/`. `keryx withdraw` writes the withdrawal where the request is, in
+the mailbox that holds it or in the outbox for its host, with the request's own sender and
+recipient, since those may carry a name the machine had before. The sender is the address of the
+same name on the machine that sent the request, which the store shows without a list of former
+names: only this machine writes its outbox, and a message from another machine never has its
+recipient's host, so a request in a mailbox whose sender and recipient share a host was sent from
+here. Because no mail operation has to change two files together, mail takes no locks and a
 crash leaves nothing half done. Only a change of occupants takes a lock, as the next section
 explains.
 
@@ -168,9 +175,10 @@ written before the move and only once, so an attempt that fails after another on
 message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
 Without a receipt the message stays in `new/`, and another file in `receipts/` counts the attempts.
 
-The outbox counts with the mailboxes when keryx decides what is answered, so the machine that
-answers closes a request as soon as the reply is written, and the sender's machine once the reply
-arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
+The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the
+machine that answers closes a request as soon as the reply is written, and the sender's machine
+once the reply arrives; a withdrawal closes it on the sender's machine at once and on the
+recipient's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
 schedule, rings again for bells that did not reach a session, and sends the deadline notices from
 `keryx@HOST`.
 

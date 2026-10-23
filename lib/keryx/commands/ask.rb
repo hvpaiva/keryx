@@ -10,8 +10,9 @@ module Keryx
       define 'ask', section: 'Mail Commands', arguments: 'ADDRESS [TEXT]', min: 1, max: 2,
                     summary: 'Send a request that expects a reply',
                     description: "Send a request that expects a reply.\n\n" \
-                                 'The request stays open until the recipient answers it with keryx reply, and ' \
-                                 'keryx status lists it while it waits. --within sets a deadline that status ' \
+                                 'The request stays open until the recipient answers it with keryx reply, or ' \
+                                 'until you withdraw it with keryx withdraw, and keryx status lists it while it ' \
+                                 'waits. --within sets a deadline that status ' \
                                  'reports as overdue once it passes. The reply rings the session that holds the ' \
                                  'address it was sent from, this session unless --as names another, so there is ' \
                                  'no need to wait for it; keryx wait blocks until it comes for the cases that ' \

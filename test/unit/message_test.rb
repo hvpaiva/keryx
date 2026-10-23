@@ -65,6 +65,19 @@ class MessageTest < Minitest::Test
     refute reply.answers?(request.with(kind: 'message'))
   end
 
+  def test_only_the_senders_withdrawal_in_the_thread_withdraws_a_request
+    request = build_message
+    withdrawal = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'withdrawal', in_reply_to: request.id,
+                               due_at: nil)
+
+    assert withdrawal.withdraws?(request)
+    refute withdrawal.answers?(request)
+    { kind: 'reply', from: 'eve@athena', to: 'eve@athena', thread: withdrawal.id, in_reply_to: withdrawal.id }
+      .each { |field, value| refute withdrawal.with(field => value).withdraws?(request), field }
+    refute withdrawal.withdraws?(request.with(kind: 'message'))
+    assert_equal withdrawal, Keryx::Message.from_json(withdrawal.to_json)
+  end
+
   def test_summary_is_the_first_line_with_text_made_safe_and_cut
     assert_equal 'Review PR #448', build_message.summary
     assert_equal 'red ^[[31m', build_message(body: "\n  red \e[31m\n").summary

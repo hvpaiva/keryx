@@ -44,6 +44,17 @@ class CompletionTest < Minitest::Test
     assert_equal [id], complete('wait', '', env: orq)
   end
 
+  def test_withdraw_completes_the_open_requests_sent_from_this_machine_under_any_name
+    orq = join_claude('orq', 111)
+    join_claude('rev-1', 222)
+    ids = [{}, { 'KERYX_HOST' => 'lap-0042' }, {}].map do |host|
+      keryx('ask', 'rev-1', 'Review it', env: orq.merge(host)).out[/\((\w{26})\)/, 1].tap { clock.advance(1) }
+    end
+    keryx('withdraw', ids.last, env: orq)
+
+    assert_equal ids.first(2), complete('withdraw', '', env: orq)
+  end
+
   def test_ids_complete_from_the_mailbox_named_by_as
     join_claude('rev-1', 222)
     keryx('send', 'rev-1', 'for rev-1')

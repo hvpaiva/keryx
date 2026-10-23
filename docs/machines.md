@@ -103,7 +103,10 @@ the host name the recipient's machine had when the request was sent. Renaming a 
 has open requests, sent or received, breaks the match between those requests and their replies, and
 mail still waiting in an outbox is addressed to the old name. Rename a machine when `keryx status`
 on both machines lists nothing under OPEN REQUESTS or NOT FORWARDED. A running courier keeps the
-name it read when it started, so restart it after the rename.
+name it read when it started, so restart it after the rename. A request this machine sent before
+the rename, to itself or to another machine, can still be closed by the address of the same name
+with `keryx withdraw`. One that another machine sent to the old name stays open here, since only
+its sender can withdraw it.
 
 ```sh
 systemctl --user restart keryx-courier
