@@ -6,7 +6,7 @@ module Keryx
   module Commands
     class Complete < CLI::Command
       VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
-                         --effort --prompt --ceiling].freeze
+                         --effort --prompt --ceiling --re].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
@@ -42,6 +42,8 @@ module Keryx
         command, positionals = parse(before)
         return flags(command) if current.start_with?('-')
         return command_names unless command
+        # With --re, the one argument send takes is the text.
+        return [] if before.any? { it == '--re' || it.start_with?('--re=') }
 
         positional_candidates(command.spec.name, positionals.size)
       end
@@ -99,6 +101,7 @@ module Keryx
         when '-o', '--output' then OUTPUTS
         when '--harness' then Harness::KINDS
         when '--split' then Spawn::DIRECTIONS
+        when '--re' then my_requests
         else []
         end
       end
@@ -113,6 +116,8 @@ module Keryx
       def my_messages
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }
       end
+
+      def my_requests = app.roster.open_requests.filter_map { |holder, stored| stored.message.id if holder == me }
 
       def my_open_requests
         app.store.sent_requests(me).map { it.last.id } & app.roster.open_requests.map { it.last.message.id }

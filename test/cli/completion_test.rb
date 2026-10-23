@@ -55,6 +55,19 @@ class CompletionTest < Minitest::Test
     assert_equal [id], complete('wait', '', env: orq)
   end
 
+  def test_re_completes_the_open_requests_in_this_mailbox_and_no_address_after_it
+    orq = join_claude('orq', 111)
+    rev = join_claude('rev-1', 222)
+    ids = Array.new(2) { keryx('ask', 'rev-1', 'Review it', env: orq).out[/\((\w{26})\)/, 1].tap { clock.advance(1) } }
+    keryx('reply', ids.last, 'Done', env: rev)
+    keryx('send', 'rev-1', 'heads-up', env: orq)
+
+    assert_equal [ids.first], complete('send', '--re', '', env: rev)
+    assert_empty complete('send', '--re', ids.first, '', env: rev)
+    assert_empty complete('send', "--re=#{ids.first}", '', env: rev)
+    assert_includes complete('send', '', env: rev), 'orq'
+  end
+
   def test_withdraw_completes_the_open_requests_sent_from_this_machine_under_any_name
     orq = join_claude('orq', 111)
     join_claude('rev-1', 222)
