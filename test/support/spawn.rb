@@ -13,7 +13,7 @@ module SpawnHelpers
 
   def spawn(*argv, env: {}, input: '') = keryx('spawn', *argv, env: CALLER.merge(env), input:)
 
-  def session_env = { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena' }
+  def session_env = { 'KERYX_HOME' => tmp('state'), 'XDG_CONFIG_HOME' => tmp('config'), 'KERYX_HOST' => 'athena' }
 
   def agent(pane, kind, status) = Keryx::Herdr::Agent.new(pane:, kind:, status:)
 

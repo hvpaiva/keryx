@@ -37,13 +37,14 @@ class SpawnTest < Minitest::Test
     assert_equal 'Review it', store.unread('rev-1').first.body
   end
 
-  def test_codex_gets_the_store_through_its_config
+  def test_codex_gets_the_store_and_the_config_directory_through_its_config
     session_joins
     result = spawn('impl', '--harness', 'codex', '--effort', 'low')
 
     assert_equal "Spawned impl@athena as a codex session in pane w1:p2, and it joined.\n", result.out
     assert_equal ['-c', 'model_reasoning_effort="low"',
                   '-c', %(shell_environment_policy.set.KERYX_HOME="#{tmp('state')}"),
+                  '-c', %(shell_environment_policy.set.XDG_CONFIG_HOME="#{tmp('config')}"),
                   '-c', 'shell_environment_policy.set.KERYX_HOST="athena"',
                   '-c', %(shell_environment_policy.set.HERDR_SOCKET_PATH="#{SOCKET}"),
                   '-c', 'shell_environment_policy.set.HERDR_PANE_ID="w1:p2"', '--',
@@ -84,10 +85,35 @@ class SpawnTest < Minitest::Test
     assert_equal 'w1:p3', herdr.starts.last[:pane]
   end
 
-  def test_the_directory_and_the_store_reach_the_new_pane
+  def test_the_directory_the_store_and_the_config_directory_reach_the_new_pane
     session_joins
     spawn('rev-1', '--harness', 'claude', '--cwd', tmp, env: { 'KERYX_HOST' => '' })
 
-    assert_equal [tmp, { 'KERYX_HOME' => tmp('state') }], herdr.splits.first[2..]
+    assert_equal [tmp, { 'KERYX_HOME' => tmp('state'), 'XDG_CONFIG_HOME' => tmp('config') }], herdr.splits.first[2..]
+  end
+
+  def test_the_config_directory_defaults_to_dot_config_under_home
+    session_joins
+    spawn('rev-1', '--harness', 'claude', env: { 'XDG_CONFIG_HOME' => nil, 'HOME' => '/home/u' })
+
+    assert_equal '/home/u/.config', herdr.splits.first[3]['XDG_CONFIG_HOME']
+  end
+
+  def test_the_session_reads_the_config_the_caller_reads_and_its_reply_closes_the_request
+    write_config("host = athena\n")
+    write_config("host = elsewhere\n", home: tmp('home', '.config'))
+    orq = join_claude('orq', 111).merge('KERYX_HOST' => '', 'HOME' => tmp('home'))
+    child = nil
+    herdr.on_start = lambda do |socket, pane, name, kind|
+      herdr.put(socket, pane, agent(pane, kind, 'working'))
+      outside = { 'KERYX_HOST' => nil, 'XDG_CONFIG_HOME' => nil, 'HOME' => tmp('home') }
+      child = outside.merge('CODEX_THREAD_ID' => 'thread-500', **herdr.splits.last[3], **in_pane(socket, pane))
+      keryx('join', name, env: child)
+    end
+    spawn('rev-1', '--harness', 'codex', 'Review the change', env: orq)
+    keryx('reply', store.unread('rev-1').first.id, 'Reviewed', env: child)
+
+    assert_equal 'rev-1@athena', JSON.parse(keryx('whoami', '-o', 'json', env: child).out)['address']
+    assert_empty JSON.parse(keryx('status', '-o', 'json', env: orq).out)['open_requests']
   end
 end

@@ -21,6 +21,8 @@ All notable changes to this project are documented here. The format follows
 - Mail between machines over SSH, with an outbox that holds it while the other machine is
   unreachable, and `keryx courier`, which forwards it, rings again for bells that did not reach a
   session and tells senders about missed deadlines.
+- `~/.config/keryx/config`, whose `host` line names the machine unless `KERYX_HOST` is set.
+  `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
 - `keryx skill`, the instructions agents follow to use keryx.
 - `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane, gives it an

@@ -100,6 +100,17 @@ each message, and `keryx status` reads the receipts to list what did not ring.
 
 ## Between machines
 
+A machine's name is the host part of its addresses. `App#host` takes it from `KERYX_HOST`, then from
+`host` in `$XDG_CONFIG_HOME/keryx/config`, or `$HOME/.config/keryx/config` when that variable is
+unset, empty or not absolute, then from the machine's own name, and keeps it for the life of the
+process. That file is the only configuration keryx reads outside the store, and only `Config` reads
+it, when the host is needed and `KERYX_HOST` is empty. A line it cannot use is a warning, while an
+invalid host or a file it cannot read is an error, since falling back to the machine's name would
+name the machine wrongly. Processes agree on the name only when they find the same file. spawn
+passes the new pane the config directory it read, and `KERYX_HOST` only when it is set, never the
+host read from the file. The courier's service and the non-interactive SSH session that receives
+mail have only their own environment, so a custom `XDG_CONFIG_HOME` has to be set for them too.
+
 A message for an address on another host goes to `outbox/HOST/`, written in `tmp/` and linked into
 `new/` like a delivery. `Forwarder` sends what waits in `new/` through `Remote`, which runs
 `ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
@@ -132,10 +143,10 @@ blocked, but drops it if the agent is still working when the timeout spawn passe
 out, so a session busy with its first request can lose its herdr name. keryx does not use that
 name, since the occupant records the pane.
 
-The new pane gets `KERYX_HOME`, and `KERYX_HOST` when it is set, through herdr, so the session joins
-the store spawn watches. Codex passes its commands only the variables its `shell_environment_policy`
-allows, so Codex also gets them, with the herdr socket and pane, as
-`-c shell_environment_policy.set` values.
+The new pane gets `KERYX_HOME`, `XDG_CONFIG_HOME`, and `KERYX_HOST` when it is set, through herdr,
+so the session joins the store spawn watches and reads the config file spawn read. Codex passes its
+commands only the variables its `shell_environment_policy` allows, so Codex also gets them, with the
+herdr socket and pane, as `-c shell_environment_policy.set` values.
 
 spawn then polls the store until the address has an occupant of the harness it started, in the herdr
 socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,

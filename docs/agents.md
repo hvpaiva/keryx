@@ -45,8 +45,8 @@ needs the TUI on Codex's shared background server, the default. For the stop hoo
 
 Codex runs a new hook only after you trust it. Open `/hooks` in Codex, find the hook under Stop and
 trust that one. For the same reason, `keryx spawn` installs no hook in the Codex sessions it starts.
-It hands them `KERYX_HOME`, `KERYX_HOST` when you set it, and their herdr pane through
-`-c shell_environment_policy.set`, since Codex may drop them from its commands otherwise.
+It hands them `KERYX_HOME`, `XDG_CONFIG_HOME`, `KERYX_HOST` when you set it, and their herdr pane
+through `-c shell_environment_policy.set`, since Codex may drop them from its commands otherwise.
 
 ## Cursor
 

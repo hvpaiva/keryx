@@ -21,13 +21,17 @@ module Keryx
       COLOR_VARIABLE = 'KERYX_COLOR'
       ENVIRONMENT = [
         ['KERYX_HOME', 'Where the mailboxes live, instead of $XDG_STATE_HOME/keryx'],
-        ['KERYX_HOST', "The host part of addresses, instead of the machine's name"],
+        ['KERYX_HOST', 'The host part of addresses, instead of host in the config file'],
         ['KERYX_AS', 'Act as this address, like --as'],
         ['KERYX_SSH', 'The ssh command that reaches other machines, instead of ssh'],
         ['KERYX_REMOTE_COMMAND', 'How to run keryx on the other machine, instead of keryx'],
         [COLOR_VARIABLE, 'auto, always or never, like --color'],
         ['NO_COLOR, FORCE_COLOR', 'The usual color switches, honored in auto mode'],
         [DEBUG_VARIABLE, 'Print a backtrace for unexpected errors']
+      ].freeze
+      FILES = [
+        ['~/.config/keryx/config', 'Settings as key = value lines, under $XDG_CONFIG_HOME when set'],
+        ['  host = NAME', "The host part of addresses, instead of the machine's name"]
       ].freeze
       EXIT_STATUSES = [
         ['0', 'Success'],
@@ -155,7 +159,7 @@ module Keryx
 
       def help
         Help.new(@terminal, program: PROGRAM, description: DESCRIPTION,
-                            notes: { 'Environment' => ENVIRONMENT, 'Exit Status' => EXIT_STATUSES })
+                            notes: { 'Environment' => ENVIRONMENT, 'Files' => FILES, 'Exit Status' => EXIT_STATUSES })
       end
 
       def root_help
@@ -188,9 +192,7 @@ module Keryx
       end
 
       def warn_problems
-        Array(@app&.problems).uniq.each do |problem|
-          @terminal.warn("#{@terminal.paint_err(:warning, 'warning:')} #{Text.plain(problem)}")
-        end
+        Array(@app&.take_problems).each { @terminal.warning(it) }
       end
     end
   end

@@ -15,10 +15,14 @@ class HelpTest < Minitest::Test
     refute_includes result.out, '__complete'
   end
 
-  def test_bare_keryx_lists_the_environment_and_the_exit_statuses
+  def test_bare_keryx_lists_the_environment_the_files_and_the_exit_statuses
     result = keryx
 
     assert_match(/^Environment:\n  KERYX_HOME +Where the mailboxes live/, result.out)
+    assert_match(%r{^Files:\n  ~/\.config/keryx/config +Settings as key = value lines, under \$XDG_CONFIG_HOME},
+                 result.out)
+    assert_match(/^    host = NAME +The host part of addresses, instead of the machine's name$/, result.out)
+    assert_match(/^  KERYX_HOST +The host part of addresses, instead of host in the config file$/, result.out)
     assert_match(/^Exit Status:\n  0 +Success\n/, result.out)
     assert_match(/^  3 +keryx wait or keryx spawn gave up before the reply or the join$/, result.out)
   end

@@ -17,7 +17,7 @@ module Keryx
                                      "deadline passed without a reply.\n\n" \
                                      'Run it on each machine as a user service, so mail for a machine that was ' \
                                      'asleep or off the network goes out when it is back. It prints one line for ' \
-                                     'each thing it does.',
+                                     "each thing it does, and the config file's warnings before its first round.",
                         examples: [['Run one round', 'courier --once'],
                                    ['Run as a service, every minute', 'courier --interval 1m']]
 
@@ -30,9 +30,11 @@ module Keryx
 
       def call(_arguments)
         interval = Duration.parse(options[:interval] || DEFAULT_INTERVAL)
+        courier = app.courier
+        app.take_problems.each { terminal.warning(it) }
         waiting = {}
         loop do
-          report(app.courier.round, waiting)
+          report(courier.round, waiting)
           return nil if options[:once]
 
           app.sleeper.call(interval)
