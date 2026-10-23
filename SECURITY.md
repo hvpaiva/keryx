@@ -26,8 +26,11 @@ language models.
   the person at the keyboard.
 - The bell carries no text from the sender. It names the sender, the kind and the id, all
   checked against strict formats when the message is read, so a message file cannot place
-  arbitrary text in another session's context through a bell or a hook reminder. The body only
-  reaches an agent when the agent runs `keryx read`.
+  arbitrary text in another session's context through a bell or a hook reminder, and neither
+  carries any of the body. `keryx inbox` and `keryx status` show a summary of each message they
+  list, the first line of its body that is not empty, shortened and with control characters made
+  visible. The whole body comes with `keryx read` and in the JSON output of `keryx inbox` and
+  `keryx status`.
 - Nothing from a file or a session reaches a terminal raw. Message bodies, roles, addresses and
   herdr states are shown with control characters made visible, so they cannot move the cursor,
   change colors or reorder text with bidirectional controls. Roles are limited to plain words
