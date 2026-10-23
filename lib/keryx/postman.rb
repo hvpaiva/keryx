@@ -31,16 +31,17 @@ module Keryx
                    'write long content to a file and send its path'
     end
 
-    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true)
+    # A guard is asked in the same hold of the occupants lock as the write; the bell and the forward come after it.
+    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, guard: nil)
       check_recipient(recipient)
       body = Postman.check_body(body)
       message = compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
-      return forward(message, recipient.host) unless recipient.local?(@host)
+      return forward(message, recipient.host, guard:) unless recipient.local?(@host)
 
       @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
+      stored = guarded(guard) { @store.deliver(recipient.name, message) } or return
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
-      delivered = @store.deliver(recipient.name, message) == :delivered
-      bell = announce(recipient.name, message) if ring && delivered && recipient.name != sender
+      bell = announce(recipient.name, message) if ring && stored == :delivered && recipient.name != sender
       Posted.new(message:, bell:, forward: nil)
     end
 
@@ -65,8 +66,14 @@ module Keryx
       Bell::Result.new(status: Bell::FAILED, channel: nil, detail: e.message, at: @clock.call)
     end
 
-    def forward(message, host)
-      @store.outbox.queue(host, message)
+    def guarded(guard)
+      return yield unless guard
+
+      @store.with_occupants_lock { yield if guard.call }
+    end
+
+    def forward(message, host, guard: nil)
+      guarded(guard) { @store.outbox.queue(host, message) } or return
       result = @forwarder.forward(host)[message.id] || settled(host, message.id)
       return Posted.new(message:, bell: nil, forward: result) unless result.status == Forwarder::REFUSED
 

@@ -149,6 +149,60 @@ class CourierContextTest < Minitest::Test
     assert_equal 1, bodies('impl').size
   end
 
+  # The first post runs step before it, as another courier or a join acting between the checks and the post would.
+  def before_first_post(&step)
+    original = postman.method(:post)
+    steps = [step]
+    postman.define_singleton_method(:post) do |**args|
+      steps.shift&.call
+      original.call(**args)
+    end
+  end
+
+  def figures_told(name) = bodies(name).map { it.split[2] }
+
+  def test_a_notice_near_the_ceiling_is_not_sent_once_another_courier_sent_the_ceiling
+    impl(director: 'orq')
+    meter.figures['session-impl'] = 100_000
+    second = nil
+    before_first_post do
+      meter.figures['session-impl'] = 126_000
+      second = build_courier.round
+    end
+    first = courier.round
+
+    assert_equal [[], [], [['impl@athena', :ceiling], ['orq@athena', :ceiling]]],
+                 [first.errors, told.call(first), told.call(second)]
+    assert_equal [['126k'], ['126k']], [figures_told('impl'), figures_told('orq')]
+  end
+
+  def test_a_session_that_joined_after_the_check_is_not_told_the_figure_of_the_one_before
+    occupant = impl(director: 'orq')
+    meter.figures['session-impl'] = 100_000
+    before_first_post do
+      store.with_occupants_lock { store.bind('impl', occupant.with(session_id: 'session-new', joined_at: LATER)) }
+    end
+    round = courier.round
+
+    assert_equal [[], []], [round.context, round.errors]
+    assert_empty bodies('impl') + bodies('orq')
+  end
+
+  def test_a_ceiling_notice_claimed_and_not_yet_marked_keeps_the_notice_near_it_back
+    impl
+    meter.figures['session-impl'] = 126_000
+    before_first_post { raise Errno::ENOSPC, 'mail' }
+
+    assert_equal 1, courier.round.errors.size
+    meter.figures['session-impl'] = 100_000
+    near = courier.round
+
+    assert_equal [[], [], []], [near.context, near.errors, bodies('impl')]
+    meter.figures['session-impl'] = 126_000
+
+    assert_equal [['impl@athena', :ceiling]], told.call(courier.round)
+  end
+
   # The meter binds the address to what replacement returns as it reads the session.
   def bound_while_read(replacement)
     box = store

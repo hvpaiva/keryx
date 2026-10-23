@@ -106,18 +106,27 @@ module Keryx
     # courier that writes the mark reports it.
     def tell(name, recipient, occupant, context, stage)
       mark = context_mark(occupant, stage, recipient)
-      return if @store.marked?(name, mark, CONTEXT_MARK)
-      return if stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), CONTEXT_MARK)
+      return if @store.marked?(name, mark, CONTEXT_MARK) || superseded?(name, recipient, occupant, stage, CONTEXT_MARK)
       return unless same_join?(@store.occupant(name), occupant)
 
       body = notice(name, context, occupant.ceiling, stage)
-      @postman.post(sender: NAME, recipient:, kind: 'message', id: notice_id(name, mark), body:)
+      guard = -> { due?(name, recipient, occupant, stage) }
+      return unless @postman.post(sender: NAME, recipient:, kind: 'message', id: notice_id(name, mark), body:, guard:)
       return unless @store.mark_once(name, mark, CONTEXT_MARK)
 
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
     rescue Error, SystemCallError => e
       @errors << "could not tell #{recipient} about the context of #{name}@#{@host}; #{e.message}"
       nil
+    end
+
+    # Asked in the post's hold of the occupants lock; a ceiling's claim comes before its post, and its mark after it.
+    def due?(name, recipient, occupant, stage)
+      same_join?(@store.occupant(name), occupant) && !superseded?(name, recipient, occupant, stage, CONTEXT_CLAIM)
+    end
+
+    def superseded?(name, recipient, occupant, stage, kind)
+      stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), kind)
     end
 
     # A session that joined the address while the figure was read is not the session the figure belongs to.

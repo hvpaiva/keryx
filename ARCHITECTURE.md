@@ -40,8 +40,9 @@ same name on the machine that sent the request, which the store shows without a 
 names: only this machine writes its outbox, and a message from another machine never has its
 recipient's host, so a request in a mailbox whose sender and recipient share a host was sent from
 here. Because no ordinary mailbox operation has to change two files together, none takes a lock
-and a crash leaves nothing half done. The one exception in mail is rewriting an outcome that holds
-no decision, which takes `outcomes.lock`, as the forwarding section explains. A change of occupants
+and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
+decision, which takes `outcomes.lock`, as the forwarding section explains, and writing a context
+notice, which takes `occupants.lock`, as the section on context explains. A change of occupants
 takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
@@ -286,9 +287,11 @@ Before it posts a notice, the courier claims the notice's id in `receipts/`: the
 current time, so a recipient reads the notices in order, and every other courier or later round reads that id back.
 A second post of the notice is then a duplicate the mailbox or the outbox keeps once, and rings no bell, whether two
 couriers passed the mark's check together or the mark failed to be written after the post. Only the courier that
-writes the mark reports the notice. The courier also reads the occupant again just before each post and drops the
-figure when the session's harness, id, join or ceiling changed while it was measured, since another session that
-took the address with `join --force` would otherwise get the figure of the one before.
+writes the mark reports the notice. In the same hold of the occupants lock as the mailbox or outbox write, the
+courier reads the occupant again and drops the figure when the session's harness, id, join or ceiling changed while
+it was measured, since another session that took the address with `join --force` would otherwise get the figure of
+the one before, and for a notice near the ceiling it checks the ceiling notice's claim and drops the notice once
+that id is claimed, so no recipient reads it after the ceiling's. The bell and the forward happen after the hold.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not
