@@ -89,6 +89,13 @@ class BellScreenTest < Minitest::Test
     assert_nil obstacle(box.sub(/^(.*Running.*)$/) { "#{it}\n#{quoted.chomp}" })
   end
 
+  def test_codex_s_extra_thought_menu_is_a_dialog
+    menu = Screens.session('codex-extra-thought-transcribed')
+
+    assert_equal 'a marked option on line 11 of 15', evidence(menu)
+    assert_equal :dialog, obstacle(PROMPTED + menu)
+  end
+
   def test_the_evidence_names_the_words_and_the_line_and_not_the_rest_of_the_line
     phrase = "  ok\n  private words, then Continue without trusting, then more private words\n"
     option = "  Pick one\n\n\u203a 1. private option\n  2. another private option\n"

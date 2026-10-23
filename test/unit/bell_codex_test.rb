@@ -129,6 +129,18 @@ class BellCodexTest < Minitest::Test
     assert_equal 1, herdr.prompts.size
   end
 
+  def test_the_extra_thought_menu_defers_the_bell
+    message = deliver
+    queue.gone << 'thread-1'
+    store.bind('rev-1', codex_occupant)
+    herdr = codex_pane('working', session: 'thread-1', screen: Screens.session('codex-extra-thought-transcribed'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal ['deferred', 'the screen shows a dialog (a marked option on line 11 of 15)'],
+                 [result.status, result.detail]
+    assert_empty herdr.prompts
+  end
+
   def test_a_dialog_in_place_of_the_composer_defers_and_names_what_it_matched
     transcript = Screens.session('codex-working-transcript').lines.take_while { !it.start_with?("\u203a") }.join
     message = deliver
