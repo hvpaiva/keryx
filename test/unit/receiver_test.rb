@@ -30,6 +30,29 @@ class ReceiverTest < Minitest::Test
     assert_equal [incoming], store.unread('port')
   end
 
+  def test_mail_for_a_retired_address_is_refused_as_retired
+    store.retire('port', by: 'person@zeus', now: NOW)
+    receipts = %w[message request reply].map { receive(build_message(to: 'port@zeus', kind: it)) }
+
+    assert_equal([{ 'status' => 'refused', 'detail' => 'port@zeus is retired; mail to it is refused' }] * 3,
+                 receipts.map { it.except('id') })
+    assert_empty store.mailbox('port')
+  end
+
+  # A request that reached the mailbox as the address was retired stays open on its sender's machine until its
+  # withdrawal lands next to it.
+  def test_a_withdrawal_reaches_its_request_in_a_retired_mailbox_and_no_other
+    request = build_message(to: 'port@zeus', kind: 'request')
+    store.deliver('port', request)
+    store.retire('port', by: 'person@zeus', now: NOW)
+    withdrawal = ->(of) { build_message(to: 'port@zeus', kind: 'withdrawal', in_reply_to: of, thread: of) }
+    stray = Keryx::Ulid.generate
+
+    assert_equal 'delivered', receive(withdrawal.call(request.id))['status']
+    assert_equal 'refused', receive(withdrawal.call(stray))['status']
+    refute(store.mailbox('port').any? { it.message.in_reply_to == stray })
+  end
+
   def test_a_numeric_id_thread_or_in_reply_to_is_refused_before_it_is_stored
     numeric = 12_345_678_901_234_567_890_123_456
     receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person')

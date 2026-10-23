@@ -185,4 +185,17 @@ class SpawnTest < Minitest::Test
     assert_equal 'rev-1@athena', JSON.parse(keryx('whoami', '-o', 'json', env: child).out)['address']
     assert_empty JSON.parse(keryx('status', '-o', 'json', env: orq).out)['open_requests']
   end
+
+  def test_spawn_refuses_a_retired_address
+    join_claude('rev-1', 111)
+    alive.delete(111)
+    keryx('retire', 'rev-1')
+    result = spawn('rev-1', '--harness', 'claude', 'Review PR #448')
+
+    assert_equal 1, result.status
+    assert_equal "error: rev-1@athena is retired; spawn another name, or bring it back with 'keryx join rev-1 " \
+                 "--revive' from the session that will hold it\n", result.err
+    assert_empty herdr.splits
+    assert_empty store.mailbox('rev-1')
+  end
 end

@@ -6,6 +6,7 @@ require_relative 'bell'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'message'
+require_relative 'retirement'
 require_relative 'ulid'
 
 module Keryx
@@ -71,7 +72,16 @@ module Keryx
         return "#{message.from} is on #{@host} and cannot arrive from another machine"
       end
 
+      return retired(message, to) if @store.retired?(to.name)
+
       "no address #{message.to}" unless @store.address?(to.name) || to.name == @person
+    end
+
+    # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
+    def retired(message, to)
+      return if message.withdrawal? && @store.mailbox(to.name).any? { message.withdraws?(it.message) }
+
+      format(Retirement::RETIRED, to)
     end
 
     def receipt(id, status, detail: nil, bell: nil)

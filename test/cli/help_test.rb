@@ -11,6 +11,7 @@ class HelpTest < Minitest::Test
 
     assert_equal 0, result.status
     assert_match(/^Session Commands:\n  join /, result.out)
+    assert_match(/^  retire +Retire an address that nobody holds and nobody waits on$/, result.out)
     assert_match(/^Mail Commands:\n  send /, result.out)
     refute_includes result.out, '__complete'
   end

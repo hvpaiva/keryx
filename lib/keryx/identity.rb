@@ -41,6 +41,7 @@ module Keryx
     def existing(name)
       Address.validate_name(name)
       raise Error, "no address #{name}; addresses are created by 'keryx join'" unless @store.address?(name)
+      raise Error, "#{name} is retired; 'keryx join #{name} --revive' brings it back" if @store.retired?(name)
 
       name
     end

@@ -51,7 +51,7 @@ module Keryx
       end
 
       def not_rung
-        app.store.address_names.flat_map do |name|
+        app.store.current_names.flat_map do |name|
           app.store.unread(name).filter_map do |message|
             bell = app.store.receipt(name, message.id, 'bell') || { 'status' => 'none', 'detail' => 'never rung' }
             Unrung.new(message, bell['status'], bell['detail']) unless bell['status'] == Bell::RUNG
@@ -61,7 +61,7 @@ module Keryx
 
       # A damaged claim is shown on every look until a courier writes over it or someone removes it.
       def report_damaged_claims
-        app.store.address_names.each do |name|
+        app.store.current_names.each do |name|
           app.store.report_damaged_claims(name, Keryx::Courier::CONTEXT_CLAIM) { Ulid.valid?(it) }
         end
       end

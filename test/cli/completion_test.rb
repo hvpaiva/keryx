@@ -21,7 +21,7 @@ class CompletionTest < Minitest::Test
   def test_commands_complete_by_prefix_and_hide_the_endpoint
     assert_includes complete(''), 'join'
     refute_includes complete(''), '__complete'
-    assert_equal %w[read reply ring], complete('r')
+    assert_equal %w[retire read reply ring], complete('r')
   end
 
   def test_addresses_complete_where_an_address_goes
@@ -31,6 +31,17 @@ class CompletionTest < Minitest::Test
     assert_equal %w[rev-1], complete('send', 'r')
     assert_equal %w[orq rev-1], complete('--as', '')
     assert_equal %w[orq rev-1], complete('ring', 'orq', '')
+  end
+
+  def test_a_retired_address_does_not_complete
+    join_claude('orq', 111)
+    join_claude('rev-1', 222)
+    alive.delete(222)
+    keryx('retire', 'rev-1')
+
+    assert_empty complete('send', 'r')
+    assert_equal %w[orq person], complete('--as', '')
+    assert_equal %w[orq person], complete('retire', '')
   end
 
   def test_message_ids_complete_for_read_reply_and_wait

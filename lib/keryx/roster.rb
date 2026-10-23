@@ -22,7 +22,7 @@ module Keryx
     end
 
     def entries
-      @store.address_names.map do |name|
+      @store.current_names.map do |name|
         role = @store.reporting { @store.address(name)&.role }
         Entry.new(name:, role:, **holder(name), unread: @store.unread(name).size)
       end

@@ -96,6 +96,27 @@ class PostmanTest < Minitest::Test
     assert_match(/no address ghost@athena/, error.message)
   end
 
+  def test_post_refuses_a_retired_address_and_keeps_its_mailbox_as_it_was
+    store.create_address('rev-1')
+    store.retire('rev-1', by: 'orq@athena', now: NOW)
+    error = assert_raises(Keryx::Error) do
+      postman.post(sender: 'orq', recipient: address('rev-1'), kind: 'request', body: 'Review it')
+    end
+
+    assert_equal 'rev-1@athena is retired; mail to it is refused', error.message
+    assert_empty store.mailbox('rev-1')
+  end
+
+  def test_a_withdrawal_reaches_a_request_in_a_retired_mailbox
+    store.create_address('rev-1')
+    request = build_message(to: 'rev-1@athena', kind: 'request')
+    store.deliver('rev-1', request)
+    store.retire('rev-1', by: 'orq@athena', now: NOW)
+    postman.withdraw(request, holder: 'rev-1', body: 'not needed')
+
+    assert_equal [request.id], store.mailbox('rev-1').map(&:message).select(&:withdrawal?).map(&:in_reply_to)
+  end
+
   def test_a_message_for_another_machine_is_forwarded_and_kept_as_sent
     zeus.create_address('port')
     posted = postman.post(sender: 'orq', recipient: address('port@zeus'), kind: 'request', body: 'Port it')

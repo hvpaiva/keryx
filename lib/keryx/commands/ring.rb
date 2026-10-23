@@ -15,7 +15,7 @@ module Keryx
                      examples: [['Retry every pending bell', 'ring'], ['Retry one address', 'ring rev-1']]
 
       def call(arguments)
-        names = arguments.empty? ? app.store.address_names : arguments.map { local_name(it) }
+        names = arguments.empty? ? app.store.current_names : arguments.map { local_name(it) }
         waiting = names.filter_map { ring(it) }
         terminal.puts('Nothing to ring: no address has unread messages.') if waiting.empty?
         nil

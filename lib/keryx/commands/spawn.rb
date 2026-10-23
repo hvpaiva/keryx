@@ -198,6 +198,8 @@ module Keryx
       end
 
       def claim(name)
+        Join.refuse_retired(app, name, "spawn another name, or bring it back with 'keryx join #{name} --revive' from " \
+                                       'the session that will hold it')
         Join.refuse_taken(app, name, FREE)
         spawner.claim_name(name, herdr_caller.herdr_pane)
         app.store.create_address(name, role: options[:role])
