@@ -82,6 +82,7 @@ module Keryx
         return on_time(occupant, address, pane) if occupant && started?(occupant, pane, kind)
         raise Error, conflict(address, occupant, pane) if occupant
 
+        refuse_retired(name, address, orphaned(pane, kind))
         watch(address, pane, kind, ready?(starting, pane, kind))
         raise WaitTimeout, @dialog.late if @clock.call >= @deadline
 
@@ -147,6 +148,13 @@ module Keryx
       raise WaitTimeout, late if within < Store::LOCK_SECONDS
 
       raise Store::Busy, "#{e.message}; #{stopped}"
+    end
+
+    # Without a request in its mailbox, a retire can still land after the last check, and the session spawn started then
+    # has its join refused, so spawn would wait for it until the timeout.
+    def orphaned(pane, kind)
+      "it was retired after spawn started the #{kind} session in pane #{pane}, which runs with no address; " \
+        "'herdr pane close #{pane}' closes it"
     end
 
     def refuse_retired(name, address, advice)

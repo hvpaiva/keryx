@@ -128,10 +128,14 @@ lock, so a message whose sender checked the address just before `retired.json` l
 in its mailbox. That stays visible: a request among such messages shows open in its sender's
 `keryx status`, and `keryx withdraw` settles it, since a withdrawal goes where its request is and
 `Receiver` takes into a retired mailbox the withdrawal of a request it holds. spawn checks the address for
-the last time under the lock, right before it starts the harness. When it frees the herdr name its
-own pane kept from an address the session there left, it clears the name in that same hold, so a
-join lands before the check, which stops spawn, or after the clear, which then freed the name of
-an address no session held.
+the last time under the lock, right before it starts the harness, and refuses there an address
+retired since its first check, as retire writes `retired.json` in a hold of the same lock. When it
+frees the herdr name its own pane kept from an address the session there left, it clears the name
+in that same hold, so a join lands before the check, which stops spawn, or after the clear, which
+then freed the name of an address no session held. A retire can still land after the check when
+spawn carries no request, since then nothing holds the address while the harness starts. The
+session's join is refused, and spawn stops at its next look for the join, saying the session runs
+with no address, rather than wait for it until its timeout.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
 make, and then fails, so a stopped holder cannot block it for good. spawn waits as long, but not
