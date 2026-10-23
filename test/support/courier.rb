@@ -38,15 +38,22 @@ module CourierHelpers
 
   def courier = @courier ||= build_courier
 
-  def build_courier
+  def impl(ceiling: 125_000, **fields)
+    store.create_address('impl')
+    build_occupant(session_id: 'session-impl', ceiling:, **fields).tap { store.bind('impl', it) }
+  end
+
+  def told = ->(round) { round.context.map { [it.recipient, it.stage] } }
+
+  def build_courier(clock: -> { LATER }, measure: meter, box: store, mail: postman)
     Keryx::Courier.new(
-      store:, bell: QuietBell.new, postman:, host: 'athena', clock: -> { LATER },
-      meter: -> { meter.tap { meters << it } },
-      forwarder: Keryx::Forwarder.new(store:, remote: nil, clock: -> { LATER }),
+      store: box, bell: QuietBell.new, postman: mail, host: 'athena', clock:,
+      meter: -> { measure.tap { meters << it } },
+      forwarder: Keryx::Forwarder.new(store: box, remote: nil, clock: -> { LATER }),
       roster: lambda do
         herdr = FakeHerdr.new
         lookout = Keryx::Lookout.new(herdr:, processes: CLIHelpers::FakeProcesses.new([]))
-        Keryx::Roster.new(store:, herdr:, lookout:).tap { rosters << it }
+        Keryx::Roster.new(store: box, herdr:, lookout:).tap { rosters << it }
       end
     )
   end

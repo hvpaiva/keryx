@@ -121,11 +121,55 @@ class MeterCodexCursorTest < Minitest::Test
     end
   end
 
+  def test_cursor_gives_no_figure_when_another_conversation_takes_the_pane_while_its_footer_is_read
+    seen = pane_reading_its_footer
+
+    assert_equal 243_600, seen.call.used
+    herdr.define_singleton_method(:footer) do |socket, pane|
+      put(socket, pane, Keryx::Herdr::Agent.new(pane:, kind: 'cursor', status: 'idle', session: 'conversation-2'))
+      footers[[socket, pane]]
+    end
+
+    assert_nil seen.call
+  end
+
+  def test_cursor_gives_no_figure_when_the_look_after_its_footer_names_no_conversation_after_one_that_did
+    seen = pane_reading_its_footer(pid: 500, started: 'started 500')
+    herdr.foregrounds[[SOCKET, 'w1:p2']] = 500
+    herdr.define_singleton_method(:footer) do |socket, pane|
+      put(socket, pane, agent(socket, pane).with(session: nil))
+      footers[[socket, pane]]
+    end
+
+    assert_nil seen.call
+    assert_equal 243_600, seen.call.used
+  end
+
+  def test_cursor_gives_no_figure_when_herdr_does_not_answer_the_look_after_its_footer
+    seen = pane_reading_its_footer
+    herdr.define_singleton_method(:footer) do |socket, pane|
+      unanswered << [socket, pane]
+      footers[[socket, pane]]
+    end
+
+    assert_nil seen.call
+  end
+
   def test_a_reader_that_fails_gives_no_figure
     herdr.define_singleton_method(:footer) { |*| raise Keryx::Error, 'herdr is gone' }
 
     assert_nil cursor('ignored')
     assert_nil read(harness: 'other')
     assert_nil meter.read(nil)
+  end
+
+  private
+
+  def pane_reading_its_footer(**process)
+    @lookout = Keryx::Lookout.new(herdr:, processes: CLIHelpers::FakeProcesses.new([process[:pid]].compact))
+    herdr.put(SOCKET, 'w1:p2', Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'cursor', status: 'idle',
+                                                       session: 'conversation-1'))
+    herdr.footers[[SOCKET, 'w1:p2']] = "Claude Opus 5.5 300K Extra High #{DOT} 81.2%"
+    -> { read(harness: 'cursor', session_id: 'conversation-1', herdr_socket: SOCKET, herdr_pane: 'w1:p2', **process) }
   end
 end
