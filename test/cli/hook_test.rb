@@ -155,8 +155,7 @@ class HookTest < Minitest::Test
     result = stop(@rev)
 
     assert_equal [0, ''], [result.status, result.out]
-    assert_match(/\Akeryx hook stop: .*occupant\.json is not valid JSON/, result.err)
-    assert_includes result.err, '^[[2J'
+    assert_match(/\Akeryx hook stop: .*occupant\.json is not valid JSON .*bad\^\[\[2J/, result.err)
     refute_includes result.err, "\e"
   end
 
