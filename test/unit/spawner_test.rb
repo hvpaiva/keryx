@@ -9,7 +9,7 @@ class SpawnerTest < Minitest::Test
     spawner = Keryx::Spawner.new(herdr:, store: nil, socket: '/h.sock', clock: -> { Factory::NOW }, sleeper: ->(_) {},
                                  notice: ->(_) {})
     error = assert_raises(Keryx::Error) do
-      spawner.place('w1:p1', split: 'right', tab: 'agents', cwd: '/work', env: {})
+      spawner.place('w1:p1', label: 'rev-1', split: 'right', tab: 'agents', cwd: '/work', env: {})
     end
 
     assert_equal 'herdr lists no pane in the tab agents', error.message

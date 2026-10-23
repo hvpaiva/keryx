@@ -27,7 +27,8 @@ module Keryx
                       summary: 'Start an agent session in a herdr pane and give it an address',
                       description: 'Start an agent session in a new herdr pane, give it the address NAME and hand it ' \
                                    "its first request.\n\n" \
-                                   'spawn runs in a herdr pane and splits it, or uses the tab --tab names. It ' \
+                                   'spawn runs in a herdr pane and splits it, or uses the tab --tab names, and ' \
+                                   'labels the new pane NAME. It ' \
                                    'creates NAME and, when TEXT or --file gives one, posts the request from this ' \
                                    'session before the new session exists, without a bell, since nothing holds NAME ' \
                                    'yet but a session that may have ended. The harness then starts with a first ' \
@@ -232,14 +233,14 @@ module Keryx
 
       def launch(name, before)
         deadline = @started + timeout
-        @pane = place
+        @pane = place(name)
         @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
                                                              arguments: harness_arguments(name, @pane))
       end
 
-      def place
-        spawner.place(herdr_caller.herdr_pane, split: options[:split] || DIRECTIONS.first, tab: options[:tab],
-                                               cwd: directory, env: session_env).id
+      def place(name)
+        spawner.place(herdr_caller.herdr_pane, label: name, split: options[:split] || DIRECTIONS.first,
+                                               tab: options[:tab], cwd: directory, env: session_env).id
       end
 
       def spawner

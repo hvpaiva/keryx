@@ -147,16 +147,17 @@ schedule, rings again for bells that did not reach a session, and sends the dead
 the address first, then creates the address and posts the request, so the request is in the mailbox
 before the session exists. It rings no bell for it, because the address may still name a session
 that ended and the new session opens its inbox from its first prompt. `Spawner` splits the caller's
-pane, or uses a tab of its workspace, and runs `herdr agent start`, which types the harness command
-into the new pane's shell. `Harness` builds that command's arguments, and the first prompt goes
-last, after a `--`, as the harness's own initial prompt. A harness that stops at a folder trust or
-hooks dialog keeps that prompt and acts on it once the dialog is answered, so nothing is ever typed
-into the session itself. herdr's start waits while the agent works, and the session starts working
-on that prompt at once, so it runs in the background through `Runner#start` while spawn watches the
-store, and spawn stops it when it is done. herdr names the agent when the start begins and keeps the
-name once the agent is idle or blocked, but drops it if the agent is still working when the timeout
-spawn passed to herdr runs out, so a session busy with its first request can lose its herdr name.
-keryx does not use that name, since the occupant records the pane.
+pane, or uses a tab of its workspace, labels the new pane with the address's name, and runs
+`herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
+that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial
+prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on it once
+the dialog is answered, so nothing is ever typed into the session itself. herdr's start waits while
+the agent works, and the session starts working on that prompt at once, so it runs in the background
+through `Runner#start` while spawn watches the store, and spawn stops it when it is done. herdr
+names the agent when the start begins and keeps the name once the agent is idle or blocked, but
+drops it if the agent is still working when the timeout spawn passed to herdr runs out, so a session
+busy with its first request can lose its herdr name. keryx does not use that name, since the
+occupant records the pane.
 
 The new pane gets `KERYX_HOME`, `XDG_CONFIG_HOME`, and `KERYX_HOST` when it is set, through herdr,
 so the session joins the store spawn watches and reads the config file spawn read. Codex passes its

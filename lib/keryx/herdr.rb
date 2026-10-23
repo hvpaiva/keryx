@@ -77,6 +77,8 @@ module Keryx
       end
     end
 
+    def rename(socket, pane, label) = control(socket, 'pane', 'rename', pane, label)
+
     def split(socket, pane, direction:, cwd:, env: {})
       pane_of(control(socket, 'pane', 'split', pane, '--direction', direction, '--cwd', cwd, *env_options(env),
                       '--no-focus')['pane'])

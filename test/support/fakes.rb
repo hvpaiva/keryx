@@ -68,8 +68,8 @@ class FakeHerdr
     def stop = @stopped = true
   end
 
-  attr_reader :prompts, :splits, :created_tabs, :starts
-  attr_accessor :start_outcome, :start_polls, :on_start
+  attr_reader :prompts, :splits, :created_tabs, :starts, :renames
+  attr_accessor :start_outcome, :start_polls, :on_start, :rename_error
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
     @agents = agents
@@ -81,6 +81,7 @@ class FakeHerdr
     @splits = []
     @created_tabs = []
     @starts = []
+    @renames = []
     @start_outcome = OK
     @start_polls = 0
   end
@@ -117,6 +118,12 @@ class FakeHerdr
     tab = Keryx::Herdr::Tab.new(id: "#{workspace}:t#{tabs(nil, workspace).size + 1}", label:)
     (@tabs[workspace] ||= []) << tab
     add_pane(workspace, tab.id)
+  end
+
+  def rename(socket, pane, label)
+    raise Keryx::Error, rename_error if rename_error
+
+    @renames << [socket, pane, label]
   end
 
   def start(socket, pane, name:, kind:, arguments:, timeout:)

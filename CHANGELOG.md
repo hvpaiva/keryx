@@ -26,8 +26,9 @@ All notable changes to this project are documented here. The format follows
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
 - `keryx skill`, the instructions agents follow to use keryx.
-- `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane, gives it an
-  address and hands it a first request that is in its mailbox before the session exists.
+- `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane labelled with
+  its address, gives it that address and hands it a first request that is in its mailbox before the
+  session exists.
 - Shell completion for bash, zsh and fish.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

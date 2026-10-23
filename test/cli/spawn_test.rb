@@ -104,6 +104,23 @@ class SpawnTest < Minitest::Test
     refute_match(/ring this session/, result.out)
   end
 
+  def test_the_new_pane_is_labelled_with_the_name_before_the_harness_starts
+    labels = nil
+    herdr.on_start = ->(*) { labels = herdr.renames.dup }
+    spawn('rev-1', '--harness', 'claude', '--timeout', '1s')
+
+    assert_equal [[SOCKET, 'w1:p2', 'rev-1']], labels
+  end
+
+  def test_a_pane_herdr_cannot_label_still_gets_its_session
+    session_joins
+    herdr.rename_error = 'herdr pane rename failed: no answer'
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal 0, result.status, result.err
+    assert_equal "Pane w1:p2 has no label: herdr pane rename failed: no answer.\n", result.err
+  end
+
   def test_tab_is_created_when_missing_and_split_once_it_exists
     session_joins(pid: 500)
     spawn('rev-1', '--harness', 'claude', '--tab', 'agents')
