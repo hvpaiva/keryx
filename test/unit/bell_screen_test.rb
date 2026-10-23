@@ -54,6 +54,23 @@ class BellScreenTest < Minitest::Test
     assert_nil obstacle("  Hooks need review\n\n\u203a Ask Codex to do anything")
   end
 
+  def test_cursor_s_follow_ups_box_is_no_dialog_with_or_without_its_composer
+    box = Screens.session('cursor-follow-ups')
+    composer = /^  \u2192 Add a follow-up.*\n/
+
+    assert_match(/esc cancel/, box)
+    assert_nil obstacle(box)
+    assert_nil obstacle(box.sub(composer, ''))
+    assert_nil obstacle(box.lines.first(9).join)
+  end
+
+  def test_a_dialog_under_cursor_s_follow_ups_box_still_counts
+    box = Screens.session('cursor-follow-ups').lines.first(10).join
+
+    assert_equal :dialog, obstacle(box + Screens.captured.fetch('cursor-120'))
+    assert_equal :dialog, obstacle("#{box}  Do you trust the contents of this directory?\n")
+  end
+
   def test_the_evidence_names_the_words_and_the_line_and_not_the_rest_of_the_line
     phrase = "  ok\n  private words, then Continue without trusting, then more private words\n"
     option = "  Pick one\n\n\u203a 1. private option\n  2. another private option\n"

@@ -40,6 +40,9 @@ module Keryx
     BOX_DRAWING = /[\u2500-\u257f]/
     # The prompt before Codex's, Claude Code's and Cursor's composer, the line a dialog takes the place of.
     COMPOSER = /\A\s*[\u203a\u276f\u2192]\s*/
+    # The box above Cursor's composer that lists the follow-ups it queued, from its title to its bottom border.
+    FOLLOW_UPS = /\A\s*\u250c\u2500*\s*follow-ups/
+    BOTTOM_BORDER = /\A\s*\u2514\u2500*\u2518/
     # The longest evidence a deferral quotes, since a bell's receipt reaches the sender, on any machine.
     EVIDENCE_CHARACTERS = 60
     OBSTACLES = { dialog: 'the screen shows a dialog',
@@ -55,11 +58,10 @@ module Keryx
     # A narrow pane wraps a dialog over several lines, often inside a box, so its phrases are matched on the lines
     # joined, its options line by line, and its footer with no spaces at all, whatever the width. A dialog takes the
     # place of the harness's composer, so what shows above a composer is its transcript, and only the lines below the
-    # last composer are read.
+    # last composer are read. Cursor's follow-ups box ends with a footer like a dialog's, so it is never read.
     def self.reading(screen)
-      lines = lines(screen)
-      rows = (composer(lines)&.succ || 0)...lines.size
-      evidence = phrase(lines, rows) || option(lines, rows) || footer(lines, rows)
+      box = follow_ups(screen.to_s.lines.map(&:chomp))
+      evidence = sighting(lines(screen).each_with_index.map { |line, row| box&.cover?(row) ? '' : line })
       return Reading.new(obstacle: :dialog, evidence:) if evidence
 
       Reading.new(obstacle: (:cramped if cramped?(screen)), evidence: nil)
@@ -81,6 +83,20 @@ module Keryx
         column && !LABEL.match?(lines[row], column) &&
           [row - 1, row + 1].none? { it >= 0 && lines[it]&.index(/\S/) == column }
       end
+    end
+
+    # The rows of the last follow-ups box, through its bottom border or the last line when the border is below the
+    # screen, found on the screen as herdr gave it since the lines the rules read drop the box drawing of its frame.
+    def self.follow_ups(raw)
+      top = raw.rindex { FOLLOW_UPS.match?(it) } or return
+      bottom = ((top + 1)...raw.size).find { BOTTOM_BORDER.match?(raw[it]) }
+      top..(bottom || (raw.size - 1))
+    end
+
+    # What shows a dialog on the lines below the last composer, or on all of them when no composer shows.
+    def self.sighting(lines)
+      rows = (composer(lines)&.succ || 0)...lines.size
+      phrase(lines, rows) || option(lines, rows) || footer(lines, rows)
     end
 
     def self.phrase(lines, rows)
@@ -137,7 +153,8 @@ module Keryx
     end
 
     def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
-    private_class_method :composer, :phrase, :footer, :option, :option?, :words, :quote, :spot, :lines
+    private_class_method :composer, :follow_ups, :sighting, :phrase, :footer, :option, :option?, :words, :quote, :spot,
+                         :lines
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
                    lookout: Lookout.new(herdr:, processes: Processes.new))

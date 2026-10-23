@@ -115,6 +115,16 @@ class BellTest < Minitest::Test
     end
   end
 
+  def test_herdr_types_into_cursor_while_its_follow_ups_box_shows
+    message = deliver
+    store.bind('rev-1', pane_occupant)
+    herdr = herdr_with('working', screen: Screens.session('cursor-follow-ups'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal %w[rung herdr], [result.status, result.channel]
+    assert_equal 1, herdr.prompts.size
+  end
+
   def test_herdr_defers_while_the_agent_is_blocked_or_unknown
     %w[blocked unknown].each do |status|
       message = deliver

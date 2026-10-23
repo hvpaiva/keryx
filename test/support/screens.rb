@@ -34,7 +34,8 @@ module Screens
   end
 
   # Sessions at work or idle as the bell reads them from herdr, their paths made neutral: Codex 0.163.0 working
-  # under a transcript that quotes dialogs (codex-working-transcript) and Cursor idle (cursor-idle).
+  # under a transcript that quotes dialogs (codex-working-transcript), Cursor idle (cursor-idle) and Cursor working
+  # with a message queued in its follow-ups box (cursor-follow-ups).
   def self.session(name) = read(File.join(SESSIONS, "#{name}.txt"))
 
   def self.read(path) = File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }

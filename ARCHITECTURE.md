@@ -144,6 +144,10 @@ and the id, never the body. It tries two ways, in order.
    A prompt line that marks an option, or has a line beside it at the column of its text as the
    selected entry of a menu has, is no composer. The cost is that a dialog drawn above a live
    composer goes unseen, and none of the known ones is. The narrow pane rule reads every line.
+   Cursor's follow-ups box, which lists the messages Cursor queued for the end of its turn above its
+   composer, ends with "enter steer · ↑ select/edit · esc cancel", a footer like a dialog's, so it
+   is never read, from its `┌─ follow-ups` title through its `└─┘` bottom border, or through the
+   last line when that border is below the screen.
 
    The detail of a deferral for a dialog names what matched, the words keryx's own patterns took or
    a marked option, and the line of the screen it showed on, as in
