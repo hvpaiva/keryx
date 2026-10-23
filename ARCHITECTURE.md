@@ -145,7 +145,11 @@ a pane; when herdr reports one, it must equal the occupant's, and an occupant th
 not taken for it. When herdr reports none, which is how a Codex session whose hooks are not trusted
 looks, the pane's foreground process group must be the process the occupant records, with the
 start time it records. Anything else is absent. When herdr or `ps` does not answer, the bell is
-deferred.
+deferred. Reading the screen can take seconds, so `Bell` asks `Lookout` again once the screen shows
+no dialog, right before typing, and types only if the pane still runs the session and herdr still
+reports the agent idle, done or working. herdr types into a pane, not into a given session, so a
+session that takes the pane in the moment between that last check and the keystrokes can still
+receive the bell.
 
 A Codex thread is queued only while herdr shows its id in the session's pane. `codex queue` hands
 the message to whichever Codex app-server has the thread loaded, and Codex's shared server keeps a

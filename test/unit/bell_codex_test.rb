@@ -11,12 +11,6 @@ class BellCodexTest < Minitest::Test
 
   def codex_pane(status, session: nil) = herdr_with(status, kind: 'codex', session:)
 
-  def joined_process(herdr, pid: 500)
-    processes.alive << pid
-    herdr.foregrounds[[HERDR_SOCKET, 'w1:p2']] = pid
-    { pid:, started: "started #{pid}" }
-  end
-
   def test_a_codex_thread_herdr_shows_open_in_its_pane_is_rung_through_its_queue
     message = deliver
     store.bind('rev-1', codex_occupant)

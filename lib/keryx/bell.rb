@@ -158,7 +158,15 @@ module Keryx
       obstacle = Bell.obstacle(screen)
       return outcome(DEFERRED, 'herdr', OBSTACLES.fetch(obstacle)) if obstacle
 
-      typed(@herdr.prompt(socket, pane, text))
+      untypable(occupant) || typed(@herdr.prompt(socket, pane, text))
+    end
+
+    # Reading the screen can take seconds and herdr types into a pane, not a session, so the pane is looked at again.
+    def untypable(occupant)
+      seen = @lookout.in_pane(occupant)
+      return unseen(seen) unless seen.there?
+
+      outcome(DEFERRED, 'herdr', "the agent is #{seen.agent.status}") unless TYPABLE.include?(seen.agent.status)
     end
 
     # herdr or ps not answering may pass, so that bell waits to ring again; anything else is not the session.
