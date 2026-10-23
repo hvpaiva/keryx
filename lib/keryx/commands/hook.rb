@@ -3,6 +3,7 @@
 require 'json'
 require_relative '../cli/command'
 require_relative '../stop_hook'
+require_relative '../text'
 
 module Keryx
   module Commands
@@ -46,7 +47,7 @@ module Keryx
                 .decide(payload) { emit(it) }
         nil
       rescue Keryx::Error, JSON::ParserError, SystemCallError => e
-        terminal.warn("keryx hook stop: #{e.message}")
+        terminal.warn("keryx hook stop: #{Text.plain(e.message, layout: true)}")
         nil
       end
 

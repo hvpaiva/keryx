@@ -108,6 +108,15 @@ class HelpTest < Minitest::Test
     end
   end
 
+  def test_an_unexpected_error_and_its_backtrace_cannot_put_control_characters_on_the_screen
+    err = StringIO.new
+    terminal = Keryx::CLI::Terminal.new(out: StringIO.new, err:, env: base_env.merge('KERYX_DEBUG' => '1'))
+    factory = ->(_globals) { raise IOError, "bad\e[2J\nnext", ["lib/keryx/\e]0;title\a.rb:1"] }
+
+    assert_equal 1, Keryx.run(%w[inbox], terminal:, app_factory: factory)
+    assert_equal "error: unexpected IOError: bad^[[2J\nnext\n    lib/keryx/^[]0;title^G.rb:1\n", err.string
+  end
+
   def test_version
     assert_equal "keryx #{Keryx::VERSION} (ruby #{RUBY_VERSION})\n", keryx('version').out
     assert_equal keryx('version').out, keryx('-V').out
