@@ -124,6 +124,11 @@ module Keryx
       return if @noticed
 
       @noticed = true
+      if obstacle == :editor
+        return @notice.call("Pane #{pane} #{shows(obstacle)}; keryx types nothing into it. The session joins once " \
+                            'it is closed.')
+      end
+
       @notice.call("Pane #{pane} #{shows(obstacle)}, such as a folder trust or permission question. " \
                    "#{obstacle == :cramped ? 'Look at it' : 'Answer it'} there; keryx never answers one. The session " \
                    "joins once #{obstacle == :cramped ? 'any dialog' : 'it'} is answered.")
@@ -131,6 +136,10 @@ module Keryx
 
     def late(address, pane)
       return "#{address} has not joined yet; look at pane #{pane}" unless @dialog
+      if @dialog == :editor
+        return "#{address} has not joined yet: pane #{pane} #{shows(:editor)}, and the session joins by itself once " \
+               'it is closed'
+      end
       if @dialog == :cramped
         return "#{address} has not joined yet: pane #{pane} #{shows(:cramped)}; look at it, and the session joins by " \
                'itself once any dialog is answered'
@@ -140,6 +149,12 @@ module Keryx
         'once it is answered'
     end
 
-    def shows(obstacle) = obstacle == :cramped ? 'is too narrow to tell whether it shows a dialog' : 'shows a dialog'
+    def shows(obstacle)
+      case obstacle
+      when :cramped then 'is too narrow to tell whether it shows a dialog'
+      when :editor then 'shows a queued message being edited'
+      else 'shows a dialog'
+      end
+    end
   end
 end

@@ -9,13 +9,7 @@ class BellCodexTest < Minitest::Test
 
   def codex_occupant(**overrides) = pane_occupant(harness: 'codex', session_id: 'thread-1', **overrides)
 
-  def codex_pane(status, session: nil) = herdr_with(status, kind: 'codex', session:)
-
-  def joined_process(herdr, pid: 500)
-    processes.alive << pid
-    herdr.foregrounds[[HERDR_SOCKET, 'w1:p2']] = pid
-    { pid:, started: "started #{pid}" }
-  end
+  def codex_pane(status, session: nil, screen: '> ') = herdr_with(status, kind: 'codex', session:, screen:)
 
   def test_a_codex_thread_herdr_shows_open_in_its_pane_is_rung_through_its_queue
     message = deliver
@@ -121,6 +115,42 @@ class BellCodexTest < Minitest::Test
     result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal ['absent', 'pane w1:p2 runs claude, not codex'], [result.status, result.detail]
+    assert_empty herdr.prompts
+  end
+
+  def test_a_working_codex_whose_transcript_quotes_dialogs_is_typed_into_when_its_queue_fails
+    message = deliver
+    queue.gone << 'thread-1'
+    store.bind('rev-1', codex_occupant)
+    herdr = codex_pane('working', session: 'thread-1', screen: Screens.session('codex-working-transcript'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal %w[rung herdr], [result.status, result.channel]
+    assert_equal 1, herdr.prompts.size
+  end
+
+  def test_the_extra_thought_menu_defers_the_bell
+    message = deliver
+    queue.gone << 'thread-1'
+    store.bind('rev-1', codex_occupant)
+    herdr = codex_pane('working', session: 'thread-1', screen: Screens.session('codex-extra-thought-transcribed'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal ['deferred', 'the screen shows a dialog (a marked option on line 11 of 15)'],
+                 [result.status, result.detail]
+    assert_empty herdr.prompts
+  end
+
+  def test_a_dialog_in_place_of_the_composer_defers_and_names_what_it_matched
+    transcript = Screens.session('codex-working-transcript').lines.take_while { !it.start_with?("\u203a") }.join
+    message = deliver
+    queue.gone << 'thread-1'
+    store.bind('rev-1', codex_occupant)
+    herdr = codex_pane('working', session: 'thread-1', screen: transcript + Screens.captured.fetch('codex-120'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal ['deferred', 'the screen shows a dialog ("Hooks need review", line 9 of 26)'],
+                 [result.status, result.detail]
     assert_empty herdr.prompts
   end
 end
