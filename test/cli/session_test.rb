@@ -191,7 +191,7 @@ class SessionTest < Minitest::Test
     join_claude('rev-1', 222)
     alive.delete(222)
     keryx('send', 'rev-1', 'hello')
-    lines = keryx('who').out.lines.map(&:split)
+    lines = keryx('who', '--all').out.lines.map(&:split)
 
     assert_equal [%w[ADDRESS ROLE HARNESS SESSION CONTEXT UNREAD], %w[orq@athena orchestrator claude live unknown 0],
                   %w[person@athena human - none - 0], %w[rev-1@athena - claude gone - 1]], lines
@@ -201,7 +201,7 @@ class SessionTest < Minitest::Test
     @herdr = FakeHerdr.new({ ['/h.sock', 'w1:p2'] => Keryx::Herdr::Agent.new('w1:p2', 'codex', 'working') })
     keryx('join', 'impl', env: { 'HERDR_SOCKET_PATH' => '/h.sock', 'HERDR_PANE_ID' => 'w1:p2' })
 
-    assert_equal 'working', JSON.parse(keryx('who', '-o', 'json').out).first['session']
+    assert_equal 'working', JSON.parse(keryx('who', '-o', 'json').out)['addresses'].first['session']
   end
 
   def test_who_with_no_addresses

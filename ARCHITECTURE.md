@@ -12,6 +12,7 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 addresses/NAME/address.json    the address: its role and when it was created
 addresses/NAME/occupant.json   the session holding it, while one does
 addresses/NAME/spawned.json    the director spawn recorded for the session it started, until a session joins
+addresses/NAME/retired.json    when the address was retired and by which address, until join --revive
 addresses/NAME/tmp/            messages being written
 addresses/NAME/mail/           every message, under its id, never moved
 addresses/NAME/read/           a hard link for each message read
@@ -47,6 +48,12 @@ takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
+
+An address is retired while `retired.json` stands in its directory, whatever the file holds, so a
+record that cannot be read never brings an address back. `Store#address_names` still lists a retired
+address, because its mailbox holds the replies to the requests it sent, and `Store#all_messages`
+must see them to count those requests answered. `Store#current_names` leaves it out, and the roster,
+and through it who, status and the courier's rounds, walks that list, as do ring and completion.
 
 `Store` and `Outbox` are the only code that touches these paths, and they validate every address
 and host name before building a path from it.
@@ -106,11 +113,29 @@ finds the session's address and removes it under the lock too, so a refresh cann
 and the occupant of a session that took the address over in between is never removed.
 `leave --as NAME` releases an address for a session that ended without leaving. Under the same
 lock it refuses when the roster sees the occupant live, as join does, and removes the occupant
-otherwise, so a session that joins in between keeps the address. spawn checks the address for
-the last time under the lock, right before it starts the harness. When it frees the herdr name its
-own pane kept from an address the session there left, it clears the name in that same hold, so a
-join lands before the check, which stops spawn, or after the clear, which then freed the name of
-an address no session held.
+otherwise, so a session that joins in between keeps the address. `keryx retire NAME` checks and
+writes in one hold of the lock too. It refuses while the roster sees the occupant live and while an
+open request waits on the address, sent to it or sent by it from here, and then removes
+`occupant.json` and `spawned.json` before it writes `retired.json`. The occupant goes because a
+session restarted in the old holder's herdr pane would otherwise find the address as its own by the
+pane rule, and it goes first, so a retire cut short leaves an address nobody holds rather than a
+retired one with an occupant. The address a plain terminal acts as cannot be retired, since every
+command from that terminal would create it again, and an address on another machine is retired
+there, since only that machine sees its session and its mail. `Postman` and `Receiver` refuse a
+retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
+`--revive`, which removes `retired.json` in the hold where it binds the session. Delivery takes no
+lock, so a message whose sender checked the address just before `retired.json` landed still lands
+in its mailbox. That stays visible: a request among such messages shows open in its sender's
+`keryx status`, and `keryx withdraw` settles it, since a withdrawal goes where its request is and
+`Receiver` takes into a retired mailbox the withdrawal of a request it holds. spawn checks the address for
+the last time under the lock, right before it starts the harness, and refuses there an address
+retired since its first check, as retire writes `retired.json` in a hold of the same lock. When it
+frees the herdr name its own pane kept from an address the session there left, it clears the name
+in that same hold, so a join lands before the check, which stops spawn, or after the clear, which
+then freed the name of an address no session held. A retire can still land after the check when
+spawn carries no request, since then nothing holds the address while the harness starts. The
+session's join is refused, and spawn stops at its next look for the join, saying the session runs
+with no address, rather than wait for it until its timeout.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
 make, and then fails, so a stopped holder cannot block it for good. spawn waits as long, but not
@@ -220,7 +245,8 @@ A message for an address on another host goes to `outbox/HOST/`, written in `tmp
 `new/` like a delivery. `Forwarder` moves a message in `new/` that already has an outcome by it, and
 sends the rest through `Remote`, which runs `ssh HOST keryx __receive` with one message per line. On
 the other machine, `Receiver` refuses a message for another host, one that claims to come from its
-own host, and one for an address it lacks. It stores the rest under their ids, rings the local
+own host, one for an address it lacks, and one for a retired address, with a detail that says it is
+retired, so the sender's `keryx status` shows why. It stores the rest under their ids, rings the local
 session and prints a receipt for each. The sender then records the outcome and moves the message to
 `cur/` or `refused/` by the outcome that stayed. The outcome is written before the move and its
 first decision stays, so an attempt that fails or hears otherwise after another one settled the

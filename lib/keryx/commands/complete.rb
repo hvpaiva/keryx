@@ -11,8 +11,8 @@ module Keryx
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
-                      'read' => :my_messages, 'reply' => :my_messages, 'wait' => :my_open_requests,
-                      'withdraw' => :my_open_requests,
+                      'retire' => :addresses, 'read' => :my_messages, 'reply' => :my_messages,
+                      'wait' => :my_open_requests, 'withdraw' => :my_open_requests,
                       'completion' => :shells, 'hook' => :events, 'help' => :command_names }.freeze
 
       define '__complete', section: 'Other Commands', arguments: 'WORDS...', max: nil, hidden: true,
@@ -95,7 +95,7 @@ module Keryx
 
       def value_candidates(option)
         case option
-        when '--as' then app.store.address_names
+        when '--as' then app.store.current_names
         when '-o', '--output' then OUTPUTS
         when '--harness' then Harness::KINDS
         when '--split' then Spawn::DIRECTIONS
@@ -108,7 +108,7 @@ module Keryx
         source && (index.zero? || name == 'ring') ? send(source) : []
       end
 
-      def addresses = app.store.address_names
+      def addresses = app.store.current_names
 
       def my_messages
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }

@@ -27,6 +27,11 @@ All notable changes to this project are documented here. The format follows
 - `~/.config/keryx/config`, whose `host` line names the machine unless `KERYX_HOST` is set.
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
+- `keryx retire`, which retires an address that no live session holds and no open request waits
+  on. It leaves `who` and `status`, mail to it is refused from this machine and from others, and
+  its files stay until `keryx join --revive` takes it back.
+- A short view in `who` and `status`, which leave out the addresses nobody holds and nobody writes
+  to and say how many they left out, with `--all` to list every address.
 - The context each session uses in `who` and `status`, and the sender's on each message it sends,
   shown by `read`, all read from the usage its harness records: the Claude Code transcript, the
   Codex rollout or the footer of a Cursor pane in herdr.

@@ -9,6 +9,7 @@ require_relative 'files'
 require_relative 'message'
 require_relative 'occupant'
 require_relative 'outbox'
+require_relative 'retirement'
 require_relative 'spawned'
 
 module Keryx
@@ -24,6 +25,7 @@ module Keryx
 
   class Store
     include Files
+    include Retirement
 
     class Busy < Error; end
     class Damaged < Error; end
@@ -39,6 +41,13 @@ module Keryx
     LOCK_POLL_SECONDS = 0.05
 
     attr_reader :root, :problems
+
+    # The local name that sent REQUEST from here, under whatever name the machine had then: only this machine writes
+    # its outbox, and nothing that arrives from another machine has the host of its recipient.
+    def self.sender_here(holder, request)
+      sender, host = request.from.split('@')
+      sender if holder.nil? || host == request.to.split('@').last
+    end
 
     def self.reference(text)
       reference = text.to_s.upcase
@@ -181,13 +190,10 @@ module Keryx
 
     def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
 
-    # Only this machine writes its outbox, and nothing that arrives from another machine has the host of its
-    # recipient, so these are the requests NAME sent from here, under whatever name the machine had then.
     def sent_requests(name)
       all_messages.filter_map do |holder, stored|
         request = stored.message
-        sender, host = request.from.split('@')
-        [holder, request] if request.request? && sender == name && (holder.nil? || host == request.to.split('@').last)
+        [holder, request] if request.request? && Store.sender_here(holder, request) == name
       end
     end
 

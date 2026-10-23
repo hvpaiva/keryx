@@ -185,4 +185,45 @@ class SpawnTest < Minitest::Test
     assert_equal 'rev-1@athena', JSON.parse(keryx('whoami', '-o', 'json', env: child).out)['address']
     assert_empty JSON.parse(keryx('status', '-o', 'json', env: orq).out)['open_requests']
   end
+
+  def test_spawn_refuses_a_retired_address
+    join_claude('rev-1', 111)
+    alive.delete(111)
+    keryx('retire', 'rev-1')
+    result = spawn('rev-1', '--harness', 'claude', 'Review PR #448')
+
+    assert_equal 1, result.status
+    assert_equal "error: rev-1@athena is retired; spawn another name, or bring it back with 'keryx join rev-1 " \
+                 "--revive' from the session that will hold it\n", result.err
+    assert_empty herdr.splits
+    assert_empty store.mailbox('rev-1')
+  end
+
+  def test_an_address_retired_while_the_pane_opened_starts_no_harness_and_spawn_does_not_wait
+    retired = []
+    session_joins
+    meanwhile { retired << keryx('retire', 'rev-1').status }
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal [1, [0]], [result.status, retired]
+    assert_equal 'error: rev-1@athena is retired; it was retired after spawn checked the address, and spawn started ' \
+                 "no claude session in pane w1:p2; the pane holds only a shell, which 'herdr pane close w1:p2' " \
+                 "closes\n", result.err
+    assert_equal [[], [], true], [herdr.cleared, herdr.starts, store.retired?('rev-1')]
+  end
+
+  def test_an_address_retired_while_spawn_waits_for_the_join_stops_spawn_before_its_timeout
+    outcomes = []
+    herdr.on_start = lambda do |socket, pane, name, kind|
+      herdr.put(socket, pane, agent(pane, kind, 'working'))
+      outcomes << keryx('retire', name).status
+      outcomes << keryx('join', name, env: claude(500).merge(in_pane(socket, pane))).status
+    end
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal [1, [0, 1]], [result.status, outcomes]
+    assert_equal 'error: rev-1@athena is retired; it was retired after spawn started the claude session in pane ' \
+                 "w1:p2, which runs with no address; 'herdr pane close w1:p2' closes it\n", result.err
+    assert_equal [1, nil], [herdr.starts.size, store.occupant('rev-1')]
+  end
 end

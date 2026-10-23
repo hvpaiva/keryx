@@ -147,7 +147,7 @@ class CeilingTest < Minitest::Test
     assert_includes output, "\e[33m121k 97% of 125k\e[0m"
     assert_includes output, "\e[31m121k 101% of 120k\e[0m"
     assert_match(/^docs@athena\s+-\s+claude\s+live\s+121k 12% of 1M\s/, keryx('who').out)
-    record = JSON.parse(keryx('who', '-o', 'json').out).find { it['address'] == 'impl@athena' }
+    record = JSON.parse(keryx('who', '-o', 'json').out)['addresses'].find { it['address'] == 'impl@athena' }
 
     assert_equal [{ 'used' => 121_203, 'window' => nil }, 125_000], record.values_at('context', 'ceiling')
   end

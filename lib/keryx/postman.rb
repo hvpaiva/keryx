@@ -5,6 +5,7 @@ require_relative 'error'
 require_relative 'forwarder'
 require_relative 'identity'
 require_relative 'message'
+require_relative 'retirement'
 require_relative 'ulid'
 
 module Keryx
@@ -111,6 +112,7 @@ module Keryx
 
     def check_recipient(recipient)
       return unless recipient.local?(@host)
+      raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.name)
       return if @store.address?(recipient.name) || recipient.name == @person
 
       raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"

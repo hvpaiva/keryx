@@ -3,6 +3,7 @@
 require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/message_view'
+require_relative '../cli/short_view'
 require_relative '../cli/table'
 
 module Keryx
@@ -16,7 +17,9 @@ module Keryx
                                     "sessions.\n\n" \
                                     'ADDRESSES lists each address with its session, the context the session uses ' \
                                     'as keryx who shows it, its unread messages and the requests waiting for its ' \
-                                    'answer. OPEN REQUESTS lists every request its ' \
+                                    'answer. It leaves out the addresses keryx who leaves out and says how many, ' \
+                                    'unless --all is given, and with -o json view and hidden say the same. ' \
+                                    'OPEN REQUESTS lists every request its ' \
                                     'recipient has not replied to yet and its sender has not withdrawn, with its ' \
                                     'deadline, including those sent to another machine. ' \
                                     'NOT RUNG lists unread messages whose bell did not reach a session, and why; ' \
@@ -25,33 +28,39 @@ module Keryx
                                     'queued ones.',
                        examples: [['Check whether anything is stuck', 'status'], ['Feed a script', 'status -o json']]
 
-      def define_options(parser) = output_option(parser)
+      def define_options(parser)
+        CLI::ShortView.option(parser, options)
+        output_option(parser)
+      end
 
       def call(_arguments)
         roster = app.roster
         entries = roster.entries
         requests = roster.open_requests
+        view = CLI::ShortView.of(entries, all: options[:all]) { requests }
         unrung = not_rung
         outgoing = not_forwarded
         report_damaged_claims
-        return print_json(json(entries, requests, unrung, outgoing)) if json?
+        return print_json(json(view, requests, unrung, outgoing)) if json?
         return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
 
-        print_sections(entries, requests, unrung, outgoing)
+        print_sections(view, requests, unrung, outgoing)
       end
 
       private
 
-      def print_sections(entries, requests, unrung, outgoing)
+      def print_sections(view, requests, unrung, outgoing)
         waiting = requests.map(&:first).tally
-        section('ADDRESSES', %w[ADDRESS ROLE SESSION CONTEXT UNREAD WAITING], entries.map { address_row(it, waiting) })
+        section('ADDRESSES', %w[ADDRESS ROLE SESSION CONTEXT UNREAD WAITING],
+                view.entries.map { address_row(it, waiting) })
+        view.note('status')&.then { terminal.puts(terminal.paint(:muted, it)) }
         section('OPEN REQUESTS', %w[ID FROM TO AGE DUE STATE SUMMARY], requests.map { request_row(it.last) })
         section('NOT RUNG', %w[ID TO FROM BELL DETAIL], unrung.map { unrung_row(it) })
         section('NOT FORWARDED', %w[ID TO FROM STATE ATTEMPTS DETAIL], outgoing.map { forward_row(*it) })
       end
 
       def not_rung
-        app.store.address_names.flat_map do |name|
+        app.store.current_names.flat_map do |name|
           app.store.unread(name).filter_map do |message|
             bell = app.store.receipt(name, message.id, 'bell') || { 'status' => 'none', 'detail' => 'never rung' }
             Unrung.new(message, bell['status'], bell['detail']) unless bell['status'] == Bell::RUNG
@@ -61,7 +70,7 @@ module Keryx
 
       # A damaged claim is shown on every look until a courier writes over it or someone removes it.
       def report_damaged_claims
-        app.store.address_names.each do |name|
+        app.store.current_names.each do |name|
           app.store.report_damaged_claims(name, Keryx::Courier::CONTEXT_CLAIM) { Ulid.valid?(it) }
         end
       end
@@ -72,9 +81,10 @@ module Keryx
         end
       end
 
-      def json(entries, requests, unrung, outgoing)
+      def json(view, requests, unrung, outgoing)
         waiting = requests.map(&:first).tally
-        { 'addresses' => entries.map { address_record(it, waiting) },
+        { 'view' => view.name, 'hidden' => view.hidden,
+          'addresses' => view.entries.map { address_record(it, waiting) },
           'open_requests' => requests.map { request_record(it.last) },
           'not_rung' => unrung.map { unrung_record(it) },
           'not_forwarded' => outgoing.map { forward_record(*it) } }

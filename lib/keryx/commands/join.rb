@@ -23,10 +23,14 @@ module Keryx
                                   'The address is created if it does not exist and outlives the session: when ' \
                                   'the session ends, its mailbox keeps receiving, and the next session to join ' \
                                   'the name finds the messages waiting. A session holds one address at a time, ' \
-                                  "so joining another releases the first.\n\n#{CEILING}",
+                                  "so joining another releases the first.\n\n" \
+                                  'A retired address is refused unless --revive is given, which takes it back with ' \
+                                  "its mailbox as it was; 'keryx retire --help' says what retiring does.\n\n" \
+                                  "#{CEILING}",
                      examples: [['Join as the first reviewer', 'join rev-1 --role reviewer'],
                                 ['Join with a context ceiling of 125k tokens', 'join impl --ceiling 125k'],
-                                ['Take an address over from a session that is still running', 'join rev-1 --force']]
+                                ['Take an address over from a session that is still running', 'join rev-1 --force'],
+                                ['Take back an address that was retired', 'join rev-1 --revive']]
 
       def self.where(session)
         label = SESSION_LABEL[session.harness]
@@ -39,6 +43,10 @@ module Keryx
         return if role.nil? || ROLE.match?(role)
 
         raise UsageError, "invalid role #{role.inspect}: up to 40 letters, digits, spaces, dots, hyphens or underscores"
+      end
+
+      def self.refuse_retired(app, name, advice)
+        raise Error, "#{app.full(name)} is retired; #{advice}" if app.store.retired?(name)
       end
 
       def self.refuse_taken(app, name, advice, caller: nil)
@@ -55,6 +63,7 @@ module Keryx
           options[:role] = role
         end
         parser.on('--force', 'Take the address even when another live session holds it') { options[:force] = true }
+        parser.on('--revive', 'Take the address back from retirement, with its mailbox') { options[:revive] = true }
         Join.ceiling_option(parser, options)
       end
 
@@ -78,8 +87,10 @@ module Keryx
       private
 
       def claim(name, caller, occupant)
+        Join.refuse_retired(app, name, 'pass --revive to bring it back with its mailbox') unless options[:revive]
         refuse_taken(name, caller)
         release_others(name, caller)
+        app.store.revive(name) if options[:revive]
         app.store.create_address(name, role: options[:role])
         app.store.bind(name, directed(name, occupant))
         app.store.forget_spawned(name)
