@@ -125,4 +125,19 @@ class ContextFiguresTest < Minitest::Test
     assert_equal 'delivered', receipt['status']
     assert_equal([['from zeus', nil]], inbox({}).map { it.values_at('body', 'context') })
   end
+
+  def test_acting_as_an_address_stamps_nothing_even_for_ones_own_or_a_former_session_in_this_pane
+    claude_transcript(111)
+    keryx('--as', 'orq', 'send', 'person', 'as my own address', env: @orq)
+    store.create_address('former')
+    store.bind('former', build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET,
+                                        herdr_pane: 'w1:p3'))
+    codex_rollout('thread-1')
+    herdr.put(SOCKET, 'w1:p3', Keryx::Herdr::Agent.new(pane: 'w1:p3', kind: 'codex', status: 'idle',
+                                                       session: 'thread-2'))
+    keryx('--as', 'former', 'send', 'person', 'as the former session',
+          env: { 'CODEX_THREAD_ID' => 'thread-2', 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p3' })
+
+    assert_equal([nil, nil], inbox({}).map { it['context'] })
+  end
 end

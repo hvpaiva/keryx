@@ -80,8 +80,11 @@ module Keryx
 
     def meter = @meter ||= Meter.new(env:, herdr:, lookout:)
 
-    # Only the session that holds the address is measured, so acting as another address stamps nothing.
+    # Only the session that holds the address is measured, and a command that names its address with --as stamps
+    # nothing, since the pane or process it shares may have held that address for another session.
     def context_of(name)
+      return if @as
+
       occupant = store.occupant(name)
       meter.read(occupant) if occupant && caller.holds?(occupant)
     end
