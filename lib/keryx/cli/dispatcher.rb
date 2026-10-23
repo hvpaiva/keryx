@@ -192,8 +192,11 @@ module Keryx
       end
 
       def unexpected(error)
-        @terminal.warn("#{@terminal.paint_err(:error, 'error:')} unexpected #{error.class}: #{error.message}")
-        @terminal.warn(*Array(error.backtrace).map { "    #{it}" }) unless @terminal.env[DEBUG_VARIABLE].to_s.empty?
+        @terminal.warn("#{@terminal.paint_err(:error, 'error:')} unexpected #{error.class}: " \
+                       "#{Text.plain(error.message, layout: true)}")
+        unless @terminal.env[DEBUG_VARIABLE].to_s.empty?
+          @terminal.warn(*Array(error.backtrace).map { "    #{Text.plain(it)}" })
+        end
         1
       end
 

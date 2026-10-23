@@ -51,6 +51,21 @@ class HelpTest < Minitest::Test
     assert_includes prose, 'a sender on another machine sees only that it arrived'
   end
 
+  def test_the_help_of_courier_says_that_a_working_cursor_session_queues_the_notice
+    prose = keryx('courier', '--help').out.gsub(/\s+/, ' ')
+
+    assert_includes prose, 'keryx types it into a working Cursor session, which queues it until its turn ends.'
+  end
+
+  def test_skill_help_shows_where_each_harness_reads_the_skill
+    out = keryx('skill', '--help').out
+
+    %w[claude codex cursor].each do |folder|
+      assert_includes out, "  keryx skill > ~/.#{folder}/skills/keryx/SKILL.md\n", folder
+    end
+    assert_match(/^  # Install it for Cursor$/, out)
+  end
+
   def test_spawn_help_shows_the_harness_arguments_after_the_separator
     out = keryx('spawn', '--help').out
 
@@ -91,6 +106,15 @@ class HelpTest < Minitest::Test
       assert_equal 2, result.status, argv.inspect
       assert_match(/Run 'keryx #{argv.first} --help' for usage/, result.err)
     end
+  end
+
+  def test_an_unexpected_error_and_its_backtrace_cannot_put_control_characters_on_the_screen
+    err = StringIO.new
+    terminal = Keryx::CLI::Terminal.new(out: StringIO.new, err:, env: base_env.merge('KERYX_DEBUG' => '1'))
+    factory = ->(_globals) { raise IOError, "bad\e[2J\nnext", ["lib/keryx/\e]0;title\a.rb:1"] }
+
+    assert_equal 1, Keryx.run(%w[inbox], terminal:, app_factory: factory)
+    assert_equal "error: unexpected IOError: bad^[[2J\nnext\n    lib/keryx/^[]0;title^G.rb:1\n", err.string
   end
 
   def test_version

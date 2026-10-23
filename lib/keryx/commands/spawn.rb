@@ -241,7 +241,8 @@ module Keryx
 
       def spawner
         @spawner ||= Spawner.new(herdr: app.herdr, store: app.store, socket: herdr_caller.herdr_socket,
-                                 clock: app.clock, sleeper: app.sleeper, notice: ->(text) { terminal.warn(text) })
+                                 clock: app.clock, sleeper: app.sleeper,
+                                 notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) })
       end
 
       def report(name, request)

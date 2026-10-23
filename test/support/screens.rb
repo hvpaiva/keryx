@@ -23,8 +23,8 @@ module Screens
   # Claude Code's folder trust, Codex's hooks screen and Cursor's workspace trust as the bell reads them from herdr,
   # at 120 columns and at every width from 4 to 14, named HARNESS-WIDTH. The files escape what is not ASCII.
   def self.captured
-    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h do |path|
-      [File.basename(path, '.txt'), File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }]
-    end
+    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h { [File.basename(it, '.txt'), unescaped(File.read(it))] }
   end
+
+  def self.unescaped(text) = text.gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }
 end

@@ -60,6 +60,19 @@ class OverviewTest < Minitest::Test
     assert_equal(['read'], JSON.parse(keryx('status', '-o', 'json').out)['open_requests'].map { it['state'] })
   end
 
+  def test_json_output_escapes_the_controls_a_terminal_acts_on_and_still_decodes_to_the_value
+    body = "ab\u202Ecd\u202C \u009B2J \u007F \u2066e\u2069 \e[2J"
+    keryx('ask', 'rev-1', body, env: @orq)
+    runs = [keryx('status', '-o', 'json'), *%w[inbox read].map { keryx(it, '-o', 'json', env: @rev) }]
+    status, inbox, read = runs.map { JSON.parse(it.out) }
+
+    assert_equal [body] * 3, [status['open_requests'].first['body'], inbox.first['body'], read['body']]
+    runs.product(["\u202E", "\u202C", "\u009B", "\u007F", "\u2066", "\u2069", "\e"]).each do |run, raw|
+      refute_includes run.out.b, raw.b
+    end
+    assert_includes runs.last.out, '"body": "ab\u202ecd\u202c \u009b2J \u007f \u2066e\u2069 \u001b[2J"'
+  end
+
   def test_status_takes_a_damaged_bell_receipt_for_a_bell_never_rung
     keryx('send', 'rev-1', 'hello', env: @orq)
     id = last_id(@rev)

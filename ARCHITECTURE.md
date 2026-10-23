@@ -21,6 +21,7 @@ outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
 outbox/HOST/refused/           messages the other machine refused
 outbox/HOST/receipts/          forwarding attempts and outcomes, one file each per message
+outbox/HOST/outcomes.lock      locked while a command replaces an outcome that holds no decision
 ```
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
@@ -38,9 +39,10 @@ recipient, since those may carry a name the machine had before. The sender is th
 same name on the machine that sent the request, which the store shows without a list of former
 names: only this machine writes its outbox, and a message from another machine never has its
 recipient's host, so a request in a mailbox whose sender and recipient share a host was sent from
-here. Because no mail operation has to change two files together, mail takes no locks and a
-crash leaves nothing half done. Only a change of occupants takes a lock, as the next section
-explains.
+here. Because no ordinary mailbox operation has to change two files together, none takes a lock
+and a crash leaves nothing half done. The one exception in mail is rewriting an outcome that holds
+no decision, which takes `outcomes.lock`, as the forwarding section explains. A change of occupants
+takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
@@ -170,14 +172,17 @@ host read from the file. The courier's service and the non-interactive SSH sessi
 mail have only their own environment, so a custom `XDG_CONFIG_HOME` has to be set for them too.
 
 A message for an address on another host goes to `outbox/HOST/`, written in `tmp/` and linked into
-`new/` like a delivery. `Forwarder` sends what waits in `new/` through `Remote`, which runs
-`ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
-message for another host, one that claims to come from its own host, and one for an address it
-lacks. It stores the rest under their ids, rings the local session and prints a receipt for each.
-The sender then records the outcome and moves the message to `cur/` or `refused/`. The outcome is
-written before the move and only once, so an attempt that fails after another one settled the
+`new/` like a delivery. `Forwarder` moves a message in `new/` that already has an outcome by it, and
+sends the rest through `Remote`, which runs `ssh HOST keryx __receive` with one message per line. On
+the other machine, `Receiver` refuses a message for another host, one that claims to come from its
+own host, and one for an address it lacks. It stores the rest under their ids, rings the local
+session and prints a receipt for each. The sender then records the outcome and moves the message to
+`cur/` or `refused/` by the outcome that stayed. The outcome is written before the move and its
+first decision stays, so an attempt that fails or hears otherwise after another one settled the
 message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
-Without a receipt the message stays in `new/`, and another file in `receipts/` counts the attempts.
+Only an outcome file that holds no decision is written again, under `outcomes.lock`, so a second
+repair keeps the first. Without a receipt the message stays in `new/`, and another file in
+`receipts/` counts the attempts.
 
 The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the
 machine that answers closes a request as soon as the reply is written, and the sender's machine
@@ -232,6 +237,8 @@ Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to e
 `StopHook` tells them apart by the payload and finds the session's address from the session id in
 it and the environment. When there are unread messages or read requests without a reply, it keeps
 the turn going, with a block decision for Claude Code and Codex and a follow-up message for Cursor.
+An unread request whose withdrawal from its sender is in the same mailbox is left out, as is the
+closing call to answer every request when nothing listed is a request.
 The hook prepares a marker in `receipts/` for each reminder before it prints the decision and keeps
 it once the decision is out. Every message is reminded about once, again only when the hook was cut
 off before it answered, and a marker the hook cannot write ends the turn with the error, so the hook

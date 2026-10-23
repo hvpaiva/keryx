@@ -16,7 +16,6 @@ module Keryx
     CONTEXT_CLAIM = 'context-id'
     # What a join sets and a command that records the session's process again keeps.
     JOIN = %i[harness session_id joined_at ceiling].freeze
-    UNREACHABLE = %w[none gone].freeze
 
     def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:)
       @store = store
@@ -46,7 +45,7 @@ module Keryx
 
     def ring_again(roster)
       roster.entries.filter_map do |entry|
-        next if UNREACHABLE.include?(entry.session)
+        next unless entry.ringable?
 
         waiting = @store.unread(entry.name).reject { rung?(entry.name, it) }
         [entry.name, @bell.ring(entry.name, waiting)] unless waiting.empty?

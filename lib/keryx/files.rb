@@ -11,8 +11,20 @@ module Keryx
     MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
     DIR_MODE = 0o700
     FILE_MODE = 0o600
-    RECEIPT = { 'status' => [String], 'channel' => [String, NilClass], 'detail' => [String, NilClass],
-                'at' => [String, NilClass], 'attempts' => [Integer, NilClass], 'bell' => [Hash, NilClass] }.freeze
+    # The fields of Bell::Result#record.
+    BELL = { 'status' => [String], 'channel' => [String, NilClass], 'detail' => [String, NilClass],
+             'at' => [String, NilClass] }.freeze
+    RECEIPT = BELL.merge('attempts' => [Integer, NilClass]).freeze
+
+    def self.bell?(value) = value.is_a?(Hash) && BELL.all? { |name, types| types.any? { value[name].is_a?(it) } }
+
+    # The optional fields of a receipt that have the wrong type, a bell among them unless it is a bell record.
+    def self.bad_options(receipt)
+      bad = RECEIPT.except('status').filter_map { |name, types| name if types.none? { receipt[name].is_a?(it) } }
+      receipt['bell'].nil? || bell?(receipt['bell']) ? bad : [*bad, 'bell']
+    end
+
+    class NotAnObject < Error; end
 
     private
 
@@ -62,7 +74,7 @@ module Keryx
       data = JSON.parse(text)
       return data if data.is_a?(Hash)
 
-      raise Error, "#{path} is not a JSON object"
+      raise NotAnObject, "#{path} is not a JSON object"
     rescue Errno::ENOENT
       nil
     rescue JSON::ParserError => e

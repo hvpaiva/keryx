@@ -130,6 +130,15 @@ class SpawnTest < Minitest::Test
     assert_equal "Pane w1:p2 has no label: herdr pane rename failed: no answer.\n", result.err
   end
 
+  def test_a_notice_cannot_put_control_characters_on_the_screen
+    session_joins
+    herdr.rename_error = "herdr pane rename failed: \e[2J\e]0;title\a"
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal 0, result.status, result.err
+    assert_equal "Pane w1:p2 has no label: herdr pane rename failed: ^[[2J^[]0;title^G.\n", result.err
+  end
+
   def test_tab_is_created_when_missing_and_split_once_it_exists
     session_joins(pid: 500)
     spawn('rev-1', '--harness', 'claude', '--tab', 'agents')

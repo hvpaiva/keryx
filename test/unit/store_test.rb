@@ -233,7 +233,7 @@ class StoreTest < Minitest::Test
     store.create_address('rev-1')
     File.write(tmp('state', 'addresses', 'rev-1', 'address.json'), 'true')
 
-    assert_match(/address.json is not a JSON object/, assert_raises(Keryx::Error) { store.address('rev-1') }.message)
+    assert_match(/address.json is damaged/, assert_raises(Keryx::Error) { store.address('rev-1') }.message)
     File.unlink(tmp('state', 'addresses', 'rev-1', 'address.json'))
     UNIXServer.open(tmp('state', 'addresses', 'rev-1', 'address.json')).close
 

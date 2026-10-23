@@ -18,6 +18,21 @@ class RemoteTest < Minitest::Test
     assert_equal [{ queued.id => receipt }, nil], [answer.receipts, answer.error]
   end
 
+  def test_a_receipt_needs_a_string_id_and_status_and_loses_only_its_fields_of_the_wrong_type
+    ids = Array.new(4) { Keryx::Ulid.generate(NOW + it) }
+    bell = { 'status' => 'rung', 'channel' => 'claude', 'detail' => nil, 'at' => '2026-10-22T17:00:00Z' }
+    lines = [{ 'id' => ids[0], 'status' => 'delivered', 'bell' => %w[wrong type] },
+             { 'id' => ids[1], 'status' => 'duplicate', 'bell' => bell, 'detail' => nil },
+             { 'id' => ids[2], 'status' => 'refused', 'detail' => 42, 'bell' => bell.merge('channel' => 7) },
+             { 'id' => ids[3], 'status' => ['delivered'] }, { 'id' => 7, 'status' => 'delivered' }]
+    out = lines.map { "#{JSON.generate(it)}\n" }.join
+    answer = Keryx::Remote.new(runner: FakeRunner.new({ ['ssh'] => { out: } })).deliver('zeus', [queued])
+
+    assert_equal({ ids[0] => { 'id' => ids[0], 'status' => 'delivered' },
+                   ids[1] => { 'id' => ids[1], 'status' => 'duplicate', 'bell' => bell, 'detail' => nil },
+                   ids[2] => { 'id' => ids[2], 'status' => 'refused' } }, answer.receipts)
+  end
+
   def test_a_failed_connection_reports_the_last_line_ssh_printed
     err = "Warning: something\nssh: connect to host zeus port 22: No route to host\n"
     answer = Keryx::Remote.new(runner: FakeRunner.new({ ['ssh'] => { success: false, err: } }))

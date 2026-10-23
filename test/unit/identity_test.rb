@@ -60,4 +60,15 @@ class IdentityTest < Minitest::Test
 
     assert_nil identity(claude_caller(pid: 7)).held
   end
+
+  def test_an_occupant_that_cannot_be_read_is_passed_over_and_reported
+    store.create_address('broken')
+    path = tmp('state', 'addresses', 'broken', 'occupant.json')
+    File.write(path, JSON.generate(claude_caller.occupant(NOW).record.merge('pid' => [])))
+    store.create_address('rev-1')
+    store.bind('rev-1', claude_caller.occupant(NOW))
+
+    assert_equal 'rev-1', identity(claude_caller).held
+    assert_equal ["#{path} is damaged"], store.problems
+  end
 end

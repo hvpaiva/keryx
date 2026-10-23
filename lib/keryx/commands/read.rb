@@ -26,7 +26,7 @@ module Keryx
         return terminal.puts("No unread messages for #{app.full(name)}.") unless message
 
         app.store.mark_read(name, message.id)
-        show_message(message)
+        show_message(message, app.store.withdrawals(name, [message])[message.id])
       end
 
       private

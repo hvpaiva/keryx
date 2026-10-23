@@ -3,6 +3,7 @@
 require 'json'
 require_relative '../cli/command'
 require_relative '../stop_hook'
+require_relative '../text'
 
 module Keryx
   module Commands
@@ -16,7 +17,8 @@ module Keryx
                      description: 'Run the keryx side of a harness hook. The one event is stop, which Claude Code, ' \
                                   "Codex and Cursor run when a session is about to end its turn.\n\n" \
                                   'When the session has unread mail, or a request it read and never answered, the ' \
-                                  'hook keeps the turn going once and names what is pending. Each message is ' \
+                                  'hook keeps the turn going once and names what is pending, leaving out a request ' \
+                                  'its sender withdrew. Each message is ' \
                                   'reminded about once, and again only when the hook was cut off before it ' \
                                   'answered. Sessions that hold no address are left alone. Claude ' \
                                   "Code's settings.json and Codex's hooks.json enable it with\n\n  " \
@@ -46,7 +48,7 @@ module Keryx
                 .decide(payload) { emit(it) }
         nil
       rescue Keryx::Error, JSON::ParserError, SystemCallError => e
-        terminal.warn("keryx hook stop: #{e.message}")
+        terminal.warn("keryx hook stop: #{Text.plain(e.message, layout: true)}")
         nil
       end
 
