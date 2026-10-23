@@ -17,10 +17,11 @@ module Keryx
     CODEX_LINE = '"type":"token_count"'
     CODEX_HEAD = '"type":"session_meta"'
     # Cursor's footer: the model's name, its window and labels, as in "Opus 5.5 300K Extra High", then after middle
-    # dots more labels and the share in use; only its mode, set apart by a wider gap, may follow on the line.
+    # dots more labels, the share in use and labels such as "1 file edited"; only its mode, set apart by a wider gap,
+    # may follow on the line.
     CURSOR_FOOTER = Regexp.new('\A[A-Za-z][\w.-]*(?: [\w.-]+)*? (?<window>\d+)(?<unit>[KM])(?: [A-Za-z][\w-]*)*' \
-                               '(?:(?: \u00B7 [A-Za-z][\w-]*(?: [A-Za-z][\w-]*)*)* \u00B7 (?<share>\d+(?:\.\d+)?)%)?' \
-                               '(?: {2,}\S.*)?\z')
+                               '(?:(?: \u00B7 [A-Za-z][\w-]*(?: [A-Za-z][\w-]*)*)* \u00B7 (?<share>\d+(?:\.\d+)?)%' \
+                               '(?: \u00B7 [\w-]+(?: [\w-]+)*)*)?(?: {2,}\S.*)?\z')
     UNITS = { 'K' => 1000, 'M' => 1_000_000 }.freeze
     NO_COUNT = :no_count
 
