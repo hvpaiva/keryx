@@ -13,7 +13,9 @@ module Keryx
                                   'first characters, at least four, as long as they match one message. Marking a ' \
                                   'message read is how a sender on the same machine learns you saw it, so read it ' \
                                   'with this command rather than through the files; a sender on another machine ' \
-                                  'sees only that it arrived.',
+                                  "sees only that it arrived.\n\n" \
+                                  'A message carries the context its sender used when it sent it, when keryx could ' \
+                                  'measure it, and read shows it in the same form as keryx who.',
                      examples: [['Open the next unread message', 'read'], ['Open one message', 'read 01JB8Y2Q']]
 
       def define_options(parser) = output_option(parser)

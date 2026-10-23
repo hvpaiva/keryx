@@ -251,6 +251,10 @@ so measuring never fails the command that asked.
 A transcript or rollout is read from its end, at most 8 MiB back, so a long one costs only its last lines, and
 only the lines that carry usage are parsed.
 
+A message a session sends carries its figure in an optional `context` field, measured as the message is
+composed and only when the sending command runs in the session that holds the address. A build that does not
+know the field ignores it, and one that cannot read a stamp delivers the message without it.
+
 ## The command line
 
 `Keryx.run` builds a `CLI::Dispatcher` over the command classes in `Commands::ALL`. The dispatcher

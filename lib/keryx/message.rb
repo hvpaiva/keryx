@@ -2,12 +2,15 @@
 
 require 'json'
 require 'time'
+require_relative 'context'
 require_relative 'error'
 require_relative 'text'
 require_relative 'ulid'
 
 module Keryx
-  Message = Data.define(:id, :kind, :from, :to, :thread, :in_reply_to, :created_at, :due_at, :body)
+  Message = Data.define(:id, :kind, :from, :to, :thread, :in_reply_to, :created_at, :due_at, :body, :context) do
+    def initialize(context: nil, **) = super
+  end
 
   class Message
     KINDS = %w[message request reply withdrawal].freeze
@@ -29,7 +32,7 @@ module Keryx
       check_fields(data)
       new(id: data['id'], kind: data['kind'], from: data['from'], to: data['to'], thread: data['thread'],
           in_reply_to: data['in_reply_to'], created_at: time(data['created_at']), due_at: time(data['due_at']),
-          body: data['body'])
+          body: data['body'], context: Context.from_record(data['context']))
     end
 
     def self.check_fields(data)
@@ -95,8 +98,9 @@ module Keryx
     end
 
     def record
-      FIELDS.to_h { [it, public_send(it)] }.merge('created_at' => created_at.utc.iso8601,
-                                                  'due_at' => due_at&.utc&.iso8601)
+      FIELDS.to_h { [it, public_send(it)] }
+            .merge('created_at' => created_at.utc.iso8601, 'due_at' => due_at&.utc&.iso8601)
+            .merge(context ? { 'context' => context.record } : {})
     end
 
     def to_json(*) = JSON.generate({ 'keryx' => FORMAT_VERSION, **record }, *)

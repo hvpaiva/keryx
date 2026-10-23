@@ -65,7 +65,8 @@ module Keryx
     def forwarder = @forwarder ||= Forwarder.new(store:, remote:, clock:)
 
     def postman
-      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name)
+      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name,
+                               measure: ->(name) { context_of(name) })
     end
 
     def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
@@ -78,6 +79,12 @@ module Keryx
     def roster = @roster ||= Roster.new(store:, herdr:, lookout:)
 
     def meter = @meter ||= Meter.new(env:, herdr:, lookout:)
+
+    # Only the session that holds the address is measured, so acting as another address stamps nothing.
+    def context_of(name)
+      occupant = store.occupant(name)
+      meter.read(occupant) if occupant && caller.holds?(occupant)
+    end
 
     def me
       @me ||= identity.current(as: @as).tap { refresh(it) unless @as }

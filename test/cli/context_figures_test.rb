@@ -75,4 +75,54 @@ class ContextFiguresTest < Minitest::Test
     assert_match(/^orq@athena\s+orchestrator\s+live\s+121k\s+0\s+0$/, output)
     assert_equal({ 'used' => 121_203, 'window' => nil }, data['addresses'].first['context'])
   end
+
+  def inbox(env) = JSON.parse(keryx('inbox', '--all', '-o', 'json', env:).out)
+
+  def stamps(env) = inbox(env).map { it['context'] }
+
+  def test_a_message_carries_the_context_of_the_session_that_sent_it
+    claude_transcript(111)
+    rev = join_claude('rev-1', 222)
+    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    keryx('send', 'rev-1', 'heads-up', env: @orq)
+    id = inbox(rev).first['id']
+
+    assert_equal [{ 'used' => 121_203, 'window' => nil }] * 2, stamps(rev)
+    assert_match(/^context +121k when sent$/, keryx('read', id, env: rev).out)
+    keryx('withdraw', id, env: @orq)
+
+    assert_equal({ 'used' => 121_203, 'window' => nil }, inbox(rev).last['context'])
+  end
+
+  def test_a_reply_from_codex_carries_the_window_too
+    rev = join_codex('rev-1', 'thread-1')
+    codex_rollout('thread-1')
+    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    keryx('reply', inbox(rev).first['id'], 'Approved', env: rev)
+    reply = inbox(@orq).last
+
+    assert_equal({ 'used' => 137_000, 'window' => 258_400 }, reply['context'])
+    assert_match(%r{^context +137k/258k 53% when sent$}, keryx('read', reply['id'], env: @orq).out)
+  end
+
+  def test_a_person_or_a_session_acting_as_another_address_stamps_nothing
+    claude_transcript(111)
+    rev = join_claude('rev-1', 222)
+    keryx('send', 'rev-1', 'from the keyboard')
+    keryx('--as', 'orq', 'send', 'rev-1', 'as orq', env: rev)
+    files = Dir[tmp('state', 'addresses', 'rev-1', 'mail', '*.json')]
+
+    assert_equal [nil, nil], stamps(rev)
+    assert_equal([false, false], files.map { JSON.parse(File.read(it)).key?('context') })
+    refute_match(/^context/, keryx('read', env: rev).out)
+  end
+
+  def test_a_stamp_this_build_does_not_know_still_delivers_the_message
+    message = build_message(from: 'orq@zeus', to: 'person@athena', body: 'from zeus')
+    data = JSON.parse(message.to_json).merge('context' => { 'used' => 'lots' })
+    receipt = JSON.parse(keryx('__receive', input: "#{JSON.generate(data)}\n").out)
+
+    assert_equal 'delivered', receipt['status']
+    assert_equal([['from zeus', nil]], inbox({}).map { it.values_at('body', 'context') })
+  end
 end
