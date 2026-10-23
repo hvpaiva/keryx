@@ -36,7 +36,7 @@ module Screens
   # Claude Code's folder trust, Codex's hooks screen and Cursor's workspace trust as the bell reads them from herdr,
   # at 120 columns and at every width from 4 to 14, named HARNESS-WIDTH. The files escape what is not ASCII.
   def self.captured
-    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h { [File.basename(it, '.txt'), read(it)] }
+    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h { [File.basename(it, '.txt'), unescaped(File.read(it))] }
   end
 
   # Sessions at work or idle as the bell reads them from herdr, their paths made neutral: Codex 0.163.0 working
@@ -44,7 +44,7 @@ module Screens
   # with a message queued in its follow-ups box (cursor-follow-ups) and with that message being edited there
   # (cursor-follow-up-editor). codex-extra-thought-transcribed, the menu Codex 0.163.0 shows mid-turn while it gives a
   # request extra thought, was transcribed by hand from a screenshot, not captured.
-  def self.session(name) = read(File.join(SESSIONS, "#{name}.txt"))
+  def self.session(name) = unescaped(File.read(File.join(SESSIONS, "#{name}.txt")))
 
-  def self.read(path) = File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }
+  def self.unescaped(text) = text.gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }
 end

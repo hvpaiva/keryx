@@ -16,8 +16,8 @@ module Keryx
 
       def call(arguments)
         names = arguments.empty? ? app.store.address_names : arguments.map { local_name(it) }
-        rung = names.filter_map { ring(it) }
-        terminal.puts('Nothing to ring: no address has unread messages.') if rung.empty?
+        waiting = names.filter_map { ring(it) }
+        terminal.puts('Nothing to ring: no address has unread messages.') if waiting.empty?
         nil
       end
 
@@ -35,12 +35,15 @@ module Keryx
         unread = app.store.unread(name)
         return if unread.empty?
 
-        result = app.bell.ring(name, unread)
+        result = app.store.reporting { app.bell.ring(name, unread) }
         terminal.puts("#{terminal.paint(:address, app.full(name))}   #{unread.size} unread   #{outcome(result)}")
-        result
+        unread
       end
 
+      # The bell reads the occupant before anything else, so one it cannot read rings nothing, and its file is reported.
       def outcome(result)
+        return terminal.paint(:failed, 'not rung') unless result
+
         channel = result.channel ? " via #{result.channel}" : ''
         detail = result.detail ? " (#{Text.plain(result.detail)})" : ''
         "#{terminal.paint(result.status.to_sym, result.status)}#{channel}#{detail}"

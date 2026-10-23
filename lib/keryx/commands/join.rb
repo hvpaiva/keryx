@@ -97,7 +97,7 @@ module Keryx
 
       def release_others(name, caller)
         (app.store.address_names - [name]).each do |other|
-          occupant = app.store.occupant(other)
+          occupant = app.store.reporting { app.store.occupant(other) }
           app.store.unbind(other) if occupant && caller.holds?(occupant)
         end
       end

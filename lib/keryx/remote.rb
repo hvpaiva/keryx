@@ -2,6 +2,7 @@
 
 require 'json'
 require 'shellwords'
+require_relative 'files'
 require_relative 'runner'
 
 module Keryx
@@ -35,11 +36,14 @@ module Keryx
     def receipts(out)
       out.each_line.filter_map do |line|
         receipt = JSON.parse(line)
-        [receipt['id'], receipt] if receipt.is_a?(Hash) && receipt['id'].is_a?(String)
+        [receipt['id'], usable(receipt)] if receipt.is_a?(Hash) && receipt.values_at('id', 'status').all?(String)
       rescue JSON::ParserError
         nil
       end.to_h
     end
+
+    # A field the other machine got wrong is left out, so a bad bell never hides that the message arrived.
+    def usable(receipt) = receipt.except(*Files.bad_options(receipt))
 
     def failure(host, result)
       result.err.lines.map(&:strip).reject(&:empty?).last || "#{@ssh.first} to #{host} failed"

@@ -19,8 +19,9 @@ module Keryx
                                      '--help) and tells the session and its director to reach a stopping point, ' \
                                      'once when the context reaches 80% of the ceiling and once when it reaches ' \
                                      'the ceiling. The notice rings the session like any message: a Claude Code ' \
-                                     'session gets it when the bell rings, a Codex session after its next tool ' \
-                                     "call, and a Cursor session only when its turn ends.\n\n" \
+                                     'session gets it when the bell rings and a Codex session after its next tool ' \
+                                     'call, and keryx types it into a working Cursor session, which queues it ' \
+                                     "until its turn ends.\n\n" \
                                      'Run it on each machine as a user service, so mail for a machine that was ' \
                                      'asleep or off the network goes out when it is back. It prints one line for ' \
                                      "each thing it does, the config file's warnings before its first round, and " \

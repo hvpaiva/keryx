@@ -66,6 +66,10 @@ before it ends a turn. Claude Code needs one more setting to let the bells in, a
 other agent are rung in a [herdr](https://herdr.dev) pane. [Setting up the agents](docs/agents.md)
 shows each one.
 
+Install [herdr](https://herdr.dev/docs/install/) so that keryx can ring Codex, Cursor and other
+agents. Run `keryx courier` on each machine as a [user service](docs/machines.md#run-the-courier),
+which retries bells and mail for other machines and reports missed deadlines and context ceilings.
+
 ## Ask and answer
 
 Each session joins an address, which stays when the session ends.
