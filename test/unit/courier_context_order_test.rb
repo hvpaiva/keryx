@@ -63,16 +63,39 @@ class CourierContextOrderTest < Minitest::Test
     assert_equal [%w[100k 126k]] * 2, [mailbox('impl'), read_in_order('impl')]
   end
 
-  def test_a_damaged_claim_of_the_notice_near_the_ceiling_holds_the_ceiling_notice_back_and_says_so
+  # Tells the notice near the ceiling, writes over the id claimed for it what the block makes of that id, and runs
+  # the round that reaches the ceiling.
+  def round_past_a_damaged_near_claim
     impl
     meter.figures['session-impl'] = 100_000
     courier.round
     claims = Dir[tmp('state', 'addresses', 'impl', 'receipts', '*.context-id')]
-    File.write(claims.first, 'damaged')
+    File.write(claims.first, yield(File.read(claims.first)))
     meter.figures['session-impl'] = 126_000
-    round = courier.round
+    [claims, courier.round]
+  end
 
-    assert_equal [1, [], %w[100k], 1], [claims.size, round.context, mailbox('impl'), round.errors.size]
-    assert_match(/could not tell impl@athena .*; the id claimed for the notice \w+ is damaged/, round.errors.first)
+  # The order of the two notices can no longer be proved, and losing it costs less than losing the ceiling notice.
+  def assert_the_ceiling_notice_goes_out_with_a_fresh_id(&)
+    claims, round = round_past_a_damaged_near_claim(&)
+
+    assert_equal [1, [['impl@athena', :ceiling]]], [claims.size, told.call(round)]
+    assert_equal %w[100k 126k], mailbox('impl').sort
+    assert_equal ["#{claims.first} is damaged"], store.problems
+    assert_equal ['the ceiling notice of impl@athena to impl@athena takes a fresh id and may sort before the notice ' \
+                  "near it; #{claims.first} is damaged"], round.errors
+    assert_equal([[], []], courier.round.then { [it.context, it.errors] })
+  end
+
+  def test_an_empty_claim_of_the_notice_near_the_ceiling_holds_no_ceiling_notice_back
+    assert_the_ceiling_notice_goes_out_with_a_fresh_id { '' }
+  end
+
+  def test_a_truncated_claim_of_the_notice_near_the_ceiling_holds_no_ceiling_notice_back
+    assert_the_ceiling_notice_goes_out_with_a_fresh_id { it[0, 13] }
+  end
+
+  def test_a_claim_of_the_notice_near_the_ceiling_that_is_no_id_holds_no_ceiling_notice_back
+    assert_the_ceiling_notice_goes_out_with_a_fresh_id { 'not-json' }
   end
 end

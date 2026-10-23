@@ -33,6 +33,7 @@ module Keryx
         requests = roster.open_requests
         unrung = not_rung
         outgoing = not_forwarded
+        report_damaged_claims
         return print_json(json(entries, requests, unrung, outgoing)) if json?
         return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
 
@@ -55,6 +56,13 @@ module Keryx
             bell = app.store.receipt(name, message.id, 'bell') || { 'status' => 'none', 'detail' => 'never rung' }
             Unrung.new(message, bell['status'], bell['detail']) unless bell['status'] == Bell::RUNG
           end
+        end
+      end
+
+      # Nothing writes a claim again, so a damaged one is shown on every look until someone removes it.
+      def report_damaged_claims
+        app.store.address_names.each do |name|
+          app.store.report_damaged_claims(name, Keryx::Courier::CONTEXT_CLAIM) { Ulid.valid?(it) }
         end
       end
 

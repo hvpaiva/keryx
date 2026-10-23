@@ -211,10 +211,24 @@ module Keryx
       claimed(name, id, kind)
     end
 
-    # The value claimed for ID, or nil while nothing claimed it.
+    # The value claimed for ID, or nil while nothing claimed it. Nothing writes a claim again, so one whose value the
+    # block rejects stays damaged until someone removes it.
     def claimed(name, id, kind)
       path = receipt_file(name, id, kind)
-      read_regular(path) or raise Error, "#{path} is not a regular file"
+      value = read_regular(path) or raise Error, "#{path} is not a regular file"
+      return value if !block_given? || yield(value)
+
+      raise Error, "#{path} is damaged"
+    rescue Errno::ENOENT
+      nil
+    end
+
+    # Each claim of KIND in the mailbox of NAME that claimed refuses is reported as a problem.
+    def report_damaged_claims(name, kind, &)
+      suffix = ".#{kind}"
+      Dir.children(File.join(box(name), 'receipts')).sort.each do |file|
+        reporting { claimed(name, file.delete_suffix(suffix), kind, &) } if file.end_with?(suffix)
+      end
     rescue Errno::ENOENT
       nil
     end

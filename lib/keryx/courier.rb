@@ -138,7 +138,7 @@ module Keryx
 
     # Asked in the post's hold of the occupants lock, and none for a notice no longer due. A ceiling's id sorts after
     # the id claimed for the notice near it to the same recipient for the same join, so no recipient reads that
-    # notice after the ceiling's, whatever the clock says.
+    # notice after the ceiling's, whatever the clock says, unless that claim is damaged.
     def notice_id(name, recipient, occupant, stage)
       return unless due?(name, recipient, occupant, stage)
 
@@ -151,10 +151,17 @@ module Keryx
       raise Error, "the id claimed for the notice #{mark} is damaged"
     end
 
+    # A damaged claim can no longer place the ceiling after the notice near it. Losing the ceiling costs more than that
+    # order, so the ceiling takes a fresh id, and the damage is a problem and an error of the round.
     def after_near(name, recipient, occupant)
       mark = context_mark(occupant, :near, recipient)
-      near = @store.claimed(name, mark, CONTEXT_CLAIM) or return
-      Ulid.after(near) or raise Error, "the id claimed for the notice #{mark} is damaged"
+      near = @store.claimed(name, mark, CONTEXT_CLAIM) { Ulid.valid?(it) } or return
+      Ulid.after(near)
+    rescue Error => e
+      @store.problems << e.message
+      @errors << "the ceiling notice of #{name}@#{@host} to #{recipient} takes a fresh id and may sort before the " \
+                 "notice near it; #{e.message}"
+      nil
     end
 
     def notice(name, context, ceiling, stage)
