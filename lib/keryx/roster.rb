@@ -45,12 +45,16 @@ module Keryx
 
     def live?(occupant) = !occupant.nil? && @lookout.presence(occupant) == :live
 
+    # A request its recipient wrote a message in the thread of stays open, in the state taken.
     def open_requests
       all = @store.all_messages
-      replies = all.map { it.last.message }.select(&:in_reply_to).group_by(&:in_reply_to)
-      all.select do |_name, stored|
+      responses = all.map { it.last.message }.select(&:in_reply_to).group_by(&:in_reply_to)
+      all.filter_map do |holder, stored|
         request = stored.message
-        request.request? && replies.fetch(request.id, []).none? { Roster.settles?(it, request) }
+        found = responses.fetch(request.id, [])
+        next unless request.request? && found.none? { Roster.settles?(it, request) }
+
+        [holder, found.any? { it.takes?(request) } ? stored.with(state: :taken) : stored]
       end
     end
 

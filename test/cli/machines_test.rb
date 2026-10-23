@@ -57,6 +57,18 @@ class MachinesTest < Minitest::Test
     assert_equal [{ id => 'forwarded' }, {}], [open.call({}), open.call(@port)]
   end
 
+  def test_a_message_in_the_thread_from_the_other_machine_shows_the_request_taken_on_both
+    keryx('ask', 'port@zeus', 'Port it', env: @orq)
+    id = last_id(@port)
+    states = ->(env) { JSON.parse(keryx('status', '-o', 'json', env:).out)['open_requests'].map { it['state'] } }
+    sent = keryx('send', '--re', id, 'Taken', env: @port)
+
+    assert_match(/\ASent \w+ to orq@athena in the thread of #{id}\. It reached athena\./, sent.out)
+    assert_equal [%w[taken], %w[taken]], [states.call({}), states.call(@port)]
+    assert_equal([['message', id]], JSON.parse(keryx('inbox', '-o', 'json', env: @orq).out)
+                                         .map { it.values_at('kind', 'in_reply_to') })
+  end
+
   def ssh_answering(fields)
     runner = FakeRunner.new({ ['ssh'] => lambda do |_argv|
       { out: "#{JSON.generate(fields.merge('id' => JSON.parse(runner.inputs.last)['id']))}\n" }
