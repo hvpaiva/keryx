@@ -43,8 +43,9 @@ sender withdrew needs no reply; stop working on it.
   name (`KERYX_HOST` when set there, else `host` in its `~/.config/keryx/config`, else its short
   hostname), and it must be the name ssh reaches that machine by from here. Mail to it goes over
   SSH, and when that machine is unreachable it waits and goes out later; `keryx status` shows it.
-- `keryx who` lists the addresses on this machine, whether a session holds each one, and how many
-  tokens of context each session uses, your own included.
+- `keryx who` lists the addresses on this machine that have a session or mail, whether a session
+  holds each one, and how many tokens of context each session uses, your own included.
+  `keryx who --all` lists the others too.
 
 ## Write messages that stand on their own
 
