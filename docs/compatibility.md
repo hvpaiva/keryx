@@ -32,11 +32,12 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
   lines below it, where the known dialogs take its place, so a transcript that quotes a dialog
   does not count, and a dialog drawn above a live composer would not either.
 - The bell does not read what a harness's composer holds, and the only editor it knows is Cursor's
-  follow-ups box. Codex's shift+← puts the last queued message back into the composer to be
-  edited, and a bell typed into the pane while it is there is added to that message. keryx types
-  into a Codex pane only when herdr shows the session there by its process alone, with no thread
-  id, or when `codex queue` fails for the thread herdr shows there. Otherwise a bell to Codex goes
-  through `codex queue` or is not rung, and nothing is typed.
+  follow-ups box, which it sees only while the box's footer is on the screen. Codex's shift+← puts
+  the last queued message back into the composer to be edited, and a bell typed into the pane while
+  it is there is added to that message. keryx types into a Codex pane only when herdr shows the
+  session there by its process alone, with no thread id, or when `codex queue` fails for the thread
+  herdr shows there. Otherwise a bell to Codex goes through `codex queue` or is not rung, and
+  nothing is typed.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
   recognizes. keryx finds the pane of a Codex started by hand, rather than by `keryx spawn`, only
   on Linux, where it can read the variables herdr gave the Codex process.

@@ -43,6 +43,8 @@ module Keryx
     # The box above Cursor's composer that lists the follow-ups it queued, from its title to its bottom border.
     FOLLOW_UPS = /\A\s*\u250c\u2500*\s*follow-ups/
     BOTTOM_BORDER = /\A\s*\u2514\u2500*\u2518/
+    # A line inside a box, between its side borders.
+    FRAMED = /\A\s*\u2502.*\u2502\s*\z/
     # The footer of that box, with no spaces, while one of its messages is open for editing and holds the focus.
     EDITING = /editing\u00b7enterdone\u00b7escclose/i
     # The longest evidence a deferral quotes, since a bell's receipt reaches the sender, on any machine.
@@ -61,11 +63,13 @@ module Keryx
     # joined, its options line by line, and its footer with no spaces at all, whatever the width. A dialog takes the
     # place of the harness's composer, so what shows above a composer is its transcript, and only the lines below the
     # last composer are read. Cursor's follow-ups box ends with a footer like a dialog's, so it is never read, unless
-    # one of its messages is being edited, which takes the focus from the composer drawn below it.
+    # one of its messages is being edited, which takes the focus from the composer drawn below it. A message taller
+    # than the pane puts the box's title above the screen, so that footer counts in the frame the screen starts with.
     def self.reading(screen)
       lines = lines(screen)
-      box = follow_ups(screen.to_s.lines.map(&:chomp))
-      editing = footer(lines, box, EDITING)
+      raw = screen.to_s.lines.map(&:chomp)
+      box = follow_ups(raw)
+      editing = footer(lines, [*cut_off(raw), *box], EDITING)
       return Reading.new(obstacle: :editor, evidence: editing) if editing
 
       evidence = sighting(lines.each_with_index.map { |line, row| box.cover?(row) ? '' : line })
@@ -99,6 +103,10 @@ module Keryx
       bottom = ((top + 1)...raw.size).find { BOTTOM_BORDER.match?(raw[it]) }
       top..(bottom || (raw.size - 1))
     end
+
+    # The framed lines the screen starts with, a box whose top is above the screen. It may be the follow-ups box, but a
+    # dialog's box can be cut the same way, so these lines are only searched for the editing footer, never dropped.
+    def self.cut_off(raw) = 0...(raw.index { !FRAMED.match?(it) } || raw.size)
 
     # What shows a dialog on the lines below the last composer, or on all of them when no composer shows.
     def self.sighting(lines)
@@ -160,8 +168,8 @@ module Keryx
     end
 
     def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
-    private_class_method :composer, :follow_ups, :sighting, :phrase, :footer, :option, :option?, :words, :quote, :spot,
-                         :lines
+    private_class_method :composer, :follow_ups, :cut_off, :sighting, :phrase, :footer, :option, :option?, :words,
+                         :quote, :spot, :lines
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
                    lookout: Lookout.new(herdr:, processes: Processes.new))

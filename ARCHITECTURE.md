@@ -155,7 +155,10 @@ and the id, never the body. It tries two ways, in order.
    looked for first, on every line of the box and with no spaces so that a narrow box that wraps it
    still counts, and the bell defers, saying the screen shows a queued message being edited.
    Matching inside the box, not anywhere, keeps a transcript that quotes that footer from holding
-   the bell back.
+   the bell back. A queued message taller than the pane can put the box's title above the screen,
+   so the footer is also looked for in the framed lines, between `│` borders, that the screen
+   starts with. Those lines are not dropped before the dialog rule, since a dialog's box can be cut
+   the same way. When the footer itself is above the screen, nothing on it shows the edit.
 
    The rule does not read what the composer holds, and the follow-ups box is the only editor it
    knows. Codex's shift+← moves the last queued message back into its composer to be edited, which

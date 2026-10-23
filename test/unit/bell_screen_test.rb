@@ -80,6 +80,29 @@ class BellScreenTest < Minitest::Test
     assert_equal :editor, obstacle(Screens::NARROW_EDITOR.lines.first(6).join)
   end
 
+  # A queued message taller than the pane puts the box's title above the top of the screen.
+  def test_cursor_s_follow_up_editor_counts_when_its_title_is_above_the_screen
+    [Screens.session('cursor-follow-up-editor'), Screens::NARROW_EDITOR].each do |screen|
+      lines = screen.lines
+      title = lines.index { it.include?('follow-ups') }
+      footer = lines.index { it.include?('editing') }
+      bottom = lines.index { it.include?("\u2514") }
+
+      [lines.drop(title + 1), lines.drop(footer), lines[(title + 1)..bottom]].each do |crop|
+        assert_equal :editor, obstacle(crop.join), crop.join
+      end
+    end
+  end
+
+  def test_without_its_title_the_editor_s_footer_counts_only_in_the_frame_the_screen_starts_with
+    framed = " \u2502 editing \u00b7 enter done \u00b7 esc close \u2502\n"
+    composer = "  \u2192 Add a follow-up\n"
+
+    assert_equal :editor, obstacle(framed + composer)
+    assert_nil obstacle("  editing \u00b7 enter done \u00b7 esc close\n#{composer}")
+    assert_nil obstacle("  ok\n#{framed}#{composer}")
+  end
+
   def test_the_editor_s_footer_outside_its_box_is_no_obstacle
     quoted = "  Cursor shows editing \u00b7 enter done \u00b7 esc close while a follow-up is edited.\n"
     box = Screens.session('cursor-follow-ups')
