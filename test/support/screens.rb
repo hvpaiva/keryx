@@ -18,13 +18,24 @@ module Screens
   NARROW_BOX = "\u2502 Do          \u2502\n\u2502 you trust   \u2502\n\u2502 this folder?\u2502\n"
   # A question hard wrapped at 14 columns with no footer, so only its options show it is one.
   WRAPPED_OPTIONS = "Trust this wor\nkspace?\n\u203a Yes\n  No\n"
+  # Claude Code idle under its last answer, which quotes dialogs: its composer between two rules, then its mode.
+  CLAUDE_IDLE = [
+    "\u23fa The folder trust asks \"Do you trust this folder?\" and ends with \"Enter to confirm \u00b7 Esc to",
+    '  cancel".', '', "\u2500" * 80, "\u276f ", "\u2500" * 80,
+    "  \u23f5\u23f5 bypass permissions on (shift+tab to cycle)"
+  ].join("\n")
   CAPTURES = File.expand_path('../fixtures/screens', __dir__)
+  SESSIONS = File.join(CAPTURES, 'sessions')
 
   # Claude Code's folder trust, Codex's hooks screen and Cursor's workspace trust as the bell reads them from herdr,
   # at 120 columns and at every width from 4 to 14, named HARNESS-WIDTH. The files escape what is not ASCII.
   def self.captured
-    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h do |path|
-      [File.basename(path, '.txt'), File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }]
-    end
+    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h { [File.basename(it, '.txt'), read(it)] }
   end
+
+  # Sessions at work or idle as the bell reads them from herdr, their paths made neutral: Codex 0.163.0 working
+  # under a transcript that quotes dialogs (codex-working-transcript) and Cursor idle (cursor-idle).
+  def self.session(name) = read(File.join(SESSIONS, "#{name}.txt"))
+
+  def self.read(path) = File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }
 end

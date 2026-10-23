@@ -43,7 +43,9 @@ reason.
   check the pane, so the bell waits and the courier tries again.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not
   type into a herdr pane while the agent waited on something else. Answer the dialog, then run
-  `keryx ring`.
+  `keryx ring`. The dialog note names in parentheses what keryx matched, a dialog's words or a
+  marked option, and the line of the screen it showed on, counted from the top of the lines keryx
+  read, as in `the screen shows a dialog ("Hooks need review", line 2 of 11)`.
 - `the screen could not be read` means herdr did not return the pane's screen, so keryx could not
   rule out a dialog and did not type. The courier tries again.
 - `the pane is too narrow to tell whether it shows a dialog` means the pane is only a few columns

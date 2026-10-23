@@ -137,6 +137,20 @@ and the id, never the body. It tries two ways, in order.
    harness no longer holds the session, so the bell is absent there rather than typed into whoever
    took the pane.
 
+   Every dialog keryx knows takes the place of the harness's composer, the prompt line under its
+   transcript (`›` for Codex, `❯` for Claude Code, `→` for Cursor). So when the screen shows a
+   composer, the phrases, options and footer are looked for only on the lines below the last one,
+   and a transcript that quotes a dialog's words does not count; without one, every line is read.
+   A prompt line that marks an option, or has a line beside it at the column of its text as the
+   selected entry of a menu has, is no composer. The cost is that a dialog drawn above a live
+   composer goes unseen, and none of the known ones is. The narrow pane rule reads every line.
+
+   The detail of a deferral for a dialog names what matched, the words keryx's own patterns took or
+   a marked option, and the line of the screen it showed on, as in
+   `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt reaches the sender,
+   on whatever machine, so it never holds the rest of that line, and its control characters are
+   made visible.
+
 Cursor has no channel of its own, so it is always rung by typing.
 
 Before typing into a pane, `Lookout` checks that the pane still runs the session that joined, and

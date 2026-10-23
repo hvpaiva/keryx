@@ -28,7 +28,9 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
 - Typing into a herdr pane depends on herdr recognizing the agent's dialogs. keryx also checks the
   screen for the common ones by their phrases, options and footer, so that a dialog a narrow pane
   wraps or breaks still counts, and does not type into a pane too narrow to tell, but an unknown
-  dialog can still take the typed bell.
+  dialog can still take the typed bell. When the harness's composer shows, keryx reads only the
+  lines below it, where the known dialogs take its place, so a transcript that quotes a dialog
+  does not count, and a dialog drawn above a live composer would not either.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
   recognizes. keryx finds the pane of a Codex started by hand, rather than by `keryx spawn`, only
   on Linux, where it can read the variables herdr gave the Codex process.
