@@ -26,7 +26,7 @@ module Keryx
 
     def held
       @store.address_names.find do |name|
-        occupant = @store.occupant(name)
+        occupant = @store.reporting { @store.occupant(name) }
         occupant && @caller.holds?(occupant)
       end
     end

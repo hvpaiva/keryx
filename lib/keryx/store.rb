@@ -87,6 +87,15 @@ module Keryx
       raise Error, "#{occupant_file(name)} is damaged"
     end
 
+    # A command that walks every address goes on past a file it cannot read: the file is reported once as a problem,
+    # and the fallback stands for what the block would have read.
+    def reporting(fallback = nil)
+      yield
+    rescue Error => e
+      @problems << e.message
+      fallback
+    end
+
     def bind(name, occupant)
       require_address(name)
       write_atomic(occupant_file(name), JSON.generate(occupant.record))
