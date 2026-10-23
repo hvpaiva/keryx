@@ -3,6 +3,7 @@
 require 'json'
 require_relative '../duration'
 require_relative '../error'
+require_relative '../text'
 require_relative 'message_view'
 
 module Keryx
@@ -12,6 +13,7 @@ module Keryx
                          :passthrough)
       Example = Data.define(:comment, :line)
       FORMATS = %w[table json].freeze
+      JSON_ESCAPED = /[\x7F#{Text::INVISIBLE}]/
 
       class << self
         attr_reader :spec
@@ -52,7 +54,8 @@ module Keryx
 
       def json? = options[:output] == 'json'
 
-      def print_json(data) = terminal.puts(JSON.pretty_generate(data))
+      # JSON escapes C0 controls only; these characters occur only inside strings, so an escape keeps the value.
+      def print_json(data) = terminal.puts(JSON.pretty_generate(data).gsub(JSON_ESCAPED) { format('\u%04x', it.ord) })
 
       def show_message(message)
         json? ? print_json(message.record) : terminal.puts(MessageView.render(terminal, message, app.now))

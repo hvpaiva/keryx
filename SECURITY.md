@@ -32,9 +32,9 @@ language models.
   visible. The whole body comes with `keryx read` and in the JSON output of `keryx inbox` and
   `keryx status`.
 - Nothing from a file or a session reaches a terminal raw. Message bodies, roles, addresses and
-  herdr states are shown with control characters made visible, so they cannot move the cursor,
-  change colors or reorder text with bidirectional controls. Roles are limited to plain words
-  when they are set.
+  herdr states are shown with control characters made visible, and `-o json` writes those
+  characters as `\u` escapes, so they cannot move the cursor, change colors or reorder text with
+  bidirectional controls. Roles are limited to plain words when they are set.
 - Typing is the last resort. keryx types into a pane only when herdr reports the agent idle, done
   or working and the bottom of the screen shows no dialog keryx knows, so a bell does not answer
   an approval prompt, and only when herdr's session id or the pane's foreground process shows that
