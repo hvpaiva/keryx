@@ -55,21 +55,33 @@ Description=keryx courier
 
 [Service]
 ExecStart=/path/to/keryx courier
+Environment=PATH=/path/to/herdr/dir:/path/to/codex/dir:/usr/local/bin:/usr/bin:/bin
 Restart=on-failure
 
 [Install]
 WantedBy=default.target
 ```
 
-`ExecStart` takes the path `command -v keryx` prints. Add the same `KERYX_*` variables your shell
-sets, `XDG_CONFIG_HOME` when you set it, and `SSH_AUTH_SOCK` when the key lives in an agent. Then
-start it.
+`ExecStart` takes the path `command -v keryx` prints. A service gets systemd's own `PATH`, which
+does not reach herdr or codex when they are installed under your home directory, as mise and most
+installers do. Every bell but one through a Claude Code session's socket runs herdr, to look at
+the session's pane or type into it, and a bell for a Codex thread runs codex to queue it, so a
+service that finds neither leaves those bells deferred. Set `Environment=PATH=` to the directories
+`command -v herdr codex` prints, followed by `/usr/local/bin:/usr/bin:/bin` so that ssh, ps and
+ruby are still found, since systemd does not expand `$PATH` there. Add the same `KERYX_*`
+variables your shell sets, `XDG_CONFIG_HOME` when you set it, and `SSH_AUTH_SOCK` when the key
+lives in an agent. Then start it.
 
 ```sh
 systemctl --user daemon-reload
 systemctl --user enable --now keryx-courier
 journalctl --user -u keryx-courier -f
 ```
+
+`systemctl --user show keryx-courier -p Environment` shows the `PATH` the service runs with. When
+the courier rings again for a session in a herdr pane, the journal shows `rang ADDRESS: rung`. A
+service that cannot run herdr shows `rang ADDRESS: deferred herdr did not answer for pane ...`
+instead, while `keryx ring` from your shell reaches the same session.
 
 The journal shows one line for each message forwarded or refused, each bell rung again and each
 deadline reported, and a host's waiting line only when it changes. Warnings about the config file
