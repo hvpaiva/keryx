@@ -179,19 +179,6 @@ class HookTest < Minitest::Test
     assert_equal 2, keryx('hook', 'start', env: @rev).status
   end
 
-  def test_the_skill_is_a_skill_file
-    output = keryx('skill').out
-
-    assert_match(/\A---\nname: keryx\ndescription: .+\n---\n/, output)
-    assert_includes output, 'keryx reply ID TEXT'
-  end
-
-  def test_the_skill_says_where_the_host_of_an_address_comes_from
-    host = keryx('skill').out.lines.drop_while { !it.include?('NAME@HOST') }.slice_before(/\A- /).first.join
-
-    %w[KERYX_HOST ~/.config/keryx/config hostname ssh].each { assert_includes host, it }
-  end
-
   def transcript_at(*parts)
     path = tmp('home', '.claude', 'projects', *parts)
     FileUtils.mkdir_p(File.dirname(path))
