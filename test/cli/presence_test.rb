@@ -54,7 +54,8 @@ class PresenceTest < Minitest::Test
     assert_match(/The bell rang through herdr\./, keryx('send', 'impl', 'hello').out)
     runs_in('w1:p3', 900)
 
-    assert_match(/No session holds impl@athena/, keryx('send', 'impl', 'still there?').out)
+    assert_match(/The bell did not reach the session that holds impl@athena \(pane w1:p3 runs process 900, not 500\)/,
+                 keryx('send', 'impl', 'still there?').out)
     assert_empty codex.queued
   end
 

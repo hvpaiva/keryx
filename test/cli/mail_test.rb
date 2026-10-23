@@ -50,7 +50,7 @@ class MailTest < Minitest::Test
     keryx('courier', '--once')
 
     assert_equal ['thread-1'], codex.queued.map(&:first)
-    assert_match(/No session holds impl@athena; the message waits in its mailbox\./, asked.out)
+    assert_match(/The bell did not reach the session that holds impl@athena \(no agent runs in pane w1:p3\)/, asked.out)
     assert_equal ['Fix retry.py', 'Are you still there?'], store.unread('impl').map(&:body)
   end
 

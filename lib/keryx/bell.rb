@@ -18,6 +18,7 @@ module Keryx
     DEFERRED = 'deferred'
     FAILED = 'failed'
     ABSENT = 'absent'
+    NOBODY = 'no session holds the address'
     # Claude Code holds typed text until its current step ends, Codex steers the turn with it, Cursor queues it.
     TYPABLE = %w[idle done working].freeze
     DIALOG = Regexp.union(
@@ -70,7 +71,7 @@ module Keryx
     private
 
     def attempt(occupant, text)
-      return outcome(ABSENT, nil, 'no session holds the address') unless occupant
+      return outcome(ABSENT, nil, NOBODY) unless occupant
       return codex_thread(occupant, text) if occupant.harness == 'codex' && occupant.session_id
       return claude_session(occupant, text) if occupant.claude_socket
       return through_herdr(occupant, text) if occupant.herdr?
