@@ -66,6 +66,18 @@ class SpawnWaitTest < Minitest::Test
                  result.err)
   end
 
+  def test_a_queued_message_being_edited_is_reported_as_such
+    session_runs(screen: Screens.session('cursor-follow-up-editor'))
+    result = spawn('impl', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal 3, result.status
+    assert_equal 1, result.err.scan('being edited;').size
+    assert_match(/^Pane w1:p2 shows a queued message being edited; keryx types nothing into it\. The session joins /,
+                 result.err)
+    assert_match(/pane w1:p2 shows a queued message being edited, and the session joins by itself once it is closed$/,
+                 result.err)
+  end
+
   def test_spawn_stops_when_no_session_runs_in_the_pane
     result = spawn('rev-1', '--harness', 'claude')
 

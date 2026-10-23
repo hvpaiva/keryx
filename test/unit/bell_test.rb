@@ -8,6 +8,18 @@ class BellTest < Minitest::Test
   include Factory
   include BellHelpers
 
+  # Each screen with what the bell's detail names of it.
+  DIALOGS = {
+    'Hooks need review' => '"Hooks need review", line 1 of 1',
+    '[a] Trust this workspace' => '"Trust this workspace", line 1 of 1',
+    'Held message from another session' => '"Held message", line 1 of 1',
+    'Do you want to proceed? (y/n)' => '"Do you want", line 1 of 1',
+    Screens::NARROW_CODEX_HOOKS => '"Trust all and continue", line 8 of 20',
+    Screens::TINY_CODEX_HOOKS => "\"ente r conf irm \u00b7 esc skip\", line 14 of 20",
+    Screens::NARROW_BOX => '"Do you trust", line 1 of 3',
+    Screens::WRAPPED_OPTIONS => 'a marked option on line 3 of 4'
+  }.freeze
+
   def with_claude_socket
     path = tmp('cc.sock')
     server = UNIXServer.new(path)
@@ -103,6 +115,28 @@ class BellTest < Minitest::Test
     end
   end
 
+  def test_herdr_types_into_cursor_while_its_follow_ups_box_shows
+    message = deliver
+    store.bind('rev-1', pane_occupant)
+    herdr = herdr_with('working', screen: Screens.session('cursor-follow-ups'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal %w[rung herdr], [result.status, result.channel]
+    assert_equal 1, herdr.prompts.size
+  end
+
+  def test_herdr_never_types_into_cursor_s_follow_up_editor
+    message = deliver
+    store.bind('rev-1', pane_occupant)
+    herdr = herdr_with('working', screen: Screens.session('cursor-follow-up-editor'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal 'deferred', result.status
+    assert_equal "the screen shows a queued message being edited (\"editing \u00b7 enter done \u00b7 esc close\", " \
+                 'line 9 of 19)', result.detail
+    assert_empty herdr.prompts
+  end
+
   def test_herdr_defers_while_the_agent_is_blocked_or_unknown
     %w[blocked unknown].each do |status|
       message = deliver
@@ -116,17 +150,14 @@ class BellTest < Minitest::Test
   end
 
   def test_herdr_defers_when_the_screen_shows_a_dialog
-    ['Hooks need review', '[a] Trust this workspace', 'Held message from another session',
-     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::TINY_CODEX_HOOKS, Screens::NARROW_BOX,
-     Screens::WRAPPED_OPTIONS]
-      .each do |screen|
-        message = deliver
-        store.bind('rev-1', pane_occupant)
-        herdr = herdr_with('idle', screen:)
+    DIALOGS.each do |screen, evidence|
+      message = deliver
+      store.bind('rev-1', pane_occupant)
+      herdr = herdr_with('idle', screen:)
 
-        assert_equal 'the screen shows a dialog', bell(herdr:).ring('rev-1', [message]).detail, screen
-        assert_empty herdr.prompts
-      end
+      assert_equal "the screen shows a dialog (#{evidence})", bell(herdr:).ring('rev-1', [message]).detail, screen
+      assert_empty herdr.prompts
+    end
   end
 
   def test_a_pane_too_narrow_to_show_a_dialog_defers

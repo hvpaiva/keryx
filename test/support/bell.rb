@@ -26,8 +26,17 @@ module BellHelpers
 
   def herdr_with(status, screen: '> ', outcome: Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil),
                  session: 'conversation-1', kind: 'cursor')
-    agent = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind:, status:, session:)
     screens = { [HERDR_SOCKET, 'w1:p2'] => screen }
-    FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => agent }, screens:, prompt_outcome: outcome)
+    FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => pane_agent(status, session:, kind:) }, screens:, prompt_outcome: outcome)
+  end
+
+  def pane_agent(status, session: 'conversation-1', kind: 'cursor')
+    Keryx::Herdr::Agent.new(pane: 'w1:p2', kind:, status:, session:)
+  end
+
+  def joined_process(herdr, pid: 500)
+    processes.alive << pid
+    herdr.foregrounds[[HERDR_SOCKET, 'w1:p2']] = pid
+    { pid:, started: "started #{pid}" }
   end
 end

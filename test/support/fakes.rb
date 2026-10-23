@@ -69,7 +69,7 @@ class FakeHerdr
   end
 
   attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered, :footers
-  attr_accessor :start_outcome, :start_polls, :on_start, :rename_error
+  attr_accessor :start_outcome, :start_polls, :on_start, :on_screen, :rename_error
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
     @agents = agents
@@ -101,7 +101,10 @@ class FakeHerdr
 
   def show(socket, pane, screen) = @screens[[socket, pane]] = screen
 
-  def screen(socket, pane) = @screens.fetch([socket, pane], '> ')
+  def screen(socket, pane)
+    @on_screen&.call(socket, pane)
+    @screens.fetch([socket, pane], '> ')
+  end
 
   def footer(socket, pane) = footers[[socket, pane]]
 
