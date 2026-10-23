@@ -101,17 +101,16 @@ module Keryx
     end
 
     # Once per recipient for each join and ceiling, and never nearing the ceiling once told it reached it. The first
-    # courier to tell a notice claims its id, with the time it is sent so the recipient reads notices in order, and
-    # every later post uses that id, so the store keeps one copy however many couriers or rounds post it. Only the
-    # courier that writes the mark reports it.
+    # courier to tell a notice claims its id as it writes it, and every later post uses that id, so the store keeps
+    # one copy however many couriers or rounds post it. Only the courier that writes the mark reports it.
     def tell(name, recipient, occupant, context, stage)
       mark = context_mark(occupant, stage, recipient)
       return if @store.marked?(name, mark, CONTEXT_MARK) || superseded?(name, recipient, occupant, stage, CONTEXT_MARK)
       return unless same_join?(@store.occupant(name), occupant)
 
       body = notice(name, context, occupant.ceiling, stage)
-      guard = -> { due?(name, recipient, occupant, stage) }
-      return unless @postman.post(sender: NAME, recipient:, kind: 'message', id: notice_id(name, mark), body:, guard:)
+      claim = -> { notice_id(name, recipient, occupant, stage) }
+      return unless @postman.post(sender: NAME, recipient:, kind: 'message', body:, claim:)
       return unless @store.mark_once(name, mark, CONTEXT_MARK)
 
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
@@ -120,7 +119,8 @@ module Keryx
       nil
     end
 
-    # Asked in the post's hold of the occupants lock; a ceiling's claim comes before its post, and its mark after it.
+    # A ceiling notice claims its id in the hold that writes it and is marked only after it, so its claim is what keeps
+    # the notice near it back.
     def due?(name, recipient, occupant, stage)
       same_join?(@store.occupant(name), occupant) && !superseded?(name, recipient, occupant, stage, CONTEXT_CLAIM)
     end
@@ -136,11 +136,25 @@ module Keryx
       Ulid.derive(occupant.joined_at, "context #{stage} #{occupant.ceiling} #{recipient}")
     end
 
-    def notice_id(name, mark)
-      id = @store.claim(name, mark, CONTEXT_CLAIM, Ulid.generate(@clock.call))
+    # Asked in the post's hold of the occupants lock, and none for a notice no longer due. A ceiling's id sorts after
+    # the id claimed for the notice near it to the same recipient for the same join, so no recipient reads that
+    # notice after the ceiling's, whatever the clock says.
+    def notice_id(name, recipient, occupant, stage)
+      return unless due?(name, recipient, occupant, stage)
+
+      id = Ulid.generate(@clock.call)
+      id = [id, after_near(name, recipient, occupant)].compact.max if stage == :ceiling
+      mark = context_mark(occupant, stage, recipient)
+      id = @store.claim(name, mark, CONTEXT_CLAIM, id)
       return id if Ulid.valid?(id)
 
       raise Error, "the id claimed for the notice #{mark} is damaged"
+    end
+
+    def after_near(name, recipient, occupant)
+      mark = context_mark(occupant, :near, recipient)
+      near = @store.claimed(name, mark, CONTEXT_CLAIM) or return
+      Ulid.after(near) or raise Error, "the id claimed for the notice #{mark} is damaged"
     end
 
     def notice(name, context, ceiling, stage)

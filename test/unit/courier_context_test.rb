@@ -7,13 +7,6 @@ class CourierContextTest < Minitest::Test
   include Factory
   include CourierHelpers
 
-  def impl(ceiling: 125_000, **fields)
-    store.create_address('impl')
-    build_occupant(session_id: 'session-impl', ceiling:, **fields).tap { store.bind('impl', it) }
-  end
-
-  def told = ->(round) { round.context.map { [it.recipient, it.stage] } }
-
   def bodies(name) = store.unread(name).select { it.from == 'keryx@athena' }.map(&:body)
 
   def test_a_session_and_its_director_are_told_once_near_the_ceiling_and_once_at_it
@@ -135,7 +128,7 @@ class CourierContextTest < Minitest::Test
     other = build_courier
     interleaved = nil
     original = postman.method(:post)
-    # The other courier runs its whole round between this one's claim of the id and its post.
+    # The other courier runs its whole round between this one's check of the mark and its post.
     postman.define_singleton_method(:post) do |**args|
       unless interleaved
         interleaved = :running
@@ -191,7 +184,13 @@ class CourierContextTest < Minitest::Test
   def test_a_ceiling_notice_claimed_and_not_yet_marked_keeps_the_notice_near_it_back
     impl
     meter.figures['session-impl'] = 126_000
-    before_first_post { raise Errno::ENOSPC, 'mail' }
+    original = store.method(:deliver)
+    failures = [Errno::ENOSPC.new('mail')]
+    store.define_singleton_method(:deliver) do |name, message|
+      raise failures.shift if failures.any?
+
+      original.call(name, message)
+    end
 
     assert_equal 1, courier.round.errors.size
     meter.figures['session-impl'] = 100_000

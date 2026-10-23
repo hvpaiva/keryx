@@ -322,15 +322,17 @@ to each recipient for a join and a ceiling, marked in the session's `receipts/`,
 gets another ceiling can be told again; a recipient the post failed for is tried again alone in the next round. A
 session first seen at or past the ceiling is told only that it reached it, and the comparison uses whole numbers.
 
-Before it posts a notice, the courier claims the notice's id in `receipts/`: the first courier writes an id with the
-current time, so a recipient reads the notices in order, and every other courier or later round reads that id back.
-A second post of the notice is then a duplicate the mailbox or the outbox keeps once, and rings no bell, whether two
-couriers passed the mark's check together or the mark failed to be written after the post. Only the courier that
-writes the mark reports the notice. In the same hold of the occupants lock as the mailbox or outbox write, the
-courier reads the occupant again and drops the figure when the session's harness, id, join or ceiling changed while
-it was measured, since another session that took the address with `join --force` would otherwise get the figure of
-the one before, and for a notice near the ceiling it checks the ceiling notice's claim and drops the notice once
-that id is claimed, so no recipient reads it after the ceiling's. The bell and the forward happen after the hold.
+The courier claims a notice's id in `receipts/` in the same hold of the occupants lock as the mailbox or outbox
+write. The first courier writes an id with the current time, and every other courier or later round reads that id
+back. A second post of the notice is then a duplicate the mailbox or the outbox keeps once, and rings no bell,
+whether two couriers passed the mark's check together or the mark failed to be written after the post. Only the
+courier that writes the mark reports the notice. In that hold, before the claim, the courier reads the occupant again
+and drops the figure when the session's harness, id, join or ceiling changed while it was measured, since another
+session that took the address with `join --force` would otherwise get the figure of the one before, and for a notice
+near the ceiling it checks the ceiling notice's claim and drops the notice once that id is claimed. A ceiling
+notice's id sorts after the id the notice near it claimed for the same join and recipient, even within the same
+millisecond or after the clock steps back, so whichever hold comes first, no recipient reads the notice near the
+ceiling after the ceiling's. The bell and the forward happen after the hold.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not

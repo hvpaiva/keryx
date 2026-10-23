@@ -71,43 +71,45 @@ class PostmanGuardTest < Minitest::Test
     end
   end
 
-  def post(to, guard:) = postman.post(sender: 'orq', recipient: address(to), kind: 'message', body: 'hello', guard:)
+  def post(to, claim:) = postman.post(sender: 'orq', recipient: address(to), kind: 'message', body: 'hello', claim:)
 
-  def asking(answer) = -> { watch.call(:guard).then { answer } }
+  def claiming(id) = -> { watch.call(:claim).then { id } }
 
-  def test_a_guarded_post_writes_the_mailbox_in_the_guard_hold_and_rings_after_it
-    posted = post('rev-1', guard: asking(true))
+  def test_a_claimed_post_writes_the_mailbox_under_the_claimed_id_in_the_claim_hold_and_rings_after_it
+    id = Keryx::Ulid.generate(NOW)
+    posted = post('rev-1', claim: claiming(id))
 
-    assert_equal [posted.message], store.unread('rev-1')
-    assert_equal({ guard: true, write: true, bell: false }, held)
+    assert_equal [id, [posted.message]], [posted.message.id, store.unread('rev-1')]
+    assert_equal({ claim: true, write: true, bell: false }, held)
   end
 
-  def test_a_guarded_post_queues_for_another_machine_in_the_guard_hold_and_forwards_after_it
-    posted = post('port@zeus', guard: asking(true))
+  def test_a_claimed_post_queues_for_another_machine_in_the_claim_hold_and_forwards_after_it
+    id = Keryx::Ulid.generate(NOW)
+    posted = post('port@zeus', claim: claiming(id))
 
-    assert_equal 'forwarded', posted.forward.status
+    assert_equal ['forwarded', id], [posted.forward.status, posted.message.id]
     assert_equal [posted.message], zeus.unread('port')
-    assert_equal({ guard: true, write: true, forward: false }, held)
+    assert_equal({ claim: true, write: true, forward: false }, held)
   end
 
-  def test_a_post_without_a_guard_takes_no_lock
-    post('rev-1', guard: nil)
-    post('port@zeus', guard: nil)
+  def test_a_post_without_a_claim_takes_no_lock
+    post('rev-1', claim: nil)
+    post('port@zeus', claim: nil)
 
     assert_equal({ write: false, bell: false, forward: false }, held)
   end
 
-  def test_a_guard_that_says_no_writes_nothing_and_rings_or_forwards_nothing
-    assert_nil post('rev-1', guard: asking(false))
-    assert_nil post('port@zeus', guard: asking(nil))
+  def test_a_claim_that_gives_no_id_writes_nothing_and_rings_or_forwards_nothing
+    assert_nil post('rev-1', claim: claiming(false))
+    assert_nil post('port@zeus', claim: claiming(nil))
     assert_empty store.unread('rev-1')
     assert_empty store.outbox.outgoing
     assert_empty remote.sent
-    assert_equal({ guard: true }, held)
+    assert_equal({ claim: true }, held)
   end
 
-  def test_a_guarded_post_the_other_machine_refuses_still_fails_and_is_not_kept
-    error = assert_raises(Keryx::Error) { post('ghost@zeus', guard: asking(true)) }
+  def test_a_claimed_post_the_other_machine_refuses_still_fails_and_is_not_kept
+    error = assert_raises(Keryx::Error) { post('ghost@zeus', claim: claiming(Keryx::Ulid.generate(NOW))) }
 
     assert_equal 'zeus refused the message; no address ghost@zeus', error.message
     assert_empty store.outbox.outgoing

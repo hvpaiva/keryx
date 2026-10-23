@@ -31,15 +31,19 @@ module Keryx
                    'write long content to a file and send its path'
     end
 
-    # A guard is asked in the same hold of the occupants lock as the write; the bell and the forward come after it.
-    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, guard: nil)
+    # A claim is asked in the same hold of the occupants lock as the write for the id the message goes under, and one
+    # that gives none leaves the message unwritten; the bell and the forward come after the hold.
+    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
       check_recipient(recipient)
       body = Postman.check_body(body)
-      message = compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
-      return forward(message, recipient.host, guard:) unless recipient.local?(@host)
+      context = @measure.call(sender)
+      letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
+      return post_away(recipient.host, letter, id, claim) unless recipient.local?(@host)
 
       @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
-      stored = guarded(guard) { @store.deliver(recipient.name, message) } or return
+      message, stored = write(letter, id, claim) { @store.deliver(recipient.name, it) }
+      return unless message
+
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
       bell = announce(recipient.name, message) if ring && stored == :delivered && recipient.name != sender
       Posted.new(message:, bell:, forward: nil)
@@ -66,14 +70,27 @@ module Keryx
       Bell::Result.new(status: Bell::FAILED, channel: nil, detail: e.message, at: @clock.call)
     end
 
-    def guarded(guard)
-      return yield unless guard
+    # The message and what writing it gave, or nil when the claim gave no id.
+    def write(letter, id, claim)
+      return letter.call(id).then { [it, yield(it)] } unless claim
 
-      @store.with_occupants_lock { yield if guard.call }
+      @store.with_occupants_lock do
+        claimed = claim.call
+        letter.call(claimed).then { [it, yield(it)] } if claimed
+      end
     end
 
-    def forward(message, host, guard: nil)
-      guarded(guard) { @store.outbox.queue(host, message) } or return
+    def post_away(host, letter, id, claim)
+      message, = write(letter, id, claim) { @store.outbox.queue(host, it) }
+      forwarded(message, host) if message
+    end
+
+    def forward(message, host)
+      @store.outbox.queue(host, message)
+      forwarded(message, host)
+    end
+
+    def forwarded(message, host)
       result = @forwarder.forward(host)[message.id] || settled(host, message.id)
       return Posted.new(message:, bell: nil, forward: result) unless result.status == Forwarder::REFUSED
 
@@ -85,11 +102,11 @@ module Keryx
       @forwarder.settled(host, id) or raise Error, "#{id} left the outbox for #{host} without a receipt"
     end
 
-    def compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:)
+    def compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:, context:)
       now = @clock.call
       id ||= Ulid.generate(now)
       Message.new(id:, kind:, from: "#{sender}@#{@host}", to: recipient.to_s, thread: reply_to&.thread || id,
-                  in_reply_to: reply_to&.id, created_at: now, due_at:, body:, context: @measure.call(sender))
+                  in_reply_to: reply_to&.id, created_at: now, due_at:, body:, context:)
     end
 
     def check_recipient(recipient)
