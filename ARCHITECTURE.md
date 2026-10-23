@@ -62,8 +62,9 @@ join, which leaves out a Codex session that runs its commands under Codex's shar
 commands find their address by matching the caller against the occupants (`Identity`), which means
 the same Claude Code process or session, the same Codex thread or Cursor conversation, or the same
 harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its
-address, and `App#me` then records the new process and socket, looking the process up again only
-when the command no longer runs under the recorded one.
+address, and `App#me` then records the new process and socket. It keeps the recorded process until
+`ps` shows that the command no longer runs under it or that another process now has its pid, so a
+lookup that fails erases nothing.
 
 Whether a session is live comes from that process, alive with its recorded start time, or else
 from its pane: gone when herdr shows no agent, another harness or another session there, live

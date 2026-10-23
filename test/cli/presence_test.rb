@@ -46,6 +46,36 @@ class PresenceTest < Minitest::Test
     assert_equal(['thread-2', 900], store.occupant('impl').then { [it.session_id, it.pid] })
   end
 
+  def test_a_lookup_that_does_not_answer_keeps_the_recorded_process
+    runs_in('w1:p3', 500)
+    env = codex_in('w1:p3', 'thread-1')
+    keryx('join', 'impl', env:)
+    show('w1:p3', 'codex', 'idle')
+    processes.starts[500] = nil
+    keryx('inbox', env:)
+    processes.starts.delete(500)
+    lineage.clear
+    keryx('inbox', env:)
+    lineage.replace([501, 500])
+
+    assert_equal([500, 'started 500'], store.occupant('impl').then { [it.pid, it.started] })
+    assert_match(/The bell rang through herdr\./, keryx('send', 'impl', 'hello').out)
+  end
+
+  def test_a_claude_session_that_reuses_the_pid_records_its_own_start
+    env = join_claude('rev-1', 111)
+    processes.starts[111] = nil
+    keryx('inbox', env:)
+
+    assert_equal 'started 111', store.occupant('rev-1').started
+    processes.starts[111] = 'started later'
+    keryx('inbox', env: env.merge('CLAUDE_CODE_SESSION_ID' => 'session-new',
+                                  'CLAUDE_CODE_MESSAGING_SOCKET' => '/tmp/cc-new.sock'))
+
+    assert_equal(['session-new', 'started later'], store.occupant('rev-1').then { [it.session_id, it.started] })
+    assert_equal 1, keryx('leave', '--as', 'rev-1').status
+  end
+
   def test_a_spawned_codex_whose_hooks_are_not_trusted_is_typed_into_while_its_process_runs
     runs_in('w1:p3', 500)
     keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))

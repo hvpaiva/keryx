@@ -112,19 +112,28 @@ module Keryx
 
     def renewed(occupant) = session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd)
 
-    def harness_process(previous)
-      return [previous.pid, previous.started] if previous && still_under?(previous)
+    def harness_process(previous) = (previous&.pid && kept(previous)) || current_process
 
+    # The recorded process stays until an answer shows that another one runs the session; a failed lookup keeps it.
+    def kept(previous)
+      return if under?(previous.pid) == false
+
+      started = processes.started(previous.pid)
+      replaced = started && previous.started && started != previous.started
+      [previous.pid, previous.started || started] unless replaced
+    end
+
+    def current_process
       pid = caller.pid || pane_group
       [pid, pid && processes.started(pid)]
     end
 
-    # Claude Code names its process; any other harness keeps the one recorded while this command runs under it.
-    def still_under?(occupant)
-      return false unless occupant.pid && occupant.started
-      return occupant.pid == caller.pid if caller.pid
+    # Claude Code names its process; any other harness runs this command as a descendant, unless ps did not answer.
+    def under?(pid)
+      return caller.pid == pid if caller.pid
 
-      processes.ancestors(Process.pid).include?(occupant.pid) && processes.started(occupant.pid) == occupant.started
+      ancestors = processes.ancestors(Process.pid)
+      ancestors.include?(pid) unless ancestors.empty?
     end
 
     # A harness that does not name its process runs as the foreground group of its herdr pane, an ancestor of this one.
