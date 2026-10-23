@@ -31,32 +31,26 @@ class SpawnerTest < Minitest::Test
     assert_equal 'herdr: not found', error.message
   end
 
-  def test_the_director_goes_only_on_the_session_that_spawn_saw_join
+  def spawner(store, notices = [])
+    Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW }, sleeper: ->(_) {},
+                       notice: ->(text) { notices << text })
+  end
+
+  def test_the_director_is_recorded_for_the_harness_spawn_starts_in_its_pane
     store = Keryx::Store.new(tmp('state'))
     store.create_address('impl')
-    seen = build_occupant(harness: 'codex', herdr_pane: 'w1:p2')
-    notices = []
-    spawner = Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW },
-                                 sleeper: ->(_) {}, notice: ->(text) { notices << text })
-    store.bind('impl', seen.with(joined_at: NOW + 1))
-    spawner.direct('impl', seen, 'orq')
+    spawner(store).direct('impl', 'w1:p2', 'codex', 'orq')
 
-    assert_nil store.occupant('impl').director
-    store.bind('impl', seen)
-    spawner.direct('impl', seen, 'orq')
-
-    assert_equal 'orq', store.occupant('impl').director
-    assert_empty notices
+    assert_equal Keryx::Spawned.new(director: 'orq', harness: 'codex', herdr_socket: '/h.sock', herdr_pane: 'w1:p2'),
+                 store.spawned('impl')
   end
 
   def test_a_director_spawn_cannot_record_is_a_notice
     store = Keryx::Store.new(tmp('state'))
-    store.define_singleton_method(:with_occupants_lock) { |*| raise Keryx::Store::Busy, 'locked' }
+    store.define_singleton_method(:record_spawned) { |*| raise Errno::ENOSPC, 'spawned' }
     notices = []
-    spawner = Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW },
-                                 sleeper: ->(_) {}, notice: ->(text) { notices << text })
-    spawner.direct('impl', build_occupant, 'orq')
+    spawner(store, notices).direct('impl', 'w1:p2', 'codex', 'orq')
 
-    assert_equal ['impl joined, but spawn could not record orq as its director: locked.'], notices
+    assert_equal ['spawn could not record orq as the director of impl: No space left on device - spawned.'], notices
   end
 end

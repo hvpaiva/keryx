@@ -96,6 +96,45 @@ class CeilingTest < Minitest::Test
     refute store.address?('person')
   end
 
+  def gave_up_spawn(*argv, env: {})
+    session_runs
+    result = spawn('impl', '--harness', 'claude', '--timeout', '1s', *argv, env:)
+
+    assert_equal 3, result.status
+    herdr.starts.last
+  end
+
+  def join_from(pane, session, *argv) = keryx('join', 'impl', *argv, env: session.merge(in_pane(SOCKET, pane)))
+
+  def test_a_session_that_joins_after_spawn_gave_up_takes_its_director_and_ceiling
+    started = gave_up_spawn('--ceiling', '125k', env: join_claude('orq', 111))
+    join_line = started[:arguments].last[/Run '([^']+)'/, 1]
+    alive << 500
+    keryx(*Shellwords.split(join_line).drop(1), env: claude(500).merge(in_pane(SOCKET, started[:pane])))
+
+    assert_equal ['orq', 125_000], store.occupant('impl').to_h.values_at(:director, :ceiling)
+  end
+
+  def test_only_the_session_spawn_started_takes_the_director_and_only_on_the_first_join
+    pane = gave_up_spawn(env: join_claude('orq', 111))[:pane]
+    join_from(pane, { 'CODEX_THREAD_ID' => 'thread-600' })
+
+    assert_nil director('impl')
+    alive << 500
+    join_from(pane, claude(500), '--force')
+
+    assert_nil director('impl')
+  end
+
+  def test_a_spawn_with_no_address_to_run_as_clears_what_an_earlier_spawn_recorded
+    pane = gave_up_spawn(env: join_claude('orq', 111))[:pane]
+    gave_up_spawn
+    alive << 500
+    join_from(pane, claude(500))
+
+    assert_nil director('impl')
+  end
+
   def test_who_shows_the_context_against_the_ceiling_coloured_by_its_share
     claude_transcript(300)
     join_with_ceiling('impl', 300, '125k')

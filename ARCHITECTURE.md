@@ -11,6 +11,7 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 ```text
 addresses/NAME/address.json    the address: its role and when it was created
 addresses/NAME/occupant.json   the session holding it, while one does
+addresses/NAME/spawned.json    the director spawn recorded for the session it started, until a session joins
 addresses/NAME/tmp/            messages being written
 addresses/NAME/mail/           every message, under its id, never moved
 addresses/NAME/read/           a hard link for each message read
@@ -258,8 +259,14 @@ above a billion tokens, more than any window holds, for no figure.
 
 A session may have a ceiling in tokens, given to `keryx join --ceiling`, and kept on its occupant with its
 director, the address that spawned it. spawn puts its `--ceiling` in the join line of the first prompt, so a session
-that joins after spawn gave up still has it, and records the director itself once it sees the join, on that
-occupant only. A command that records the session's process again keeps both, and a new join starts without them.
+that joins after spawn gave up still has it. The director never goes on the join line, where any session could name
+any address. Before the harness starts, spawn writes `spawned.json` in the address's folder with the address it runs
+as, the harness, and the herdr socket and pane it starts it in. The first join of the address reads it under the
+occupants lock and removes it, and takes the director only when the joining session runs that harness in that pane,
+so the session spawn started takes it however late it joins, and no later session can. spawn writes it without the
+lock, which would hold spawn past its timeout; only another session's join, which spawn reports as a conflict, can
+come between the write and the join. A spawn with no address to run as removes what an earlier spawn left. A command
+that records the session's process again keeps the ceiling and the director, and a new join starts without them.
 
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
 of the ceiling, and again once it reaches the ceiling, it tells the session and its director, or the sender of the

@@ -46,9 +46,9 @@ module Keryx
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
                                    'gave up. --timeout counts from the moment spawn starts, and spawn exits with ' \
                                    "status 3 when it passes before the join.\n\n" \
-                                   '--ceiling goes into the join line of the first prompt, and spawn records the ' \
-                                   "address it runs as as the session's director once it joins; 'keryx join " \
-                                   "--help' explains both.",
+                                   '--ceiling goes into the join line of the first prompt, and the session spawn ' \
+                                   'starts takes the address spawn runs as for its director when it joins, even ' \
+                                   "after spawn gave up; 'keryx join --help' explains both.",
                       examples: [['Start a reviewer in Claude Code with its first request',
                                   'spawn rev-1 --harness claude --role reviewer "Review PR #448"'],
                                  ['Start Codex in the agents tab with a brief from a file and a deadline',
@@ -82,8 +82,7 @@ module Keryx
         claim(name)
         before = app.store.occupant(name)
         request = text && post(sender, name, text)
-        waiting(request) { launch(name, before) }
-        spawner.direct(name, @occupant, director) if director
+        waiting(request) { launch(name, before, director) }
         report(name, request)
       end
 
@@ -207,6 +206,8 @@ module Keryx
         raise Error, "herdr already runs an agent named #{name}, in pane #{Text.plain(agent.pane)}; #{FREE}" if agent
 
         app.store.create_address(name, role: options[:role])
+        # An earlier spawn's session may never have joined, and this spawn records a director only when it has one.
+        app.store.forget_spawned(name)
       end
 
       def post(sender, name, text)
@@ -222,9 +223,10 @@ module Keryx
         raise e.class, "#{e.message}; the request #{request.id} waits in its mailbox"
       end
 
-      def launch(name, before)
+      def launch(name, before, director)
         deadline = @started + timeout
         @pane = place(name)
+        spawner.direct(name, @pane, options[:harness], director) if director
         @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
                                                              arguments: harness_arguments(name, @pane))
       end

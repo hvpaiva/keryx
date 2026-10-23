@@ -81,7 +81,14 @@ module Keryx
         refuse_taken(name, caller)
         release_others(name, caller)
         app.store.create_address(name, role: options[:role])
-        app.store.bind(name, occupant)
+        app.store.bind(name, directed(name, occupant))
+        app.store.forget_spawned(name)
+      end
+
+      # The director spawn recorded goes to the session spawn started, and only on the first join after it.
+      def directed(name, occupant)
+        spawned = app.store.spawned(name)
+        spawned&.started?(occupant) ? occupant.with(director: spawned.director) : occupant
       end
 
       def refuse_taken(name, caller)
