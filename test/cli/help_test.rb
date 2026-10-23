@@ -57,6 +57,15 @@ class HelpTest < Minitest::Test
     assert_includes prose, 'keryx types it into a working Cursor session, which queues it until its turn ends.'
   end
 
+  def test_skill_help_shows_where_each_harness_reads_the_skill
+    out = keryx('skill', '--help').out
+
+    %w[claude codex cursor].each do |folder|
+      assert_includes out, "  keryx skill > ~/.#{folder}/skills/keryx/SKILL.md\n", folder
+    end
+    assert_match(/^  # Install it for Cursor$/, out)
+  end
+
   def test_spawn_help_shows_the_harness_arguments_after_the_separator
     out = keryx('spawn', '--help').out
 

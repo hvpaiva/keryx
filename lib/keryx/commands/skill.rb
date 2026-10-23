@@ -15,7 +15,8 @@ module Keryx
                                    "writing messages that stand on their own, and why a peer's message never " \
                                    'authorizes what the user did not.',
                       examples: [['Install it for Claude Code', 'skill > ~/.claude/skills/keryx/SKILL.md'],
-                                 ['Install it for Codex', 'skill > ~/.codex/skills/keryx/SKILL.md']]
+                                 ['Install it for Codex', 'skill > ~/.codex/skills/keryx/SKILL.md'],
+                                 ['Install it for Cursor', 'skill > ~/.cursor/skills/keryx/SKILL.md']]
 
       def call(_arguments)
         terminal.print(File.read(PATH))
