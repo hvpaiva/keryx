@@ -19,6 +19,7 @@ module Keryx
     CUT = "\u2026"
     CRAMPED = 'is too narrow to tell whether it shows a dialog'
     EDITOR = 'shows a queued message being edited'
+    ANSWERED = 'the session joins by itself once it is answered; keryx never answers one'
 
     # The dialog a read of the pane shows below the command herdr typed, as the lines spawn quotes, or nil when it
     # shows none. That command holds the first prompt, whose words could pass for a dialog.
@@ -28,6 +29,9 @@ module Keryx
     end
 
     def self.cramped?(read, prompt) = Bell.cramped?(below(read, prompt).join("\n"))
+
+    # What a read of the pane shows below the command herdr typed, as a key of Bell::OBSTACLES, or nil.
+    def self.obstacle(read, prompt) = Bell.obstacle(below(read, prompt).join("\n"))
 
     # The lines after the one where the typed command ends, which the last letters and digits of the first prompt end.
     def self.below(read, prompt)
@@ -71,7 +75,6 @@ module Keryx
       @prompt = prompt
       @notice = notice
       @post = post
-      @shown = nil
       @quoted = nil
       @cramped = false
       @edited = false
@@ -81,7 +84,6 @@ module Keryx
     # to tell, :editor when a queued message is being edited, or nil. A dialog is quoted once a read of the pane shows
     # one, and until then each signal reads again.
     def signal(obstacle)
-      @shown = obstacle
       case obstacle
       when :cramped then cramped
       when :editor then editor
@@ -89,22 +91,32 @@ module Keryx
       end
     end
 
+    # The deadline reads the pane again and reports what that read shows, since the pane may have changed since spawn
+    # last looked, such as from a folder trust to a permission question, or to no dialog at all.
     def late
-      waiting = "#{@address} has not joined yet"
-      if @shown == :editor
-        "#{waiting}: pane #{@pane} #{EDITOR}, and the session joins by itself once it is closed"
-      elsif @quoted
-        "#{waiting}: pane #{@pane} shows the dialog below, and the session joins by itself once it is answered; " \
-          "keryx never answers one\n#{indented(again)}"
-      elsif @shown == :cramped
-        "#{waiting}: pane #{@pane} #{CRAMPED}; look at it, and the session joins by itself once any dialog is " \
-          'answered'
-      else
-        "#{waiting}; look at pane #{@pane}"
+      read = @herdr.visible(@socket, @pane) or return unread
+      case Dialog.obstacle(read, @prompt)
+      when :dialog then "#{waiting}: pane #{@pane} shows the dialog below, and #{ANSWERED}\n" \
+                        "#{indented(Dialog.excerpt(read, @prompt))}"
+      when :editor then "#{waiting}: pane #{@pane} #{EDITOR}, and the session joins by itself once it is closed"
+      when :cramped
+        "#{waiting}: pane #{@pane} #{CRAMPED}; look at it, and the session joins by itself once any dialog is answered"
+      else idle
       end
     end
 
     private
+
+    def waiting = "#{@address} has not joined yet"
+    def idle = "#{waiting}; look at pane #{@pane}"
+
+    # A dialog quoted earlier is what spawn saw then, and the pane may no longer show it.
+    def unread
+      return idle unless @quoted
+
+      "#{waiting}: spawn could not read pane #{@pane} again; when it read the pane earlier, the pane showed the " \
+        "dialog below, and #{ANSWERED}\n#{indented(@quoted)}"
+    end
 
     def look
       read = @herdr.visible(@socket, @pane) or return
@@ -113,10 +125,6 @@ module Keryx
 
       cramped if Dialog.cramped?(read, @prompt)
     end
-
-    # The deadline reads the pane again, since the dialog may have changed, such as from a folder trust to a permission
-    # question.
-    def again = @herdr.visible(@socket, @pane)&.then { Dialog.excerpt(it, @prompt) } || @quoted
 
     def quote(excerpt)
       @quoted = excerpt
@@ -136,7 +144,6 @@ module Keryx
     end
 
     def cramped
-      @shown = :cramped
       return if @cramped
 
       @cramped = true

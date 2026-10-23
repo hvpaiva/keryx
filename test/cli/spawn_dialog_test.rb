@@ -118,14 +118,59 @@ class SpawnDialogTest < Minitest::Test
                            "| \u276f 1. Yes |\n  | 2. No |\n")
   end
 
-  def test_the_timeout_error_keeps_the_notice_dialog_when_the_last_read_fails
+  def test_a_timeout_error_after_a_failed_read_quotes_the_dialog_as_spawn_saw_it_earlier
     stops_at { it == 1 ? Screens.captured.fetch('cursor-120') : nil }
     result = spawn('rev-1', '--harness', 'claude', '--timeout', '3s', 'Review it')
     id = store.unread('rev-1').first.id
 
-    assert_includes result.err, "once it is answered; keryx never answers one; the request #{id} waits in its " \
-                                "mailbox\n#{quoted(TRUST)}\n"
-    assert result.err.end_with?("never answers one; the request #{id} waits in its mailbox\n#{quoted(TRUST)}\n")
+    assert_equal 'error: rev-1@athena has not joined yet: spawn could not read pane w1:p2 again; when it read the ' \
+                 'pane earlier, the pane showed the dialog below, and the session joins by itself once it is ' \
+                 "answered; keryx never answers one; the request #{id} waits in its mailbox\n#{quoted(TRUST)}\n",
+                 result.err[/^error: .*/m]
+  end
+
+  def test_a_timeout_error_after_a_failed_read_with_nothing_quoted_points_at_the_pane
+    stops_at { nil }
+    result = spawn('rev-1', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal "error: rev-1@athena has not joined yet; look at pane w1:p2\n", result.err[/^error: .*/m]
+  end
+
+  def test_a_pane_too_narrow_at_the_deadline_is_reported_without_the_dialog_quoted_before
+    stops_at { it == 1 ? Screens.captured.fetch('cursor-120') : Screens.captured.fetch('cursor-4') }
+    result = spawn('rev-1', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal 1, notices(result)
+    assert_equal 'error: rev-1@athena has not joined yet: pane w1:p2 is too narrow to tell whether it shows a ' \
+                 "dialog; look at it, and the session joins by itself once any dialog is answered\n",
+                 result.err[/^error: .*/m]
+  end
+
+  def test_a_dialog_gone_at_the_deadline_is_not_quoted_again
+    stops_at { it == 1 ? Screens.captured.fetch('cursor-120') : Screens.session('cursor-idle') }
+    result = spawn('rev-1', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal 1, notices(result)
+    assert_equal "error: rev-1@athena has not joined yet; look at pane w1:p2\n", result.err[/^error: .*/m]
+  end
+
+  def test_a_message_being_edited_at_the_deadline_is_reported_instead_of_the_dialog_quoted_before
+    stops_at { it == 1 ? Screens.captured.fetch('cursor-120') : Screens.session('cursor-follow-up-editor') }
+    result = spawn('rev-1', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal 'error: rev-1@athena has not joined yet: pane w1:p2 shows a queued message being edited, and the ' \
+                 "session joins by itself once it is closed\n", result.err[/^error: .*/m]
+  end
+
+  def test_the_timeout_error_quotes_a_dialog_the_deadline_read_shows_after_a_poll_saw_a_narrow_pane
+    session_runs(screen: Screens.captured.fetch('cursor-4'))
+    herdr.views[[SOCKET, 'w1:p2']] = Screens.captured.fetch('cursor-120')
+    result = spawn('rev-1', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal 1, result.err.scan('is too narrow to tell whether it shows a dialog, such as').size
+    assert_equal 'error: rev-1@athena has not joined yet: pane w1:p2 shows the dialog below, and the session joins ' \
+                 "by itself once it is answered; keryx never answers one\n#{quoted(TRUST)}\n",
+                 result.err[/^error: .*/m]
   end
 
   def test_a_cramped_pane_quotes_nothing_and_posts_nothing

@@ -34,9 +34,10 @@ module Keryx
               'there is one, which rings that address, and keeps waiting; it never answers the dialog. The session ' \
               'holds its first prompt behind the dialog and joins once it is answered, even after spawn gave up. ' \
               '--timeout counts from the moment spawn starts, and spawn exits with status 3 when it passes before ' \
-              'the join; its error quotes the dialog again, as the pane then shows it. A herdr call already started ' \
-              'may finish after it, but spawn checks the timeout before each next step and starts no harness once it ' \
-              'passed, so a pane it opened by then holds only a shell.'
+              'the join; its error reads the pane again and quotes the dialog it then shows, if any, or, when that ' \
+              'read fails, the dialog spawn quoted earlier, as what the pane showed then. A herdr call already ' \
+              'started may finish after it, but spawn checks the timeout before each next step and starts no harness ' \
+              'once it passed, so a pane it opened by then holds only a shell.'
 
     # vacant(name, advice) raises the error Spawn's claim raises when a session holds the address.
     def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:, post:, vacant:)

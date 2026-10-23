@@ -276,9 +276,12 @@ such address it posts nothing, since the post would create one. A read that is n
 spends nothing, and the next poll reads again. A screen the bell finds too narrow to tell, or one
 where a queued message is being edited, is reported as such, once, and quoted to no one. spawn stops
 when the pane has no agent of that harness left or `--timeout`, counted from the moment spawn
-starts, passes. After a quote, the error at the timeout reads the pane again and quotes the dialog
-it shows then, or the one quoted before when that read shows none. A join recorded after that moment
-counts as too late, however soon spawn notices it.
+starts, passes. The error at the timeout reads the pane again and reports what that read shows: the
+dialog the pane shows then, quoted; a screen too narrow to tell; a queued message being edited; or,
+when it shows none of those, only the pane to look at. A dialog quoted before goes into the error
+only when that read fails, worded as what the pane showed when spawn read it earlier, since the pane
+may no longer show it. A join recorded after that moment counts as too late, however soon spawn
+notices it.
 
 ## The stop hook
 
