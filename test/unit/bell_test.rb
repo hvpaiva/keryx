@@ -6,32 +6,7 @@ require 'socket'
 class BellTest < Minitest::Test
   include TempDir
   include Factory
-
-  HERDR_SOCKET = '/run/user/1000/herdr.sock'
-
-  def store = @store ||= Keryx::Store.new(tmp('state'))
-
-  def queue = @queue ||= CLIHelpers::FakeCodexQueue.new
-
-  def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new)
-    Keryx::Bell.new(store:, herdr:, clock: -> { NOW }, claude_socket:, codex: queue)
-  end
-
-  def deliver(kind: 'request')
-    store.create_address('rev-1')
-    build_message(to: 'rev-1@athena', kind:).tap { store.deliver('rev-1', it) }
-  end
-
-  def pane_occupant(**overrides)
-    build_occupant(harness: 'codex', session_id: nil, herdr_socket: HERDR_SOCKET, herdr_pane: 'w1:p2', **overrides)
-  end
-
-  def herdr_with(status, screen: '> ', outcome: Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil),
-                 session: nil, kind: 'codex')
-    agent = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind:, status:, session:)
-    screens = { [HERDR_SOCKET, 'w1:p2'] => screen }
-    FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => agent }, screens:, prompt_outcome: outcome)
-  end
+  include BellHelpers
 
   def with_claude_socket
     path = tmp('cc.sock')
@@ -106,69 +81,6 @@ class BellTest < Minitest::Test
 
     assert_equal %w[failed claude], [result.status, result.channel]
     assert_match(/gone.sock/, result.detail)
-  end
-
-  def test_a_codex_thread_herdr_shows_open_in_its_pane_is_rung_through_its_queue
-    message = deliver
-    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    herdr = herdr_with('working', session: 'thread-1')
-    result = bell(herdr:).ring('rev-1', [message])
-
-    assert_equal %w[rung codex], [result.status, result.channel]
-    assert_equal 'thread-1', queue.queued.first.first
-    assert_match(/\A\[keryx\] New request for rev-1@athena/, queue.queued.first.last)
-    assert_empty herdr.prompts
-  end
-
-  def test_a_codex_thread_closed_in_its_pane_is_absent_and_never_queued
-    message = deliver
-    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    result = bell.ring('rev-1', [message])
-
-    assert_equal ['absent', 'thread thread-1 is not open in a herdr pane'], [result.status, result.detail]
-    assert_empty queue.queued
-  end
-
-  def test_a_codex_thread_without_a_pane_is_absent_and_never_queued
-    message = deliver
-    store.bind('rev-1', build_occupant(harness: 'codex', session_id: 'thread-1'))
-    result = bell.ring('rev-1', [message])
-
-    assert_equal ['absent', 'thread thread-1 is not open in a herdr pane'], [result.status, result.detail]
-    assert_empty queue.queued
-  end
-
-  def test_a_codex_pane_that_reports_no_session_is_typed_and_never_queued
-    message = deliver
-    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    herdr = herdr_with('idle')
-    result = bell(herdr:).ring('rev-1', [message])
-
-    assert_equal %w[rung herdr], [result.status, result.channel]
-    assert_equal 1, herdr.prompts.size
-    assert_empty queue.queued
-  end
-
-  def test_a_codex_pane_running_another_thread_is_absent_and_neither_typed_nor_queued
-    message = deliver
-    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    herdr = herdr_with('idle', session: 'thread-2')
-    result = bell(herdr:).ring('rev-1', [message])
-
-    assert_equal ['absent', 'pane w1:p2 runs thread thread-2, not thread-1'], [result.status, result.detail]
-    assert_empty herdr.prompts
-    assert_empty queue.queued
-  end
-
-  def test_an_open_codex_thread_whose_queue_fails_is_typed_into_its_pane
-    message = deliver
-    queue.gone << 'thread-1'
-    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-    herdr = herdr_with('idle', session: 'thread-1')
-    result = bell(herdr:).ring('rev-1', [message])
-
-    assert_equal %w[rung herdr], [result.status, result.channel]
-    assert_equal 1, herdr.prompts.size
   end
 
   def test_herdr_types_into_an_idle_or_working_agent
