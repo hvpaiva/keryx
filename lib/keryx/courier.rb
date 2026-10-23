@@ -14,6 +14,8 @@ module Keryx
     OVERDUE_MARK = 'overdue'
     CONTEXT_MARK = 'context'
     CONTEXT_CLAIM = 'context-id'
+    # What a join sets and a command that records the session's process again keeps.
+    JOIN = %i[harness session_id joined_at ceiling].freeze
     UNREACHABLE = %w[none gone].freeze
 
     def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:)
@@ -107,6 +109,7 @@ module Keryx
       mark = context_mark(occupant, stage, recipient)
       return if @store.marked?(name, mark, CONTEXT_MARK)
       return if stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), CONTEXT_MARK)
+      return unless same_join?(@store.occupant(name), occupant)
 
       body = notice(name, context, occupant.ceiling, stage)
       @postman.post(sender: NAME, recipient:, kind: 'message', id: notice_id(name, mark), body:)
@@ -117,6 +120,9 @@ module Keryx
       @errors << "could not tell #{recipient} about the context of #{name}@#{@host}; #{e.message}"
       nil
     end
+
+    # A session that joined the address while the figure was read is not the session the figure belongs to.
+    def same_join?(current, occupant) = current && JOIN.all? { current.public_send(it) == occupant.public_send(it) }
 
     def context_mark(occupant, stage, recipient)
       Ulid.derive(occupant.joined_at, "context #{stage} #{occupant.ceiling} #{recipient}")

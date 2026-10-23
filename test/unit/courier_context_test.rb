@@ -149,6 +149,38 @@ class CourierContextTest < Minitest::Test
     assert_equal 1, bodies('impl').size
   end
 
+  # The meter binds the address to what replacement returns as it reads the session.
+  def bound_while_read(replacement)
+    box = store
+    meter.define_singleton_method(:read) do |measured|
+      box.bind('impl', replacement.call)
+      figures[measured.session_id]&.then { Keryx::Context.new(used: it, window: nil) }
+    end
+  end
+
+  def test_a_figure_read_while_another_session_joined_or_the_ceiling_changed_is_dropped
+    occupant = impl(director: 'orq')
+    meter.figures['session-impl'] = 100_000
+    replacement = nil
+    bound_while_read(-> { replacement })
+    [occupant.with(session_id: 'session-new', joined_at: LATER), occupant.with(ceiling: 500_000)].each do |other|
+      store.bind('impl', occupant)
+      replacement = other
+      round = courier.round
+
+      assert_equal [[], []], [round.context, round.errors]
+    end
+    assert_empty bodies('impl') + bodies('orq')
+  end
+
+  def test_a_figure_read_while_the_session_recorded_its_process_again_is_told
+    occupant = impl
+    meter.figures['session-impl'] = 100_000
+    bound_while_read(-> { occupant.with(pid: 77) })
+
+    assert_equal [['impl@athena', :near]], told.call(courier.round)
+  end
+
   def test_sessions_without_a_ceiling_or_that_ended_are_not_read
     impl(ceiling: nil)
     store.create_address('docs')
