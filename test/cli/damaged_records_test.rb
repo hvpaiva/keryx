@@ -1,0 +1,83 @@
+# frozen_string_literal: true
+
+require 'test_helper'
+
+class DamagedRecordsTest < Minitest::Test
+  include TempDir
+  include Factory
+  include CLIHelpers
+  include PresenceHelpers
+
+  def setup
+    super
+    join_claude('healthy', 111)
+    store.create_address('broken')
+    %w[broken healthy].each { store.deliver(it, build_message(to: "#{it}@athena")) }
+  end
+
+  def file(name) = tmp('state', 'addresses', 'broken', name)
+
+  def damage_occupant(**fields)
+    File.write(file('occupant.json'), JSON.generate(build_occupant(**fields).record.merge('pid' => [])))
+  end
+
+  def overview = [keryx('who'), keryx('status'), keryx('courier', '--once')]
+
+  def row(output, name) = output.lines.find { it.start_with?("#{name}@athena") }.split(/ {3,}/).map(&:strip)
+
+  def assert_warned_once(runs, path)
+    assert_equal [0] * runs.size, runs.map(&:status), runs.map(&:err).join
+    assert_equal [1] * runs.size, runs.map { it.err.scan("warning: #{path} is damaged").size }, runs.map(&:err).join
+  end
+
+  def test_an_occupant_with_a_field_of_the_wrong_type_is_unknown_and_the_others_are_served
+    damage_occupant
+    who, status, courier = runs = overview
+
+    assert_warned_once(runs, file('occupant.json'))
+    assert_equal %w[broken@athena - - unknown unknown 1], row(who.out, 'broken')
+    assert_equal %w[healthy@athena - claude live unknown 1], row(who.out, 'healthy')
+    assert_equal %w[broken@athena - unknown unknown 1 0], row(status.out, 'broken')
+    assert_equal "rang healthy@athena: rung\n", courier.out
+  end
+
+  def test_an_address_file_that_is_not_an_object_loses_only_its_role
+    File.write(file('address.json'), 'true')
+    who, status, courier = runs = overview
+
+    assert_warned_once(runs, file('address.json'))
+    assert_equal %w[broken@athena - - none - 1], row(who.out, 'broken')
+    assert_equal %w[healthy@athena - claude live unknown 1], row(who.out, 'healthy')
+    assert_equal %w[broken@athena - none - 1 0], row(status.out, 'broken')
+    assert_equal "rang healthy@athena: rung\n", courier.out
+  end
+
+  def test_an_occupant_that_cannot_be_read_is_never_typed_into_its_pane
+    damage_occupant(herdr_socket: SOCKET, herdr_pane: 'w1:p3')
+    show('w1:p3', 'claude', 'idle', 'session-1')
+    runs = [*overview, keryx('ring'), keryx('send', 'broken', 'hello')]
+
+    assert_equal [0] * runs.size, runs.map(&:status)
+    assert_empty herdr.prompts
+  end
+
+  def test_ring_says_what_it_could_not_ring_and_rings_the_others
+    damage_occupant(herdr_socket: SOCKET, herdr_pane: 'w1:p3')
+    show('w1:p3', 'claude', 'idle', 'session-1')
+    result = keryx('ring')
+
+    assert_warned_once([result], file('occupant.json'))
+    assert_equal ["broken@athena   1 unread   not rung\n", "healthy@athena   1 unread   rung via claude\n"],
+                 result.out.lines
+    assert_empty herdr.prompts
+  end
+
+  def test_join_passes_over_an_address_whose_occupant_cannot_be_read
+    damage_occupant
+    alive << 333
+    result = keryx('join', 'impl', env: claude(333))
+
+    assert_warned_once([result], file('occupant.json'))
+    assert_equal 'session-333', store.occupant('impl').session_id
+  end
+end

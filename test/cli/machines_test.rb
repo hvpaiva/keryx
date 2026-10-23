@@ -57,6 +57,34 @@ class MachinesTest < Minitest::Test
     assert_equal [{ id => 'forwarded' }, {}], [open.call({}), open.call(@port)]
   end
 
+  def ssh_answering(fields)
+    runner = FakeRunner.new({ ['ssh'] => lambda do |_argv|
+      { out: "#{JSON.generate(fields.merge('id' => JSON.parse(runner.inputs.last)['id']))}\n" }
+    end })
+    @remote = Keryx::Remote.new(runner:)
+  end
+
+  def test_a_receipt_with_a_bell_of_the_wrong_type_still_confirms_the_delivery
+    ssh_answering('status' => 'delivered', 'bell' => %w[wrong type])
+    asked = keryx('ask', 'port@zeus', 'Port it', env: @orq)
+    open = JSON.parse(keryx('status', '-o', 'json').out)['open_requests']
+
+    assert_equal [0, ''], [asked.status, asked.err]
+    assert_match(/\AAsked port@zeus \(\w+\)\. It reached zeus, which said nothing of its bell\.\n/, asked.out)
+    assert_equal([%w[port@zeus forwarded]], open.map { it.values_at('to', 'state') })
+  end
+
+  def test_a_message_the_other_machine_already_held_reached_it_without_word_of_a_bell
+    @remote = FakeRemote.new do |host, input|
+      keryx('__receive', env: machine(host), input:)
+      keryx('__receive', env: machine(host), input:).out
+    end
+    sent = keryx('send', 'port@zeus', 'Twice', env: @orq)
+
+    assert_match(/\ASent \w+ to port@zeus\. It reached zeus, which said nothing of its bell\.\n\z/, sent.out)
+    assert_equal ['Twice'], bodies(@port)
+  end
+
   def test_a_machine_that_is_down_gets_the_message_once_it_is_back
     remote.down << 'zeus'
     sent = keryx('send', 'port@zeus', 'Are you there?', env: @orq)

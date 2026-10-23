@@ -7,8 +7,12 @@ module Keryx
   class Roster
     Entry = Data.define(:name, :role, :occupant, :session, :unread) do
       def ended? = %w[none gone].include?(session)
+
+      # The bell reads the occupant again, so a session whose occupant could not be read is never rung.
+      def ringable? = !occupant.nil? && !ended?
     end
     ACTIVITY = %w[idle working blocked done].freeze
+    UNKNOWN = 'unknown'
 
     def initialize(store:, herdr:, lookout: Lookout.new(herdr:, processes: Processes.new))
       @store = store
@@ -19,9 +23,8 @@ module Keryx
 
     def entries
       @store.address_names.map do |name|
-        record = @store.address(name)
-        occupant = @store.occupant(name)
-        Entry.new(name:, role: record&.role, occupant:, session: session(occupant), unread: @store.unread(name).size)
+        role = @store.reporting { @store.address(name)&.role }
+        Entry.new(name:, role:, **holder(name), unread: @store.unread(name).size)
       end
     end
 
@@ -52,6 +55,14 @@ module Keryx
     def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
 
     private
+
+    # An occupant that cannot be read shows no session to look for, ring or measure, so its session is unknown.
+    def holder(name)
+      @store.reporting({ occupant: nil, session: UNKNOWN }) do
+        occupant = @store.occupant(name)
+        { occupant:, session: session(occupant) }
+      end
+    end
 
     def agents_on(socket) = @agents[socket] ||= @herdr.agents(socket).to_h { [it.pane, it] }
   end

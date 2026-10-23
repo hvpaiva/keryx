@@ -35,7 +35,7 @@ module Keryx
       def text(argument, request)
         return body(argument) if argument || options[:file]
 
-        "Request #{request.id} is withdrawn and needs no reply."
+        format(Message::WITHDRAWN, id: request.id)
       end
 
       def refuse_settled(request)

@@ -21,7 +21,7 @@ module Keryx
         { harness: 'codex', session_id: value(env, 'CODEX_THREAD_ID') }
       elsif env['CLAUDECODE'] == '1'
         { harness: 'claude', session_id: value(env, 'CLAUDE_CODE_SESSION_ID'),
-          pid: Integer(env['CLAUDE_PID'].to_s, 10, exception: false),
+          pid: Integer(env['CLAUDE_PID'].to_s, 10, exception: false).then { it if Occupant::PIDS.cover?(it) },
           claude_socket: value(env, 'CLAUDE_CODE_MESSAGING_SOCKET') }
       end
     end

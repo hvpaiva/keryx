@@ -41,8 +41,18 @@ class HookTest < Minitest::Test
     decision = JSON.parse(stop(@rev).out)
 
     assert_equal 'block', decision['decision']
-    assert_match(/\Akeryx: rev-1 has 1 unread message \(#{id}\)\. Open each with 'keryx read ID'/, decision['reason'])
+    assert_equal "keryx: rev-1 has 1 unread message (#{id}). Open each with 'keryx read ID' before ending the turn.",
+                 decision['reason']
     assert_empty stop(@rev).out
+  end
+
+  def test_an_unread_request_is_to_be_answered
+    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    id = last_id(@rev)
+
+    assert_equal "keryx: rev-1 has 1 unread message (#{id}). Open each with 'keryx read ID' and answer every " \
+                 "request with 'keryx reply ID TEXT' before ending the turn; if a request cannot be done, reply " \
+                 'saying why.', JSON.parse(stop(@rev).out)['reason']
   end
 
   def test_a_reminder_cut_off_before_it_reaches_the_harness_is_given_again
@@ -84,7 +94,8 @@ class HookTest < Minitest::Test
     keryx('read', env: @rev)
     decision = JSON.parse(stop(@rev).out)
 
-    assert_match(/1 request read but not answered \(#{id} from orq@athena\)/, decision['reason'])
+    assert_match(/1 request read but not answered \(#{id} from orq@athena\)\. .* answer every request with/,
+                 decision['reason'])
     assert_empty stop(@rev).out
   end
 
@@ -136,6 +147,16 @@ class HookTest < Minitest::Test
 
     assert_equal 0, result.status
     assert_match(/keryx hook stop: /, result.err)
+  end
+
+  def test_damaged_input_cannot_put_control_characters_on_the_screen
+    keryx('join', 'broken', env: claude(333))
+    File.write(tmp('state', 'addresses', 'broken', 'occupant.json'), "{\"joined_at\": bad\e[2J}\n")
+    damaged = [stop(@rev), keryx('hook', 'stop', env: @rev, input: "{\"session_id\": bad\e[2J}")]
+
+    assert_match(/\Awarning: .*occupant\.json is not valid JSON .*bad\^\[\[2J/, damaged.first.err)
+    assert_match(/\Akeryx hook stop: .*bad\^\[\[2J/, damaged.last.err)
+    damaged.each { assert_equal [0, '', false], [it.status, it.out, it.err.include?("\e")] }
   end
 
   def test_a_payload_that_is_not_an_object_never_fails_the_session

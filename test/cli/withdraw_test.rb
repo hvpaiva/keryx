@@ -27,6 +27,35 @@ class WithdrawTest < Minitest::Test
     keryx('ask', recipient, 'Fix retry.py', '--within', '1m', env:).out[/\AAsked \S+ \((\w{26})\)/, 1]
   end
 
+  def inbox(env) = JSON.parse(keryx('inbox', '--all', '-o', 'json', env:).out)
+
+  def due_column(env) = keryx('inbox', '--all', env:).out.lines.drop(1).to_h { it.split(/ {3,}/).values_at(0, 4) }
+
+  def join_port
+    alive << 333
+    machine('zeus').merge(claude(333)).tap { keryx('join', 'port', env: it) }
+  end
+
+  def zeus_withdrawal = Keryx::Store.new(tmp('zeus')).mailbox('port').map(&:message).find(&:withdrawal?)
+
+  # What NAME, which has not opened WITHDRAWAL yet, sees of the request ID it withdraws.
+  def assert_withdrawn(name, env, id, withdrawal, reason: nil)
+    time = withdrawal.created_at.utc.strftime('%Y-%m-%d %H:%M:%S UTC')
+    note = "\n\nIts sender withdrew this request, so it needs no reply.\n#{"Reason: #{reason}\n" if reason}"
+
+    assert_equal "keryx: #{name} has 1 unread message (#{withdrawal.id}). Open each with 'keryx read ID' before " \
+                 'ending the turn.', JSON.parse(stop(env))['reason']
+    read = keryx('read', id, env:).out
+
+    assert_match(/^withdrawn +#{withdrawal.id} at #{time} \(\w+ ago\)\n\n/, read)
+    assert_equal note, read[-note.size..]
+    refute_includes read, 'Answer with'
+    assert_equal 'withdrawn', due_column(env)[id]
+    records = [JSON.parse(keryx('read', id, '-o', 'json', env:).out), inbox(env).find { it['id'] == id }]
+
+    assert_equal([withdrawal.id] * 2, records.map { it['withdrawn_by'] })
+  end
+
   def test_the_sender_withdraws_a_request_sent_before_the_machine_was_renamed
     id = asked('impl', env: @orq.merge(OLD_NAME))
     keryx('read', id, env: @impl)
@@ -113,6 +142,77 @@ class WithdrawTest < Minitest::Test
 
     assert_match(/\n\nDone anyway\n/, keryx('read', reply, env: @orq).out)
     assert_equal 'reply', JSON.parse(keryx('wait', id, '-o', 'json', env: @orq).out)['kind']
+  end
+
+  def test_a_request_withdrawn_before_it_was_read_is_not_reminded_and_reads_as_withdrawn
+    id = asked('impl')
+    clock.advance(60)
+    keryx('withdraw', id, 'Fixed upstream', env: @orq)
+
+    assert_withdrawn('impl', @impl, id, withdrawals('impl').first, reason: 'Fixed upstream')
+  end
+
+  def test_a_withdrawal_that_gives_no_reason_adds_none_to_the_request
+    id = asked('impl')
+    keryx('withdraw', id, env: @orq)
+
+    assert_withdrawn('impl', @impl, id, withdrawals('impl').first)
+  end
+
+  def test_a_request_left_unread_once_its_withdrawal_is_read_is_listed_as_withdrawn_and_not_reminded
+    id = asked('impl')
+    keryx('withdraw', id, env: @orq)
+    keryx('read', withdrawals('impl').first.id, env: @impl)
+    unread = keryx('inbox', env: @impl).out.lines.drop(1).map { it.split(/ {3,}/).values_at(0, 4) }
+
+    assert_equal [[id, 'withdrawn']], unread
+    assert_empty stop(@impl)
+  end
+
+  def test_a_request_and_its_withdrawal_that_arrive_from_another_machine_read_as_withdrawn
+    port = join_port
+    keryx('ask', 'port@zeus', 'Port it', env: @orq)
+    id = last_id(port)
+    keryx('withdraw', id, 'Not needed after all', env: @orq)
+    withdrawal = zeus_withdrawal
+
+    assert_equal [['zeus', [id]], ['zeus', [withdrawal.id]]], remote.sent
+    assert_withdrawn('port', port, id, withdrawal, reason: 'Not needed after all')
+  end
+
+  def test_a_withdrawal_from_anyone_but_the_sender_leaves_the_request_to_answer
+    request = build_message(to: 'impl@athena', from: 'orq@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
+    forged = build_message(to: 'impl@athena', from: 'eve@zeus', kind: 'withdrawal', id: Keryx::Ulid.generate(NOW + 1),
+                           in_reply_to: request.id, thread: request.id)
+    keryx('__receive', input: [request, forged].map { "#{it.to_json}\n" }.join)
+
+    assert_match(/has 2 unread messages \(#{request.id}, #{forged.id}\)\. .* answer every request with/,
+                 JSON.parse(stop(@impl))['reason'])
+    assert_match(/\n\nAnswer with: keryx reply #{request.id} TEXT\n\z/, keryx('read', request.id, env: @impl).out)
+    assert_equal({ request.id => '-', forged.id => '-' }, due_column(@impl))
+    assert_equal([[request.id, nil], [forged.id, false]],
+                 inbox(@impl).map { [it['id'], it.fetch('withdrawn_by', false)] })
+  end
+
+  def test_a_reply_to_a_request_withdrawn_before_it_was_read_is_delivered_and_the_request_stays_withdrawn
+    id = asked('impl')
+    keryx('withdraw', id, env: @orq)
+    keryx('reply', id, 'Done anyway', env: @impl)
+
+    assert_equal([['reply', 'Done anyway']], inbox(@orq).map { it.values_at('kind', 'body') })
+    assert_withdrawn('impl', @impl, id, withdrawals('impl').first)
+  end
+
+  def test_a_reply_from_another_machine_to_a_request_withdrawn_there_is_delivered_and_it_stays_withdrawn
+    port = join_port
+    keryx('ask', 'port@zeus', 'Port it', env: @orq)
+    id = last_id(port)
+    keryx('withdraw', id, env: @orq)
+    replied = keryx('reply', id, 'Ported anyway', env: port)
+
+    assert_match(/\AReplied to orq@athena \(\w{26}\)\. It reached athena\./, replied.out)
+    assert_equal([['reply', 'Ported anyway']], inbox(@orq).map { it.values_at('kind', 'body') })
+    assert_withdrawn('port', port, id, zeus_withdrawal)
   end
 
   def test_a_withdrawal_rings_the_recipient_and_ends_the_deadline_notices

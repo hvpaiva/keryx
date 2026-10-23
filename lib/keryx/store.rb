@@ -12,7 +12,14 @@ require_relative 'outbox'
 require_relative 'spawned'
 
 module Keryx
-  AddressRecord = Data.define(:name, :role, :created_at)
+  AddressRecord = Data.define(:name, :role, :created_at) do
+    def self.from_record(data)
+      name, role = data.values_at('name', 'role')
+      raise TypeError, 'the name or the role is not text' unless [name, role].all? { it.nil? || it.is_a?(String) }
+
+      new(name:, role:, created_at: Time.iso8601(data['created_at'].to_s))
+    end
+  end
   StoredMessage = Data.define(:message, :state)
 
   class Store
@@ -57,8 +64,8 @@ module Keryx
 
     def address(name)
       data = read_json(address_file(name)) or return nil
-      AddressRecord.new(name: data['name'], role: data['role'], created_at: Time.iso8601(data['created_at'].to_s))
-    rescue ArgumentError, KeyError, TypeError
+      AddressRecord.from_record(data)
+    rescue ArgumentError, KeyError, TypeError, NotAnObject
       raise Error, "#{address_file(name)} is damaged"
     end
 
@@ -76,8 +83,17 @@ module Keryx
     def occupant(name)
       data = read_json(occupant_file(name)) or return nil
       Occupant.from_record(data)
-    rescue ArgumentError, KeyError, TypeError
+    rescue ArgumentError, KeyError, TypeError, NotAnObject
       raise Error, "#{occupant_file(name)} is damaged"
+    end
+
+    # A command that walks every address goes on past a file it cannot read: the file is reported once as a problem,
+    # and the fallback stands for what the block would have read.
+    def reporting(fallback = nil)
+      yield
+    rescue Error => e
+      @problems << e.message
+      fallback
     end
 
     def bind(name, occupant)
@@ -125,6 +141,15 @@ module Keryx
     def unread(name)
       read = read_ids(name)
       messages_in(File.join(box(name), MAIL)) { !read.include?(it) }
+    end
+
+    # By id, each request among MESSAGES that its own sender withdrew in the mailbox of NAME, with that withdrawal.
+    def withdrawals(name, messages)
+      requests = messages.select(&:request?)
+      return {} if requests.empty?
+
+      pulled = messages_in(File.join(box(name), MAIL)).select(&:withdrawal?).group_by(&:in_reply_to)
+      requests.to_h { |request| [request.id, pulled[request.id]&.find { it.withdraws?(request) }] }.compact
     end
 
     def find(name, reference)

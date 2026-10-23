@@ -23,6 +23,12 @@ class CallerTest < Minitest::Test
     assert_equal 'w1:p1', caller.herdr_pane
   end
 
+  def test_a_claude_pid_that_is_no_process_id_is_none
+    pids = %w[0 -7 2147483648 x].map { caller_from(CLAUDE_ENV.merge('CLAUDE_PID' => it)).pid }
+
+    assert_equal [nil] * 4, pids
+  end
+
   def test_another_harness_is_named_by_herdr
     herdr = FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => Keryx::Herdr::Agent.new('w1:p2', 'codex', 'working') })
     caller = caller_from({ 'HERDR_SOCKET_PATH' => HERDR_SOCKET, 'HERDR_PANE_ID' => 'w1:p2' }, herdr:)

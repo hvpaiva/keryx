@@ -89,6 +89,17 @@ class MeterCodexCursorTest < Minitest::Test
     assert_equal 1_000_000, cursor("Claude Sonnet 1M #{DOT} 5%").window
   end
 
+  def test_cursor_reads_the_share_when_labels_such_as_the_files_edited_follow_it
+    screen = Screens.unescaped(fixture('cursor-file-edited.txt'))
+    without = screen.sub(" #{DOT} 1 file edited", '')
+
+    refute_equal screen, without
+    assert_equal Keryx::Context.new(used: 161_024, window: 256_000), cursor(screen)
+    assert_equal '161k/256k 63%', cursor(screen).label
+    assert_equal cursor(screen), cursor(without)
+    assert_equal cursor(screen), cursor(screen.sub('1 file edited', '12 files edited'))
+  end
+
   def test_cursor_takes_the_footer_and_never_the_directory_or_the_input_line
     assert_equal Keryx::Context.new(used: 243_600, window: 300_000),
                  cursor("Claude Opus 5.5 300K Extra High #{DOT} 81.2%\n  /work/report 1M #{DOT} 99%\n")
@@ -101,7 +112,7 @@ class MeterCodexCursorTest < Minitest::Test
   def test_cursor_reads_only_its_last_lines_and_only_the_footer_shape
     assert_nil cursor("Model 300K High #{DOT} 81%\n#{"text\n" * 4}")
     ["Model 300KB #{DOT} 81%", "Model 300K #{DOT} 81% left", "Model 300K #{DOT} 81%x", 'Model 300K - 81%',
-     "Model 4.7K #{DOT} 9%", '', nil].each { assert_nil cursor(it), it.inspect }
+     "Model 4.7K #{DOT} 9%", "Model 300K #{DOT} 81% #{DOT}", '', nil].each { assert_nil cursor(it), it.inspect }
   end
 
   def test_cursor_reads_nothing_unless_its_pane_runs_that_session
