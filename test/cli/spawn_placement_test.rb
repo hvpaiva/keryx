@@ -53,13 +53,36 @@ class SpawnPlacementTest < Minitest::Test
     assert_operator herdr.sizes.values.map(&:first).min, :>=, 80
   end
 
+  # Outer pane sizes and whether the half of each holds a terminal of 80 columns and 24 rows inside herdr 0.9.5's
+  # default chrome, which takes three columns and two rows.
+  def splits(split, edges)
+    edges.each_with_index.map do |((width, height), _), index|
+      workspace(%w[w1:t1 main] => { 'w1:p1' => [width, height] })
+      session_joins(pid: 500 + index)
+      spawn("rev-#{index}", '--harness', 'claude', '--split', split)
+      herdr.splits.any?
+    end
+  end
+
+  def test_a_split_right_leaves_the_new_terminal_80_columns_and_24_rows_inside_herdr_chrome
+    edges = { [160, 48] => false, [165, 26] => false, [166, 25] => false, [166, 26] => true }
+
+    assert_equal edges.values, splits('right', edges)
+  end
+
+  def test_a_split_down_leaves_the_new_terminal_80_columns_and_24_rows_inside_herdr_chrome
+    edges = { [205, 48] => false, [82, 52] => false, [83, 51] => false, [83, 52] => true }
+
+    assert_equal edges.values, splits('down', edges)
+  end
+
   def test_a_split_down_halves_the_height
-    workspace(%w[w1:t1 main] => { 'w1:p1' => [205, 30], 'w1:p2' => [100, 50] })
+    workspace(%w[w1:t1 main] => { 'w1:p1' => [205, 30], 'w1:p2' => [100, 52] })
     session_joins
     spawn('rev-1', '--harness', 'claude', '--split', 'down')
 
     assert_equal([%w[w1:p2 down]], herdr.splits.map { it.first(2) })
-    assert_equal [[100, 25], [100, 25]], herdr.sizes.values_at('w1:p2', 'w1:p3')
+    assert_equal [[100, 26], [100, 26]], herdr.sizes.values_at('w1:p2', 'w1:p3')
   end
 
   def test_a_pane_too_short_to_halve_down_opens_a_tab
@@ -83,7 +106,7 @@ class SpawnPlacementTest < Minitest::Test
 
   def test_every_tab_with_the_label_is_read_and_its_pane_with_the_most_room_is_split
     workspace(%w[w1:t1 main] => { 'w1:p1' => AREA }, %w[w1:t2 agents] => { 'w1:p2' => [120, 48] },
-              %w[w1:t3 agents] => { 'w1:p3' => [40, 48], 'w1:p4' => [165, 48] })
+              %w[w1:t3 agents] => { 'w1:p3' => [40, 48], 'w1:p4' => [166, 48] })
     session_joins
     spawn('rev-1', '--harness', 'claude', '--tab', 'agents')
 

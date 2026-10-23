@@ -16,11 +16,16 @@ module Keryx
     # The classic terminal, which keeps Cursor's dialogs and footer on one line and the screen lines the bell reads.
     MIN_COLUMNS = 80
     MIN_ROWS = 24
+    # herdr's layout gives a pane's outer rectangle, and its default chrome takes a border on each side and a scrollbar
+    # column from a split pane's terminal, and a border above and below; herdr 0.9.5 reports no terminal size.
+    CHROME_COLUMNS = 3
+    CHROME_ROWS = 2
     DOWN = 'down'
     PLACEMENT = 'spawn runs in a herdr pane. Of the panes in this tab, or with --tab in every tab labelled LABEL, it ' \
-                'splits the one that leaves the new pane the most room along --split, provided the new pane gets at ' \
-                "least #{MIN_COLUMNS} columns and #{MIN_ROWS} rows, which keep a harness's dialogs and footer on " \
-                'whole lines; when no pane has that room, it opens a new tab labelled LABEL, or NAME without --tab. ' \
+                'splits the one that leaves the new pane the most room along --split, provided the terminal in the ' \
+                "new pane gets at least #{MIN_COLUMNS} columns and #{MIN_ROWS} rows inside herdr's default borders " \
+                "and scrollbar, which keep a harness's dialogs and footer on whole lines; when no pane has that " \
+                'room, it opens a new tab labelled LABEL, or NAME without --tab. ' \
                 'When herdr gives no layout for one of those panes, it opens that new tab too, and never splits a ' \
                 'pane it could not measure. Splitting is the only change spawn makes to a pane it did not create, ' \
                 'and it labels the new pane NAME.'.freeze
@@ -173,7 +178,10 @@ module Keryx
     end
 
     # herdr gives the new pane the smaller half: the floor of half the width, or of the height when it splits down.
-    def room(rect, split) = split == DOWN ? [rect.width, rect.height / 2] : [rect.width / 2, rect.height]
+    def room(rect, split)
+      columns, rows = split == DOWN ? [rect.width, rect.height / 2] : [rect.width / 2, rect.height]
+      [columns - CHROME_COLUMNS, rows - CHROME_ROWS]
+    end
 
     def name(pane, label)
       @herdr.rename(@socket, pane, label)

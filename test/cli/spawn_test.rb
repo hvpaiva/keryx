@@ -140,6 +140,7 @@ class SpawnTest < Minitest::Test
   end
 
   def test_tab_is_created_when_missing_and_split_once_it_exists
+    herdr.area = [205, 52]
     session_joins(pid: 500)
     spawn('rev-1', '--harness', 'claude', '--tab', 'agents')
 

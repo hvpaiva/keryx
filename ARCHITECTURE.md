@@ -238,8 +238,9 @@ before the session exists. It rings no bell for it, because the address may stil
 that ended and the new session opens its inbox from its first prompt. `Spawner` places the session
 by `herdr pane layout`, read for the caller's tab or for each tab `--tab` names. herdr gives a new
 pane the floor of half the pane it splits, so spawn splits the pane that leaves the new one the most
-room along the split direction, provided the new one gets at least 80 columns and 24 rows, and
-otherwise opens a new tab. That minimum is the classic terminal: Cursor's trust box (about 76
+room along the split direction, provided the terminal in the new one gets at least 80 columns and
+24 rows, and otherwise opens a new tab. herdr's layout gives outer rectangles and no terminal size, so
+spawn takes off the three columns and two rows herdr 0.9.5's default borders and scrollbar use. That minimum is the classic terminal: Cursor's trust box (about 76
 columns), its footer and Codex's hooks screen keep whole lines, which the bell and the context
 reading need, and it holds the 20 lines the bell reads with Cursor's 4 footer lines. When herdr
 gives no layout for one of those panes, spawn opens the new tab too, with a notice, and never splits
