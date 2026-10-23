@@ -23,19 +23,6 @@ class SpawnChecksTest < Minitest::Test
     ['rev-1', '--harness', 'claude', ' '] => [2, /the message is empty/]
   }.freeze
 
-  # The session in this pane joined NAME, left it, and its pane keeps the herdr name NAME.
-  def left(name)
-    caller = join_claude(name, 111).merge(CALLER)
-    keryx('leave', env: caller)
-    herdr.put(SOCKET, name, agent('w1:p1', 'claude', 'idle'))
-    caller
-  end
-
-  # Runs while herdr splits, after spawn checked the address and the herdr name and before it frees the name.
-  def meanwhile
-    herdr.on_call = ->(call) { yield if call == :split }
-  end
-
   # Runs while spawn looks the herdr name NAME up again just before it frees it, after the lookup of its first check.
   def looking_up(name)
     held = herdr.agent(SOCKET, name)
@@ -46,9 +33,27 @@ class SpawnChecksTest < Minitest::Test
     end)
   end
 
-  def joins(name, env)
-    result = keryx('join', name, env:)
-    raise "join failed: #{result.err}" unless result.status.zero?
+  # Joins NAME as another process would right before herdr clears the name, after spawn's last address check: there
+  # when the occupants lock is free, else once spawn starts the harness. Returns who held NAME at the clear.
+  def joins_at_the_clear(name, env)
+    [].tap do |holders|
+      herdr.on_call = lambda do |call|
+        next unless call == :clear_name
+
+        if locked?
+          herdr.on_start = ->(*) { joins(name, env) }
+        else
+          joins(name, env)
+        end
+        holders << store.occupant(name)&.pid
+      end
+    end
+  end
+
+  def locked?
+    store.with_occupants_lock(within: 0) { false }
+  rescue Keryx::Store::Busy
+    true
   end
 
   def renamed(from, to, pane)
@@ -151,6 +156,17 @@ class SpawnChecksTest < Minitest::Test
                  'spawn checked the address, and spawn started no codex session in pane w1:p2; the pane holds only a ' \
                  "shell, which 'herdr pane close w1:p2' closes\n", result.err
     assert_equal [[], [], 111], [herdr.cleared, herdr.starts, store.occupant('orq').pid]
+  end
+
+  def test_a_join_after_the_last_address_check_lands_only_after_spawn_cleared_the_name_of_the_vacant_address
+    caller = left('orq')
+    holders = joins_at_the_clear('orq', caller)
+    result = spawn('orq', '--harness', 'codex', env: caller)
+
+    assert_equal 1, result.status
+    assert_equal 'error: orq@athena was joined by another claude session, not the one spawn started in pane w1:p2; ' \
+                 "'keryx who' shows it\n", result.err
+    assert_equal [[nil], [[SOCKET, 'w1:p1']], 111], [holders, herdr.cleared, store.occupant('orq').pid]
   end
 
   def test_a_herdr_name_lookup_that_ends_at_the_timeout_frees_no_name_and_starts_no_harness

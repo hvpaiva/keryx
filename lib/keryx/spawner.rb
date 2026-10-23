@@ -4,6 +4,7 @@ require_relative 'bell'
 require_relative 'dialog'
 require_relative 'error'
 require_relative 'spawned'
+require_relative 'store'
 require_relative 'text'
 
 module Keryx
@@ -120,17 +121,30 @@ module Keryx
       direct(name, pane, kind, director) if director
       due(late)
       kept = @kept && keeps?(name)
-      @vacant.call(name, "it joined after spawn checked the address, and spawn started no #{kind} session in pane " \
-                         "#{pane}; #{shell(pane)}")
-      free_name(name, late) if kept
+      stopped = "spawn started no #{kind} session in pane #{pane}; #{shell(pane)}"
+      held(late, stopped) do
+        @vacant.call(name, "it joined after spawn checked the address, and #{stopped}")
+        free_name(name, late) if kept
+      end
       due(late)
       @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: @deadline - @clock.call)
     end
 
-    # The lookup can take long, so the address check and the timeout's come after it, and only they stand between it
-    # and the clear. herdr clears whatever name the pane holds when the rename runs, so the pane can still change names
-    # in that window.
+    # The lookup can take long, so it runs before the hold, and the address check and the timeout's come after it. keryx
+    # holds no herdr name, and herdr clears whatever name the pane holds when the rename runs, so the pane can still
+    # change names between the lookup and the clear.
     def keeps?(name) = herdr_name(name) { @herdr.agent(@socket, name)&.pane == @kept }
+
+    # join takes this lock too, so a join lands before the address check, which stops spawn, or after the clear, which
+    # then freed the name of an address no session held. spawn waits for it as a join does, but not past its timeout.
+    def held(late, stopped, &)
+      within = (@deadline - @clock.call).clamp(0, Store::LOCK_SECONDS)
+      @store.with_occupants_lock(within:, &)
+    rescue Store::Busy => e
+      raise WaitTimeout, late if within < Store::LOCK_SECONDS
+
+      raise Store::Busy, "#{e.message}; #{stopped}"
+    end
 
     def free_name(name, late)
       due(late)

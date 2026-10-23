@@ -37,8 +37,9 @@ class SpawnerTest < Minitest::Test
   def test_an_error_while_herdr_starts_the_agent_comes_through
     herdr = FakeHerdr.new
     herdr.on_start = ->(*) { raise Keryx::Error, 'herdr: not found' }
-    spawner = Keryx::Spawner.new(herdr:, store: nil, socket: '/h.sock', clock: -> { Factory::NOW }, sleeper: ->(_) {},
-                                 deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
+    spawner = Keryx::Spawner.new(herdr:, store: Keryx::Store.new(tmp('state')), socket: '/h.sock',
+                                 clock: -> { Factory::NOW }, sleeper: ->(_) {}, deadline: Factory::NOW + 60,
+                                 notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
     error = assert_raises(Keryx::Error) do
       spawner.run('rev-1', 'rev-1@athena', 'w1:p2', kind: 'claude', arguments: [], before: nil, director: nil,
                                                     prompt: 'Review it')

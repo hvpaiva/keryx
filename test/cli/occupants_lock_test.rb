@@ -35,8 +35,22 @@ class OccupantsLockTest < Minitest::Test
         spawn('rev-1', '--harness', 'claude', '--timeout', '3s', 'Review it', env: orq.merge('CLAUDE_PID' => '222'))
       end
 
-      assert_equal [3, 3.0], [result.status, clock.now - NOW]
+      assert_equal [3, 3.0, []], [result.status, clock.now - NOW, herdr.starts]
       assert_equal 111, store.occupant('orq').pid
+    end
+  end
+
+  def test_spawn_gives_up_on_a_lock_kept_15s_before_its_timeout_and_starts_no_harness
+    orq = join_claude('orq', 111)
+    holding_the_lock do
+      result = in_time { spawn('rev-1', '--harness', 'claude', env: orq) }
+
+      assert_equal 1, result.status
+      assert_equal "error: #{tmp('state', 'occupants.lock')} stayed locked by another keryx command for 15s; try " \
+                   'again, or end that command if it is stuck; spawn started no claude session in pane w1:p2; the ' \
+                   "pane holds only a shell, which 'herdr pane close w1:p2' closes\n", result.err
+      assert_in_delta 15, clock.now - NOW, 0.1
+      assert_empty herdr.starts
     end
   end
 

@@ -30,6 +30,24 @@ module SpawnHelpers
 
   def in_pane(socket, pane) = { 'HERDR_SOCKET_PATH' => socket, 'HERDR_PANE_ID' => pane }
 
+  # The session in this pane joined NAME, left it, and its pane keeps the herdr name NAME.
+  def left(name)
+    caller = join_claude(name, 111).merge(CALLER)
+    keryx('leave', env: caller)
+    herdr.put(SOCKET, name, agent('w1:p1', 'claude', 'idle'))
+    caller
+  end
+
+  # Runs while herdr splits, after spawn checked the address and the herdr name and before it frees the name.
+  def meanwhile
+    herdr.on_call = ->(call) { yield if call == :split }
+  end
+
+  def joins(name, env)
+    result = keryx('join', name, env:)
+    raise "join failed: #{result.err}" unless result.status.zero?
+  end
+
   def session_joins(pid: 500)
     herdr.on_start = lambda do |socket, pane, name, kind|
       herdr.put(socket, pane, agent(pane, kind, 'working'))

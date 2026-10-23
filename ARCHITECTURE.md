@@ -105,10 +105,15 @@ finds the session's address and removes it under the lock too, so a refresh cann
 and the occupant of a session that took the address over in between is never removed.
 `leave --as NAME` releases an address for a session that ended without leaving. Under the same
 lock it refuses when the roster sees the occupant live, as join does, and removes the occupant
-otherwise, so a session that joins in between keeps the address.
+otherwise, so a session that joins in between keeps the address. spawn checks the address for
+the last time under the lock, right before it starts the harness. When it frees the herdr name its
+own pane kept from an address the session there left, it clears the name in that same hold, so a
+join lands before the check, which stops spawn, or after the clear, which then freed the name of
+an address no session held.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
-make, and then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all;
+make, and then fails, so a stopped holder cannot block it for good. spawn waits as long, but not
+past its own timeout. `App#me` does not wait at all;
 when another command holds the lock, it leaves the record to a later command, so `wait`, `spawn`
 and every other command keep their deadlines.
 
