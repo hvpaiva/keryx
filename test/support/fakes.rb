@@ -71,7 +71,7 @@ class FakeHerdr
   attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered, :footers
   attr_writer :sizes
   # area is the size of a tab herdr creates.
-  attr_accessor :start_outcome, :start_polls, :on_start, :rename_error, :layout_error, :area
+  attr_accessor :start_outcome, :start_polls, :on_start, :rename_error, :layout_error, :area, :clear_error
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
     @agents = agents
@@ -151,6 +151,14 @@ class FakeHerdr
     raise Keryx::Error, rename_error if rename_error
 
     @renames << [socket, pane, label]
+  end
+
+  def cleared = @cleared ||= []
+
+  def clear_name(socket, pane)
+    raise Keryx::Error, clear_error if clear_error
+
+    cleared << [socket, pane]
   end
 
   def start(socket, pane, name:, kind:, arguments:, timeout:)

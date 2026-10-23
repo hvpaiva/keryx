@@ -69,13 +69,44 @@ class SpawnChecksTest < Minitest::Test
     assert_empty herdr.splits
   end
 
-  def test_spawn_refuses_a_name_another_herdr_agent_has
+  def test_spawn_refuses_a_name_a_herdr_agent_in_another_pane_has_and_says_how_to_free_it
     herdr.put(SOCKET, 'rev-1', agent('w1:p7', 'codex', 'idle'))
     result = spawn('rev-1', '--harness', 'claude')
 
     assert_equal 1, result.status
-    assert_match(/herdr already runs an agent named rev-1, in pane w1:p7/, result.err)
+    assert_equal 'error: herdr already runs an agent named rev-1, in pane w1:p7; choose another name, or free it ' \
+                 "with 'herdr agent rename w1:p7 NEWNAME'\n", result.err
     refute store.address?('rev-1')
+    assert_equal [[], [], [], []], [herdr.splits, herdr.created_tabs, herdr.cleared, herdr.starts]
+  end
+
+  def test_spawn_frees_the_herdr_name_its_own_pane_keeps_after_leaving_just_before_the_start
+    caller = join_claude('orq', 111).merge(CALLER)
+    keryx('leave', env: caller)
+    herdr.put(SOCKET, 'orq', agent('w1:p1', 'claude', 'idle'))
+    session_joins(pid: 600)
+    joins = herdr.on_start
+    cleared = nil
+    herdr.on_start = lambda do |*started|
+      cleared = herdr.cleared.dup
+      joins.call(*started)
+    end
+    result = spawn('orq', '--harness', 'codex', env: caller)
+
+    assert_equal 0, result.status, result.err
+    assert_equal [[SOCKET, 'w1:p1']], cleared
+    assert_equal([%w[orq w1:p2]], herdr.starts.map { it.values_at(:name, :pane) })
+  end
+
+  def test_a_herdr_name_spawn_cannot_free_is_an_error_with_herdr_reason
+    herdr.put(SOCKET, 'orq', agent('w1:p1', 'claude', 'idle'))
+    herdr.clear_error = 'herdr agent rename failed: agent orq is not in pane w1:p1'
+    result = spawn('orq', '--harness', 'claude')
+
+    assert_equal 1, result.status
+    assert_equal 'error: spawn could not free the herdr name orq in pane w1:p1: herdr agent rename failed: agent orq ' \
+                 "is not in pane w1:p1\n", result.err
+    assert_empty herdr.starts
   end
 
   def test_an_agent_that_did_not_join_cannot_hand_out_a_request

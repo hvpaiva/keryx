@@ -156,6 +156,18 @@ class HerdrTest < Minitest::Test
     assert_equal 'herdr pane rename failed: pane w1:p9 not found', error.message
   end
 
+  def test_clear_name_frees_the_agent_name_a_pane_keeps
+    runner = FakeRunner.new(%w[herdr agent rename] => { out: agent_json('w1:p1', 'claude', 'idle') })
+    Keryx::Herdr.new(runner:).clear_name(SOCKET, 'w1:p1')
+    refused = { success: false, err: '{"error":{"code":"agent_not_found","message":"no agent in pane w1:p9"}}' }
+    error = assert_raises(Keryx::Error) do
+      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent rename] => refused)).clear_name(SOCKET, 'w1:p9')
+    end
+
+    assert_equal [%w[herdr agent rename w1:p1 --clear], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
+    assert_equal 'herdr agent rename failed: no agent in pane w1:p9', error.message
+  end
+
   def test_a_failed_control_command_is_an_error_with_what_herdr_said
     refused = { success: false, err: '{"error":{"code":"pane_not_found","message":"pane w1:p9 not found"}}' }
     error = assert_raises(Keryx::Error) do
