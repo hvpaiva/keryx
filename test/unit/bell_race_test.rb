@@ -9,9 +9,9 @@ class BellRaceTest < Minitest::Test
 
   def ring_while_the_screen_is_read(herdr, occupant: pane_occupant, &change)
     message = deliver
-    store.bind('rev-1', occupant)
+    store.bind('rev-1.dev', occupant)
     herdr.on_screen = change
-    bell(herdr:).ring('rev-1', [message])
+    bell(herdr:).ring('rev-1.dev', [message])
   end
 
   def test_a_session_that_takes_the_pane_while_the_screen_is_read_gets_no_bell

@@ -8,11 +8,11 @@ class CourierTest < Minitest::Test
   include CourierHelpers
 
   def overdue_request
-    build_message(to: 'rev-1@athena', from: 'orq@athena', kind: 'request', due_at: NOW + 60)
-      .tap { store.deliver('rev-1', it) }
+    build_message(to: 'rev-1.dev@athena', from: 'orq.dev@athena', kind: 'request', due_at: NOW + 60)
+      .tap { store.deliver('rev-1.dev', it) }
   end
 
-  def notices = store.unread('orq').select { it.from == 'keryx@athena' }
+  def notices = store.unread('orq.dev').select { it.from == 'keryx.system@athena' }
 
   def fail_first_post
     original = postman.method(:post)
@@ -39,19 +39,19 @@ class CourierTest < Minitest::Test
   def test_a_notice_posted_twice_is_stored_once
     request = overdue_request
     courier.round
-    FileUtils.rm_f(tmp('state', 'addresses', 'orq', 'receipts', "#{request.id}.overdue"))
+    FileUtils.rm_f(tmp('state', 'addresses', 'orq.dev', 'receipts', "#{request.id}.overdue"))
     courier.round
 
     assert_equal 1, notices.size
   end
 
   def test_a_damaged_bell_receipt_does_not_stop_the_round
-    store.bind('rev-1', build_occupant)
-    message = build_message(to: 'rev-1@athena').tap { store.deliver('rev-1', it) }
-    File.write(tmp('state', 'addresses', 'rev-1', 'receipts', "#{message.id}.bell"), '[]')
+    store.bind('rev-1.dev', build_occupant)
+    message = build_message(to: 'rev-1.dev@athena').tap { store.deliver('rev-1.dev', it) }
+    File.write(tmp('state', 'addresses', 'rev-1.dev', 'receipts', "#{message.id}.bell"), '[]')
     round = courier.round
 
-    assert_equal ['rev-1'], round.rung.keys
+    assert_equal ['rev-1.dev'], round.rung.keys
     assert_match(/#{message.id}\.bell is not a JSON object/, store.problems.first)
   end
 

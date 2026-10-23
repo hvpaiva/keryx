@@ -5,7 +5,7 @@ require 'test_helper'
 class RemoteTest < Minitest::Test
   include Factory
 
-  def queued = @queued ||= build_message(to: 'port@zeus')
+  def queued = @queued ||= build_message(to: 'port.dev@zeus')
 
   def test_it_pipes_the_messages_to_keryx_over_ssh_and_reads_the_receipts
     receipt = { 'id' => queued.id, 'status' => 'delivered' }

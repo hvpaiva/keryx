@@ -25,29 +25,29 @@ class CompletionTest < Minitest::Test
   end
 
   def test_addresses_complete_where_an_address_goes
-    join_claude('orq', 111)
-    join_claude('rev-1', 222)
+    join_claude('orq.dev', 111)
+    join_claude('rev-1.dev', 222)
 
-    assert_equal %w[rev-1], complete('send', 'r')
-    assert_equal %w[orq rev-1], complete('--as', '')
-    assert_equal %w[orq rev-1], complete('ring', 'orq', '')
+    assert_equal %w[rev-1.dev], complete('send', 'r')
+    assert_equal %w[orq.dev rev-1.dev], complete('--as', '')
+    assert_equal %w[orq.dev rev-1.dev], complete('ring', 'orq.dev', '')
   end
 
   def test_a_retired_address_does_not_complete
-    join_claude('orq', 111)
-    join_claude('rev-1', 222)
+    join_claude('orq.dev', 111)
+    join_claude('rev-1.dev', 222)
     alive.delete(222)
-    keryx('retire', 'rev-1')
+    keryx('retire', 'rev-1.dev')
 
     assert_empty complete('send', 'r')
-    assert_equal %w[orq person], complete('--as', '')
-    assert_equal %w[orq person], complete('retire', '')
+    assert_equal %w[orq.dev person.local], complete('--as', '')
+    assert_equal %w[orq.dev person.local], complete('retire', '')
   end
 
   def test_message_ids_complete_for_read_reply_and_wait
-    orq = join_claude('orq', 111)
-    rev = join_claude('rev-1', 222)
-    keryx('ask', 'rev-1', 'Review it', env: orq)
+    orq = join_claude('orq.dev', 111)
+    rev = join_claude('rev-1.dev', 222)
+    keryx('ask', 'rev-1.dev', 'Review it', env: orq)
     id = last_id(rev)
 
     assert_equal [id], complete('read', '', env: rev)
@@ -56,23 +56,27 @@ class CompletionTest < Minitest::Test
   end
 
   def test_re_completes_the_open_requests_in_this_mailbox_and_no_address_after_it
-    orq = join_claude('orq', 111)
-    rev = join_claude('rev-1', 222)
-    ids = Array.new(2) { keryx('ask', 'rev-1', 'Review it', env: orq).out[/\((\w{26})\)/, 1].tap { clock.advance(1) } }
+    orq = join_claude('orq.dev', 111)
+    rev = join_claude('rev-1.dev', 222)
+    ids = Array.new(2) do
+      keryx('ask', 'rev-1.dev', 'Review it', env: orq).out[/\((\w{26})\)/, 1].tap do
+        clock.advance(1)
+      end
+    end
     keryx('reply', ids.last, 'Done', env: rev)
-    keryx('send', 'rev-1', 'heads-up', env: orq)
+    keryx('send', 'rev-1.dev', 'heads-up', env: orq)
 
     assert_equal [ids.first], complete('send', '--re', '', env: rev)
     assert_empty complete('send', '--re', ids.first, '', env: rev)
     assert_empty complete('send', "--re=#{ids.first}", '', env: rev)
-    assert_includes complete('send', '', env: rev), 'orq'
+    assert_includes complete('send', '', env: rev), 'orq.dev'
   end
 
   def test_withdraw_completes_the_open_requests_sent_from_this_machine_under_any_name
-    orq = join_claude('orq', 111)
-    join_claude('rev-1', 222)
+    orq = join_claude('orq.dev', 111)
+    join_claude('rev-1.dev', 222)
     ids = [{}, { 'KERYX_HOST' => 'lap-0042' }, {}].map do |host|
-      keryx('ask', 'rev-1', 'Review it', env: orq.merge(host)).out[/\((\w{26})\)/, 1].tap { clock.advance(1) }
+      keryx('ask', 'rev-1.dev', 'Review it', env: orq.merge(host)).out[/\((\w{26})\)/, 1].tap { clock.advance(1) }
     end
     keryx('withdraw', ids.last, env: orq)
 
@@ -80,23 +84,23 @@ class CompletionTest < Minitest::Test
   end
 
   def test_ids_complete_from_the_mailbox_named_by_as
-    join_claude('rev-1', 222)
-    keryx('send', 'rev-1', 'for rev-1')
-    keryx('send', 'person', 'for person')
-    theirs = JSON.parse(keryx('--as', 'rev-1', 'inbox', '-o', 'json').out).map { it['id'] }
+    join_claude('rev-1.dev', 222)
+    keryx('send', 'rev-1.dev', 'for rev-1')
+    keryx('send', 'person.local', 'for person')
+    theirs = JSON.parse(keryx('--as', 'rev-1.dev', 'inbox', '-o', 'json').out).map { it['id'] }
 
-    assert_equal theirs, complete('--as', 'rev-1', 'read', '')
+    assert_equal theirs, complete('--as', 'rev-1.dev', 'read', '')
     assert_equal theirs, complete('read', '--as=rev-1', '')
   end
 
   def test_words_bash_splits_at_an_equals_sign_complete_as_one
-    join_claude('rev-1', 222)
-    keryx('send', 'rev-1', 'for rev-1')
-    keryx('send', 'person', 'for person')
-    theirs = JSON.parse(keryx('--as', 'rev-1', 'inbox', '-o', 'json').out).map { it['id'] }
+    join_claude('rev-1.dev', 222)
+    keryx('send', 'rev-1.dev', 'for rev-1')
+    keryx('send', 'person.local', 'for person')
+    theirs = JSON.parse(keryx('--as', 'rev-1.dev', 'inbox', '-o', 'json').out).map { it['id'] }
 
-    assert_equal theirs, complete('--as', '=', 'rev-1', 'read', '')
-    assert_equal %w[person rev-1], complete('--as', '=', '')
+    assert_equal theirs, complete('--as', '=', 'rev-1.dev', 'read', '')
+    assert_equal %w[person.local rev-1.dev], complete('--as', '=', '')
     assert_equal %w[json], complete('inbox', '--output', '=', 'j')
   end
 
@@ -108,10 +112,10 @@ class CompletionTest < Minitest::Test
   end
 
   def test_spawn_completes_harnesses_and_directions_and_nothing_for_the_harness
-    assert_equal %w[claude codex cursor], complete('spawn', 'rev-1', '--harness', '')
+    assert_equal %w[claude codex cursor], complete('spawn', 'rev-1.dev', '--harness', '')
     assert_equal %w[right down], complete('spawn', '--split', '')
     assert_includes complete('spawn', '--'), '--harness'
-    assert_empty complete('spawn', 'rev-1', '--', '--')
+    assert_empty complete('spawn', 'rev-1.dev', '--', '--')
   end
 
   def test_completion_never_fails

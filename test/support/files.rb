@@ -21,7 +21,7 @@ end
 module Factory
   NOW = Time.utc(2026, 10, 22, 17, 0, 0)
 
-  def build_message(to:, from: 'orq@athena', kind: 'message', body: 'hello', id: Keryx::Ulid.generate,
+  def build_message(to:, from: 'orq.dev@athena', kind: 'message', body: 'hello', id: Keryx::Ulid.generate,
                     in_reply_to: nil, thread: nil, due_at: nil, created_at: NOW)
     Keryx::Message.new(id:, kind:, from:, to:, thread: thread || id, in_reply_to:, created_at:, due_at:, body:)
   end

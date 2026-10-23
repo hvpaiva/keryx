@@ -56,7 +56,7 @@ module Keryx
 
       # The request is marked read once the message is posted, so a message that fails leaves it as it was.
       def take(request, text)
-        app.postman.post(sender: app.me, recipient: app.address(request.from), kind: 'message', body: text,
+        app.postman.post(sender: app.me, recipient: Address.parse(request.from), kind: 'message', body: text,
                          reply_to: request).tap { app.store.mark_read(app.me, request.id) }
       end
 

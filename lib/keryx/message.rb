@@ -2,6 +2,7 @@
 
 require 'json'
 require 'time'
+require_relative 'address'
 require_relative 'context'
 require_relative 'error'
 require_relative 'text'
@@ -14,18 +15,21 @@ module Keryx
 
   class Message
     KINDS = %w[message request reply withdrawal].freeze
-    FORMAT_VERSION = 1
+    # Format 2 spells team and session addresses. A message between two addresses from before team names is still
+    # written as format 1, so a machine with an older keryx takes what finishes the threads it has.
+    FORMAT_VERSION = 2
+    FLAT_FORMAT = 1
+    FORMATS = [FLAT_FORMAT, FORMAT_VERSION].freeze
     MAX_BODY_BYTES = 64 * 1024
     FIELDS = %w[id kind from to thread in_reply_to created_at due_at body].freeze
-    ADDRESS = /\A[a-z][a-z0-9-]{0,31}@[a-z0-9][a-z0-9-]{0,62}\z/
     # The body of a withdrawal whose sender gave no reason.
     WITHDRAWN = 'Request %<id>s is withdrawn and needs no reply.'
 
     def self.from_json(text)
       data = JSON.parse(text)
-      raise Error, 'not a keryx message' unless data.is_a?(Hash) && data['keryx'] == FORMAT_VERSION
+      raise Error, 'not a keryx message' unless data.is_a?(Hash) && FORMATS.include?(data['keryx'])
 
-      build(data)
+      build(data).tap { it.check_format(data['keryx']) }
     rescue JSON::ParserError => e
       raise Error, "not valid JSON (#{e.message.lines.first.strip})"
     end
@@ -63,7 +67,7 @@ module Keryx
       raise Error, "the body is #{body.bytesize} bytes and the limit is #{MAX_BODY_BYTES}"
     end
 
-    def self.address?(value) = value.is_a?(String) && ADDRESS.match?(value)
+    def self.address?(value) = value.is_a?(String) && Address.valid?(value)
 
     def self.time(text)
       return nil if text.nil?
@@ -74,6 +78,14 @@ module Keryx
       raise Error, "bad time: #{e.message}"
     end
     private_class_method :check_fields, :check_identity, :check_body, :address?, :time
+
+    def format = [from, to].all? { Address.parse(it).flat? } ? FLAT_FORMAT : FORMAT_VERSION
+
+    def check_format(version)
+      return if version == FORMAT_VERSION || format == FLAT_FORMAT
+
+      raise Error, "format #{version} carries only addresses without a team"
+    end
 
     def request? = kind == 'request'
 
@@ -111,6 +123,6 @@ module Keryx
             .merge(context ? { 'context' => context.record } : {})
     end
 
-    def to_json(*) = JSON.generate({ 'keryx' => FORMAT_VERSION, **record }, *)
+    def to_json(*) = JSON.generate({ 'keryx' => format, **record }, *)
   end
 end

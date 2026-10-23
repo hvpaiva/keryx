@@ -36,10 +36,10 @@ module Keryx
       private
 
       def local_name(text)
-        address = app.address(text)
-        return address.name if address.local?(app.host)
+        address = app.address(text, flat: true)
+        return address.key if address.local?(app.host)
 
-        raise Error, "retire runs on the machine that holds the address; run 'keryx retire #{address.name}' on " \
+        raise Error, "retire runs on the machine that holds the address; run 'keryx retire #{address.key}' on " \
                      "#{address.host}"
       end
 

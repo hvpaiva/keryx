@@ -28,7 +28,7 @@ module Keryx
 
       def answer(name, original, text)
         app.store.mark_read(name, original.id)
-        app.postman.post(sender: name, recipient: app.address(original.from), kind: 'reply', body: text,
+        app.postman.post(sender: name, recipient: Address.parse(original.from), kind: 'reply', body: text,
                          reply_to: original)
       end
     end

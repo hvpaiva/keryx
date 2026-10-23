@@ -33,8 +33,8 @@ class ExecutableTest < Minitest::Test
   end
 
   def test_a_message_goes_from_a_person_to_a_session_and_back
-    run_keryx('join', 'rev-1', env: session_env)
-    _out, _err, sent = run_keryx('ask', 'rev-1', 'Review it')
+    run_keryx('join', 'rev-1.dev', env: session_env)
+    _out, _err, sent = run_keryx('ask', 'rev-1.dev', 'Review it')
     inbox, = run_keryx('inbox', '-o', 'json', env: session_env)
     id = JSON.parse(inbox).first.fetch('id')
     run_keryx('reply', id, '-', env: session_env, input: "Approved\n")
@@ -51,7 +51,7 @@ class ExecutableTest < Minitest::Test
     out, err, status = run_keryx('whoami', '-o', 'json', env: { 'KERYX_HOST' => nil })
 
     assert_predicate status, :success?
-    assert_equal 'person@zeus', JSON.parse(out)['address']
+    assert_equal 'person.local@zeus', JSON.parse(out)['address']
     assert_empty err
   end
 
@@ -60,7 +60,7 @@ class ExecutableTest < Minitest::Test
     File.write(tmp('config', 'keryx', 'config'), "# m#{[0xE1].pack('U')}quina\nhost = zeus\n")
     out, err, = run_keryx('whoami', '-o', 'json', env: { 'KERYX_HOST' => nil, 'LANG' => nil, 'LC_ALL' => 'C' })
 
-    assert_equal 'person@zeus', JSON.parse(out)['address']
+    assert_equal 'person.local@zeus', JSON.parse(out)['address']
     assert_empty err
   end
 
@@ -69,13 +69,13 @@ class ExecutableTest < Minitest::Test
 
     assert_equal 1, status.exitstatus
     assert_empty out
-    assert_equal "error: no message ZZZZ in the mailbox of person\n", err
+    assert_equal "error: no message ZZZZ in the mailbox of person.local\n", err
   end
 
   def test_a_message_in_utf8_arrives_and_reads_without_a_locale
     env = { 'LANG' => nil, 'LC_ALL' => 'C', 'LC_CTYPE' => nil }
     body = "Revis#{[0xE3].pack('U')}o conclu#{[0xED].pack('U')}da #{[0x2713].pack('U')}"
-    message = Keryx::Message.new(id: Keryx::Ulid.generate, kind: 'message', from: 'orq@zeus', to: 'person@athena',
+    message = Keryx::Message.new(id: Keryx::Ulid.generate, kind: 'message', from: 'orq.dev@zeus', to: 'person.local@athena',
                                  thread: nil, in_reply_to: nil, created_at: Time.now.utc, due_at: nil, body:)
     message = message.with(thread: message.id)
     out, err, = run_keryx('__receive', env:, input: "#{message.to_json}\n")
@@ -87,7 +87,7 @@ class ExecutableTest < Minitest::Test
   def test_a_utf8_argument_is_sent_without_a_locale
     env = { 'LANG' => nil, 'LC_ALL' => 'C', 'LC_CTYPE' => nil }
     body = "Revis#{[0xE3].pack('U')}o conclu#{[0xED].pack('U')}da"
-    _out, err, status = run_keryx('send', 'person', body, env:)
+    _out, err, status = run_keryx('send', 'person.local', body, env:)
     inbox, = run_keryx('inbox', '-o', 'json', env:)
 
     assert_predicate status, :success?, err

@@ -33,13 +33,13 @@ module Keryx
 
     def receive(line)
       message = Message.from_json(line)
-      to = Address.parse(message.to, local_host: @host)
+      to = Address.parse(message.to)
       refusal = refusal(message, to)
       return receipt(message.id, 'refused', detail: refusal) if refusal
 
-      @store.create_address(to.name, role: Identity::HUMAN_ROLE) unless @store.address?(to.name)
-      status = @store.deliver(to.name, message)
-      receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
+      @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
+      status = @store.deliver(to.key, message)
+      receipt(message.id, status.to_s, bell: (ring(to.key, message) if status == :delivered))
     rescue Error => e
       receipt(claimed_id(line), 'refused', detail: e.message)
     rescue StandardError => e
@@ -67,19 +67,27 @@ module Keryx
     end
 
     def refusal(message, to)
+      from = Address.parse(message.from)
       return "#{message.to} is not on #{@host}" unless to.local?(@host)
-      if Address.parse(message.from, local_host: @host).local?(@host)
-        return "#{message.from} is on #{@host} and cannot arrive from another machine"
-      end
+      return "#{message.from} is on #{@host} and cannot arrive from another machine" if from.local?(@host)
+      return retired(message, to) if @store.retired?(to.key)
+      return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
-      return retired(message, to) if @store.retired?(to.name)
+      flat(message, from, to)
+    end
 
-      "no address #{message.to}" unless @store.address?(to.name) || to.name == @person
+    # An address from before team names only finishes its threads, whichever format carried the message.
+    def flat(message, from, to)
+      address = [from, to].find(&:flat?)
+      return unless address && message.in_reply_to.nil?
+
+      "#{address} is an address from before team names: it takes only replies, withdrawals and messages in its open " \
+        'threads'
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
     def retired(message, to)
-      return if message.withdrawal? && @store.mailbox(to.name).any? { message.withdraws?(it.message) }
+      return if message.withdrawal? && @store.mailbox(to.key).any? { message.withdraws?(it.message) }
 
       format(Retirement::RETIRED, to)
     end

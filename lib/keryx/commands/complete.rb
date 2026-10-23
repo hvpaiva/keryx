@@ -85,7 +85,7 @@ module Keryx
         name
       end
 
-      def me = @as || app.me
+      def me = @as ? app.address(@as, flat: true).key : app.me
 
       def flags(command)
         return GLOBAL_FLAGS unless command
@@ -97,7 +97,7 @@ module Keryx
 
       def value_candidates(option)
         case option
-        when '--as' then app.store.current_names
+        when '--as' then addresses
         when '-o', '--output' then OUTPUTS
         when '--harness' then Harness::KINDS
         when '--split' then Spawn::DIRECTIONS
@@ -111,7 +111,17 @@ module Keryx
         source && (index.zero? || name == 'ring') ? send(source) : []
       end
 
-      def addresses = app.store.current_names
+      # Every address with a team, and the bare members of the caller's own team, which resolve to it.
+      def addresses
+        named = app.store.current_names.map { Address.from_key(it, host: app.host) }.reject(&:flat?)
+        team = own_team
+        named.select { it.team == team }.map(&:member) + named.map(&:key)
+      end
+
+      def own_team
+        own = app.own_address&.then { Address.from_key(it, host: app.host) }
+        own.team unless own.nil? || own.reserved?
+      end
 
       def my_messages
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }

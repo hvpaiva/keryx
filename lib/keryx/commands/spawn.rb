@@ -74,7 +74,7 @@ module Keryx
 
       def call(arguments)
         @started = app.now
-        name = Address.validate_name(arguments[0])
+        name = Join.resolve(app, arguments[0], -> { app.own_address })
         text = request_text(arguments[1])
         check(name, text)
         sender = app.me if text
@@ -208,7 +208,7 @@ module Keryx
       end
 
       def post(sender, name, text)
-        app.postman.post(sender:, recipient: Address.new(name:, host: app.host), kind: 'request', body: text,
+        app.postman.post(sender:, recipient: Address.from_key(name, host: app.host), kind: 'request', body: text,
                          due_at:, ring: false).message
       end
 
@@ -242,7 +242,7 @@ module Keryx
       end
 
       def tell(name, body)
-        app.postman.post(sender: Keryx::Courier::NAME, recipient: Address.new(name:, host: app.host), kind: 'message',
+        app.postman.post(sender: Identity::SYSTEM, recipient: Address.from_key(name, host: app.host), kind: 'message',
                          body:)
       end
 

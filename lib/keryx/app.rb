@@ -16,6 +16,7 @@ require_relative 'postman'
 require_relative 'processes'
 require_relative 'receiver'
 require_relative 'remote'
+require_relative 'resolver'
 require_relative 'roster'
 require_relative 'runner'
 require_relative 'store'
@@ -59,7 +60,7 @@ module Keryx
 
     def caller = @caller ||= Caller.from_env(env, cwd:, herdr:)
 
-    def identity = @identity ||= Identity.new(store:, caller:, env:)
+    def identity = @identity ||= Identity.new(store:, caller:, env:, host:)
 
     def lookout = @lookout ||= Lookout.new(herdr:, processes:)
 
@@ -71,7 +72,8 @@ module Keryx
 
     def postman
       @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name,
-                               measure: ->(name) { context_of(name) })
+                               measure: ->(name) { context_of(name) },
+                               live: ->(name) { roster.live?(store.reporting { store.occupant(name) }) })
     end
 
     def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
@@ -114,7 +116,11 @@ module Keryx
       caller.occupant(joined_at).with(pid:, started:, herdr_socket: socket, herdr_pane: pane)
     end
 
-    def address(text) = Address.parse(text, local_host: host)
+    def resolver = @resolver ||= Resolver.new(store:, host:)
+
+    # A name typed on the command line, resolved for the address this command acts as. FLAT takes a full address from
+    # before team names, which only finishes its threads.
+    def address(text, flat: false) = resolver.resolve(text, sender: -> { own_address }, flat:)
 
     def full(name) = "#{name}@#{host}"
 

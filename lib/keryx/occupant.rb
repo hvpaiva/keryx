@@ -37,7 +37,7 @@ module Keryx
 
     def self.ceiling(value) = value.is_a?(Integer) && value.positive? ? value : nil
 
-    def self.director(value) = Address::NAME.match?(value.to_s) ? value : nil
+    def self.director(value) = Address.key?(value) ? value : nil
 
     # A transcript is kept only while it is named after the session the record holds.
     def self.transcript(path, session_id)

@@ -3,6 +3,7 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'identity'
 require_relative 'tokens'
 require_relative 'ulid'
 
@@ -10,7 +11,7 @@ module Keryx
   class Courier
     Round = Data.define(:forwarded, :rung, :overdue, :context, :errors)
     Notice = Data.define(:name, :recipient, :stage, :context, :ceiling)
-    NAME = 'keryx'
+    NAME = Identity::SYSTEM
     OVERDUE_MARK = 'overdue'
     CONTEXT_MARK = 'context'
     CONTEXT_CLAIM = 'context-id'
@@ -60,9 +61,9 @@ module Keryx
       now = @clock.call
       roster.open_requests.filter_map do |_holder, stored|
         request = stored.message
-        sender = Address.parse(request.from, local_host: @host)
-        next unless request.overdue?(now) && sender.local?(@host) && @store.address?(sender.name)
-        next if @store.marked?(sender.name, request.id, OVERDUE_MARK)
+        sender = Address.parse(request.from)
+        next unless request.overdue?(now) && sender.local?(@host) && @store.address?(sender.key)
+        next if @store.marked?(sender.key, request.id, OVERDUE_MARK) || !reachable?(roster, sender)
 
         remind(sender, request)
       end
@@ -90,9 +91,14 @@ module Keryx
 
     # The director recorded at spawn, or else the sender of the oldest request the session still has to answer.
     def recipients(roster, name, occupant)
-      director = Address.new(name: occupant.director, host: @host) if occupant.director
-      director ||= oldest_request(roster, name)&.then { Address.parse(it.from, local_host: @host) }
-      [Address.new(name:, host: @host), director].compact.uniq
+      director = Address.from_key(occupant.director, host: @host) if occupant.director
+      director ||= oldest_request(roster, name)&.then { Address.parse(it.from) }
+      [Address.from_key(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
+    end
+
+    # keryx's notices reach an address from before team names only while a session here holds it.
+    def reachable?(roster, address)
+      !address.flat? || (address.local?(@host) && roster.live?(@store.reporting { @store.occupant(address.key) }))
     end
 
     def oldest_request(roster, name)
@@ -184,7 +190,7 @@ module Keryx
     def remind(sender, request)
       @postman.post(sender: NAME, recipient: sender, kind: 'message', id: Ulid.derive(request.due_at, request.id),
                     body: "Request #{request.id} to #{request.to} passed its deadline without a reply.")
-      @store.mark_once(sender.name, request.id, OVERDUE_MARK)
+      @store.mark_once(sender.key, request.id, OVERDUE_MARK)
       request
     rescue Error, SystemCallError => e
       @errors << "could not tell #{sender} that #{request.id} is past its deadline; #{e.message}"

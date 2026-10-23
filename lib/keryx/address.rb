@@ -4,23 +4,63 @@ require 'socket'
 require_relative 'error'
 
 module Keryx
-  Address = Data.define(:name, :host)
+  # MEMBER.TEAM@HOST, with /SESSION for one incarnation. An address from before team names has no team.
+  Address = Data.define(:member, :team, :host, :session) do
+    def initialize(member:, host:, team: nil, session: nil) = super
+  end
 
   class Address
-    NAME = /\A[a-z][a-z0-9-]{0,31}\z/
+    SEGMENT = '[a-z][a-z0-9-]{0,31}'
+    NAME = /\A#{SEGMENT}\z/
     HOST = /\A[a-z0-9][a-z0-9-]{0,62}\z/
+    # Crockford's base32 in lowercase, without i, l, o and u.
+    SESSION_ALPHABET = '0123456789abcdefghjkmnpqrstvwxyz'
+    SESSION_SIZE = 6
+    SESSION = /\A[#{SESSION_ALPHABET}]{#{SESSION_SIZE}}\z/
+    KEY = /\A(?<member>#{SEGMENT})(?:\.(?<team>#{SEGMENT}))?\z/
+    FULL = %r{\A(?<key>[^@/]*)@(?<host>[^@/]*)(?:/(?<session>[^@/]*))?\z}
     NAME_RULE = 'a lowercase letter, then up to 31 lowercase letters, digits or hyphens'
+    SPELLING = 'MEMBER.TEAM@HOST'
+    LOCAL = 'local'
+    SYSTEM = 'system'
+    RESERVED = [LOCAL, SYSTEM].freeze
 
-    def self.parse(text, local_host:)
-      name, host, *rest = text.to_s.split('@', -1)
-      host ||= local_host
-      raise Error, "invalid address #{text.to_s.inspect}: expected NAME or NAME@HOST" unless rest.empty?
+    # The full spelling, as messages and records carry it.
+    def self.parse(text)
+      parts = FULL.match(text.to_s) or raise Error, "invalid address #{text.to_s.inspect}: expected #{SPELLING}"
+      raise Error, "invalid host #{parts[:host].inspect} in #{text.to_s.inspect}" unless HOST.match?(parts[:host])
 
-      validate_name(name)
-      raise Error, "invalid host #{host.inspect} in #{text.to_s.inspect}" unless HOST.match?(host)
+      address = from_key(parts[:key], host: parts[:host])
+      session = parts[:session]
+      return address unless session
 
-      new(name:, host:)
+      check_session(address, session, text)
+      address.with(session:)
     end
+
+    def self.from_key(key, host:)
+      parts = KEY.match(key.to_s) or raise Error, "invalid name #{key.to_s.inspect}: #{NAME_RULE}, with .TEAM " \
+                                                  'spelled the same'
+      new(member: parts[:member], team: parts[:team], host:)
+    end
+
+    def self.key?(text) = KEY.match?(text.to_s)
+
+    def self.valid?(text)
+      parse(text)
+      true
+    rescue Error
+      false
+    end
+
+    def self.check_session(address, session, text)
+      raise Error, "#{address} has no team, so it has no session addresses" if address.flat?
+      return if SESSION.match?(session)
+
+      raise Error, "invalid session #{session.inspect} in #{text.to_s.inspect}: #{SESSION_SIZE} characters of " \
+                   "#{SESSION_ALPHABET}"
+    end
+    private_class_method :check_session
 
     def self.validate_name(name)
       return name if NAME.match?(name.to_s)
@@ -46,7 +86,15 @@ module Keryx
     end
     private_class_method :valid_host
 
-    def to_s = "#{name}@#{host}"
+    def key = team ? "#{member}.#{team}" : member
+
+    def stable = with(session: nil)
+
+    def flat? = team.nil?
+
+    def reserved? = RESERVED.include?(team)
+
+    def to_s = "#{key}@#{host}#{"/#{session}" if session}"
 
     def local?(local_host) = host == local_host
   end

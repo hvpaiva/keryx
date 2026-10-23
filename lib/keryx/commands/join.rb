@@ -17,7 +17,7 @@ module Keryx
                 'who), so no one share fits them all. Choose the ceiling below the window, at the point where the ' \
                 'session should reach a stopping point and hand over. There is no ceiling unless one is given.'
 
-      define 'join', section: 'Session Commands', arguments: 'NAME', min: 1, max: 1,
+      define 'join', section: 'Session Commands', arguments: 'ADDRESS', min: 1, max: 1,
                      summary: 'Claim an address for this agent session',
                      description: "Claim an address for the agent session that runs this command.\n\n" \
                                   'The address is created if it does not exist and outlives the session: when ' \
@@ -43,6 +43,20 @@ module Keryx
         return if role.nil? || ROLE.match?(role)
 
         raise UsageError, "invalid role #{role.inspect}: up to 40 letters, digits, spaces, dots, hyphens or underscores"
+      end
+
+      # The store name of the address TEXT names, for a session acting as SENDER. A person's own address may be held by
+      # a session that relays for them; no other address in a reserved scope may be.
+      def self.resolve(app, text, sender)
+        address = app.resolver.resolve(text, sender:)
+        raise Error, "#{address} is on another machine; a session holds an address on #{app.host}" unless
+          address.local?(app.host)
+        raise UsageError, "#{address} names one session; give the address without /#{address.session}" if
+          address.session
+        return address.key unless address.reserved? && address.key != app.identity.human_name
+
+        raise Error, "#{address} is in a reserved scope: #{Address::LOCAL} is a person at a terminal, as " \
+                     "#{app.full(app.identity.human_name)}, and #{Address::SYSTEM} is keryx's own services"
       end
 
       def self.refuse_retired(app, name, advice)
@@ -74,7 +88,7 @@ module Keryx
       end
 
       def call(arguments)
-        name = Address.validate_name(arguments.first)
+        name = address(arguments.first)
         Join.check_role(options[:role])
         caller = app.caller
         raise Error, NOT_AN_AGENT unless caller.agent?
@@ -85,6 +99,9 @@ module Keryx
       end
 
       private
+
+      # A bare member joins the team of the address the session holds.
+      def address(text) = Join.resolve(app, text, -> { app.identity.held })
 
       def claim(name, caller, occupant)
         Join.refuse_retired(app, name, 'pass --revive to bring it back with its mailbox') unless options[:revive]

@@ -13,7 +13,7 @@ class ContextFiguresTest < Minitest::Test
 
   def setup
     super
-    @orq = join_claude('orq', 111, role: 'orchestrator')
+    @orq = join_claude('orq.dev', 111, role: 'orchestrator')
   end
 
   # The fixtures belong to session-1 and thread-1, and each line keryx reads must name the session it measures.
@@ -51,26 +51,26 @@ class ContextFiguresTest < Minitest::Test
 
   def test_who_shows_what_each_harness_reports_and_nothing_for_a_session_that_ended
     claude_transcript(111)
-    join_codex('impl', 'thread-1')
+    join_codex('impl.dev', 'thread-1')
     codex_rollout('thread-1')
-    join_cursor('docs', 'conversation-1', 'w1:p3')
+    join_cursor('docs.dev', 'conversation-1', 'w1:p3')
     herdr.footers[[SOCKET, 'w1:p3']] = "Claude Opus 5.5 300K Extra High #{DOT} 81.2%\n"
-    join_claude('rev-1', 222)
+    join_claude('rev-1.dev', 222)
     claude_transcript(222)
     alive.delete(222)
 
-    assert_equal({ 'orq@athena' => '121k', 'impl@athena' => '137k/258k 53%', 'docs@athena' => '244k/300k 81%',
-                   'rev-1@athena' => '-' }, who)
-    assert_equal({ 'orq@athena' => { 'used' => 121_203, 'window' => nil },
-                   'impl@athena' => { 'used' => 137_000, 'window' => 258_400 },
-                   'docs@athena' => { 'used' => 243_600, 'window' => 300_000 }, 'rev-1@athena' => nil }, who_json)
+    assert_equal({ 'orq.dev@athena' => '121k', 'impl.dev@athena' => '137k/258k 53%', 'docs.dev@athena' => '244k/300k 81%',
+                   'rev-1.dev@athena' => '-' }, who)
+    assert_equal({ 'orq.dev@athena' => { 'used' => 121_203, 'window' => nil },
+                   'impl.dev@athena' => { 'used' => 137_000, 'window' => 258_400 },
+                   'docs.dev@athena' => { 'used' => 243_600, 'window' => 300_000 }, 'rev-1.dev@athena' => nil }, who_json)
   end
 
   def test_a_live_session_keryx_cannot_read_is_unknown
-    join_codex('impl', 'thread-1')
+    join_codex('impl.dev', 'thread-1')
 
-    assert_equal 'unknown', who['impl@athena']
-    assert_nil who_json['impl@athena']
+    assert_equal 'unknown', who['impl.dev@athena']
+    assert_nil who_json['impl.dev@athena']
   end
 
   def test_status_lists_the_context_of_each_address
@@ -78,7 +78,7 @@ class ContextFiguresTest < Minitest::Test
     output = keryx('status').out
     data = JSON.parse(keryx('status', '-o', 'json').out)
 
-    assert_match(/^orq@athena\s+orchestrator\s+live\s+\S+ ago\s+121k\s+0\s+0$/, output)
+    assert_match(/^orq.dev@athena\s+orchestrator\s+live\s+\S+ ago\s+121k\s+0\s+0$/, output)
     assert_equal({ 'used' => 121_203, 'window' => nil }, data['addresses'].first['context'])
   end
 
@@ -88,9 +88,9 @@ class ContextFiguresTest < Minitest::Test
 
   def test_a_message_carries_the_context_of_the_session_that_sent_it
     claude_transcript(111)
-    rev = join_claude('rev-1', 222)
-    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
-    keryx('send', 'rev-1', 'heads-up', env: @orq)
+    rev = join_claude('rev-1.dev', 222)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
+    keryx('send', 'rev-1.dev', 'heads-up', env: @orq)
     id = inbox(rev).first['id']
 
     assert_equal [{ 'used' => 121_203, 'window' => nil }] * 2, stamps(rev)
@@ -101,9 +101,9 @@ class ContextFiguresTest < Minitest::Test
   end
 
   def test_a_reply_from_codex_carries_the_window_too
-    rev = join_codex('rev-1', 'thread-1')
+    rev = join_codex('rev-1.dev', 'thread-1')
     codex_rollout('thread-1')
-    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
     keryx('reply', inbox(rev).first['id'], 'Approved', env: rev)
     reply = inbox(@orq).last
 
@@ -113,10 +113,10 @@ class ContextFiguresTest < Minitest::Test
 
   def test_a_person_or_a_session_acting_as_another_address_stamps_nothing
     claude_transcript(111)
-    rev = join_claude('rev-1', 222)
-    keryx('send', 'rev-1', 'from the keyboard')
-    keryx('--as', 'orq', 'send', 'rev-1', 'as orq', env: rev)
-    files = Dir[tmp('state', 'addresses', 'rev-1', 'mail', '*.json')]
+    rev = join_claude('rev-1.dev', 222)
+    keryx('send', 'rev-1.dev', 'from the keyboard')
+    keryx('--as', 'orq.dev', 'send', 'rev-1.dev', 'as orq', env: rev)
+    files = Dir[tmp('state', 'addresses', 'rev-1.dev', 'mail', '*.json')]
 
     assert_equal [nil, nil], stamps(rev)
     assert_equal([false, false], files.map { JSON.parse(File.read(it)).key?('context') })
@@ -124,7 +124,7 @@ class ContextFiguresTest < Minitest::Test
   end
 
   def test_a_stamp_this_build_does_not_know_still_delivers_the_message
-    message = build_message(from: 'orq@zeus', to: 'person@athena', body: 'from zeus')
+    message = build_message(from: 'orq.dev@zeus', to: 'person.local@athena', body: 'from zeus')
     data = JSON.parse(message.to_json).merge('context' => { 'used' => 'lots' })
     receipt = JSON.parse(keryx('__receive', input: "#{JSON.generate(data)}\n").out)
 
@@ -134,21 +134,21 @@ class ContextFiguresTest < Minitest::Test
 
   def test_acting_as_an_address_stamps_nothing_even_for_ones_own_or_a_former_session_in_this_pane
     claude_transcript(111)
-    keryx('--as', 'orq', 'send', 'person', 'as my own address', env: @orq)
-    store.create_address('former')
-    store.bind('former', build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET,
-                                        herdr_pane: 'w1:p3'))
+    keryx('--as', 'orq.dev', 'send', 'person.local', 'as my own address', env: @orq)
+    store.create_address('former.dev')
+    store.bind('former.dev', build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET,
+                                            herdr_pane: 'w1:p3'))
     codex_rollout('thread-1')
     herdr.put(SOCKET, 'w1:p3', Keryx::Herdr::Agent.new(pane: 'w1:p3', kind: 'codex', status: 'idle',
                                                        session: 'thread-2'))
-    keryx('--as', 'former', 'send', 'person', 'as the former session',
+    keryx('--as', 'former.dev', 'send', 'person.local', 'as the former session',
           env: { 'CODEX_THREAD_ID' => 'thread-2', 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p3' })
 
     assert_equal([nil, nil], inbox({}).map { it['context'] })
   end
 
   def test_a_stamp_with_a_count_no_window_could_hold_is_dropped_and_the_message_kept
-    message = build_message(from: 'orq@zeus', to: 'person@athena', body: 'from zeus')
+    message = build_message(from: 'orq.dev@zeus', to: 'person.local@athena', body: 'from zeus')
     data = JSON.parse(message.to_json).merge('context' => { 'used' => 10**100, 'window' => 1 })
     keryx('__receive', input: "#{JSON.generate(data)}\n")
 

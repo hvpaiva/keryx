@@ -11,8 +11,8 @@ class OutboxTest < Minitest::Test
   def outbox = store.outbox
 
   def test_the_outbox_queues_once_and_settles_each_message
-    first = build_message(to: 'port@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
-    second = build_message(to: 'port@zeus', id: Keryx::Ulid.generate(NOW + 1))
+    first = build_message(to: 'port.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
+    second = build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + 1))
 
     assert_equal %i[delivered duplicate delivered], [outbox.queue('zeus', first), outbox.queue('zeus', first),
                                                      outbox.queue('zeus', second)]
@@ -26,7 +26,7 @@ class OutboxTest < Minitest::Test
   end
 
   def test_discard_removes_a_message_and_its_receipt_from_the_outbox
-    message = build_message(to: 'port@zeus')
+    message = build_message(to: 'port.dev@zeus')
     outbox.queue('zeus', message)
     outbox.write_receipt('zeus', message.id, { 'status' => 'queued', 'attempts' => 1 })
     outbox.discard('zeus', message.id)
@@ -36,7 +36,9 @@ class OutboxTest < Minitest::Test
     assert_raises(Keryx::Error) { outbox.queue('../etc', message) }
   end
 
-  def queued(at = NOW) = build_message(to: 'port@zeus', id: Keryx::Ulid.generate(at)).tap { outbox.queue('zeus', it) }
+  def queued(at = NOW)
+    build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(at)).tap { outbox.queue('zeus', it) }
+  end
 
   def outcome_file(id) = tmp('state', 'outbox', 'zeus', 'receipts', "#{id}.outcome")
 

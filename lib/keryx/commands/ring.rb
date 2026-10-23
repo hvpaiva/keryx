@@ -24,11 +24,11 @@ module Keryx
       private
 
       def local_name(text)
-        address = app.address(text)
+        address = app.address(text, flat: true)
         raise Error, "#{address} is on another machine" unless address.local?(app.host)
-        raise Error, "no address #{address}" unless app.store.address?(address.name)
+        raise Error, "no address #{address}" unless app.store.address?(address.key)
 
-        address.name
+        address.key
       end
 
       def ring(name)

@@ -10,6 +10,7 @@ require_relative 'text'
 module Keryx
   class Spawner
     POLL_SECONDS = 1
+    AGENT_NAME_SIZE = 32
     BLOCKED = 'blocked'
     # herdr returns agent_not_ready when the agent stops at a dialog while it starts.
     NOT_READY = 'agent_not_ready'
@@ -63,8 +64,12 @@ module Keryx
       end
     end
 
+    # herdr's agent names hold no dot and up to 32 characters, so MEMBER.TEAM is MEMBER_TEAM there, cut to fit.
+    def self.agent_name(name) = name.tr('.', '_')[0, AGENT_NAME_SIZE]
+
     # herdr names agents apart from keryx, so a session that left its address keeps its herdr name, in its own pane.
     def claim_name(name, own)
+      name = Spawner.agent_name(name)
       agent = @herdr.agent(@socket, name) or return
       return @kept = agent.pane if agent.pane == own
 
@@ -130,13 +135,13 @@ module Keryx
         free_name(name, late) if kept
       end
       due(late)
-      @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: @deadline - @clock.call)
+      @herdr.start(@socket, pane, name: Spawner.agent_name(name), kind:, arguments:, timeout: @deadline - @clock.call)
     end
 
     # The lookup can take long, so it runs before the hold, and the address check and the timeout's come after it. keryx
     # holds no herdr name, and herdr clears whatever name the pane holds when the rename runs, so the pane can still
     # change names between the lookup and the clear.
-    def keeps?(name) = herdr_name(name) { @herdr.agent(@socket, name)&.pane == @kept }
+    def keeps?(name) = herdr_name(name) { @herdr.agent(@socket, Spawner.agent_name(name))&.pane == @kept }
 
     # join takes this lock too, so a join lands before the address check, which stops spawn, or after the clear, which
     # then freed the name of an address no session held. retire takes it too, so a retire before the check stops spawn.
@@ -169,7 +174,8 @@ module Keryx
     def herdr_name(name)
       yield
     rescue Error => e
-      raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
+      raise Error, "spawn could not free the herdr name #{Spawner.agent_name(name)} in pane #{Text.plain(@kept)}: " \
+                   "#{e.message}"
     end
 
     # The step that opens the new pane, once the reads that choose it are done.

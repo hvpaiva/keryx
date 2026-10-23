@@ -146,12 +146,12 @@ class HerdrTest < Minitest::Test
 
   def test_start_names_the_agent_and_passes_its_arguments_after_the_separator
     runner = FakeRunner.new(%w[herdr agent start] => {})
-    starting = Keryx::Herdr.new(runner:).start(SOCKET, 'w1:p4', name: 'rev-1', kind: 'claude',
+    starting = Keryx::Herdr.new(runner:).start(SOCKET, 'w1:p4', name: 'rev-1.dev', kind: 'claude',
                                                                 arguments: ['--model', 'haiku', '--', 'You are rev-1'],
                                                                 timeout: 90)
 
     assert starting.outcome.ok
-    assert_equal ['herdr', 'agent', 'start', 'rev-1', '--kind', 'claude', '--pane', 'w1:p4', '--timeout', '90000',
+    assert_equal ['herdr', 'agent', 'start', 'rev-1.dev', '--kind', 'claude', '--pane', 'w1:p4', '--timeout', '90000',
                   '--', '--model', 'haiku', '--', 'You are rev-1'], runner.argvs.first
     assert_equal [{ 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.map(&:last)
   end

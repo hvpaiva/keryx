@@ -17,7 +17,7 @@ class ForwarderTest < Minitest::Test
   end
 
   def test_a_message_the_other_machine_failed_to_store_stays_queued_until_it_succeeds
-    message = build_message(to: 'port@zeus')
+    message = build_message(to: 'port.dev@zeus')
     store.outbox.queue('zeus', message)
     forward = forwarder('failed', 'delivered')
     first = forward.forward('zeus').fetch(message.id)
@@ -29,7 +29,7 @@ class ForwarderTest < Minitest::Test
   end
 
   def test_the_receipt_is_on_disk_before_the_message_leaves_new
-    message = build_message(to: 'port@zeus')
+    message = build_message(to: 'port.dev@zeus')
     store.outbox.queue('zeus', message)
     store.outbox.define_singleton_method(:settle) { |*| raise Errno::EIO, 'outbox' }
 
@@ -62,7 +62,7 @@ class ForwarderTest < Minitest::Test
   end
 
   def test_an_attempt_refused_after_another_one_forwarded_moves_and_answers_by_the_forward
-    request = build_message(to: 'port@zeus', kind: 'request').tap { store.outbox.queue('zeus', it) }
+    request = build_message(to: 'port.dev@zeus', kind: 'request').tap { store.outbox.queue('zeus', it) }
     release = Queue.new
     remote = answering('refused', before: -> { start_paused_attempt(release) })
     second = forwarding(remote).forward('zeus').fetch(request.id)
@@ -77,10 +77,10 @@ class ForwarderTest < Minitest::Test
 
   def test_a_message_left_in_new_with_an_outcome_moves_by_it_without_being_sent_again
     forwarded, refused, waiting = Array.new(3) do |n|
-      build_message(to: 'port@zeus', id: Keryx::Ulid.generate(NOW + n)).tap { store.outbox.queue('zeus', it) }
+      build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + n)).tap { store.outbox.queue('zeus', it) }
     end
     store.outbox.write_outcome('zeus', forwarded.id, { 'status' => 'forwarded' })
-    store.outbox.write_outcome('zeus', refused.id, { 'status' => 'refused', 'detail' => 'no address port@zeus' })
+    store.outbox.write_outcome('zeus', refused.id, { 'status' => 'refused', 'detail' => 'no address port.dev@zeus' })
     remote = answering('delivered')
     results = forwarding(remote).forward('zeus')
 
@@ -90,7 +90,7 @@ class ForwarderTest < Minitest::Test
   end
 
   def test_an_outcome_whose_only_flaw_is_its_bell_moves_the_message_without_sending_it
-    message = build_message(to: 'port@zeus').tap { store.outbox.queue('zeus', it) }
+    message = build_message(to: 'port.dev@zeus').tap { store.outbox.queue('zeus', it) }
     File.write(tmp('state', 'outbox', 'zeus', 'receipts', "#{message.id}.outcome"),
                JSON.generate('status' => 'forwarded', 'bell' => %w[wrong type]))
     remote = answering('delivered')
@@ -102,7 +102,7 @@ class ForwarderTest < Minitest::Test
   end
 
   def test_an_answer_with_a_status_keryx_does_not_know_writes_no_outcome
-    message = build_message(to: 'port@zeus').tap { store.outbox.queue('zeus', it) }
+    message = build_message(to: 'port.dev@zeus').tap { store.outbox.queue('zeus', it) }
 
     assert_equal 'queued', forwarder('stored').forward('zeus').fetch(message.id).status
     assert_nil store.outbox.outcome('zeus', message.id)
@@ -110,7 +110,7 @@ class ForwarderTest < Minitest::Test
   end
 
   def test_an_interrupted_move_is_finished_by_the_next_forward
-    message = build_message(to: 'port@zeus').tap { store.outbox.queue('zeus', it) }
+    message = build_message(to: 'port.dev@zeus').tap { store.outbox.queue('zeus', it) }
     store.outbox.define_singleton_method(:settle) { |*| raise Errno::EIO, 'outbox' }
     assert_raises(Errno::EIO) { forwarder('delivered').forward('zeus') }
     store.outbox.singleton_class.remove_method(:settle)

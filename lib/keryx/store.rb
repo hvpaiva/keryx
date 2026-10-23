@@ -13,13 +13,19 @@ require_relative 'retirement'
 require_relative 'spawned'
 
 module Keryx
-  AddressRecord = Data.define(:name, :role, :created_at) do
+  # The record names its member and team apart; one written before team names has a name and no team.
+  AddressRecord = Data.define(:member, :team, :role, :created_at) do
     def self.from_record(data)
-      name, role = data.values_at('name', 'role')
-      raise TypeError, 'the name or the role is not text' unless [name, role].all? { it.nil? || it.is_a?(String) }
+      member, team, role = data.values_at('member', 'team', 'role')
+      member ||= data['name']
+      raise TypeError, 'a field is not text' unless [member, team, role].all? { it.nil? || it.is_a?(String) }
 
-      new(name:, role:, created_at: Time.iso8601(data['created_at'].to_s))
+      new(member:, team:, role:, created_at: Time.iso8601(data['created_at'].to_s))
     end
+
+    def name = team ? "#{member}.#{team}" : member
+
+    def record = { 'member' => member, 'team' => team, 'role' => role, 'created_at' => created_at.utc.iso8601 }
   end
   StoredMessage = Data.define(:message, :state)
 
@@ -45,8 +51,8 @@ module Keryx
     # The local name that sent REQUEST from here, under whatever name the machine had then: only this machine writes
     # its outbox, and nothing that arrives from another machine has the host of its recipient.
     def self.sender_here(holder, request)
-      sender, host = request.from.split('@')
-      sender if holder.nil? || host == request.to.split('@').last
+      sender = Address.parse(request.from)
+      sender.key if holder.nil? || sender.host == Address.parse(request.to).host
     end
 
     def self.reference(text)
@@ -67,7 +73,7 @@ module Keryx
       base = File.join(root, ADDRESSES)
       return [] unless File.directory?(base)
 
-      Dir.children(base).select { Address::NAME.match?(it) && File.file?(address_file(it)) }.sort
+      Dir.children(base).select { Address.key?(it) && File.file?(address_file(it)) }.sort
     end
 
     def address?(name) = File.file?(address_file(name))
@@ -79,14 +85,17 @@ module Keryx
       raise Error, "#{address_file(name)} is damaged"
     end
 
+    # Only an address with a team starts here, and none in the scope of keryx's own services.
     def create_address(name, role: nil, now: Time.now.utc)
-      Address.validate_name(name)
-      BOX_DIRS.each { FileUtils.mkdir_p(File.join(box(name), it), mode: DIR_MODE) }
+      address = Address.from_key(name, host: nil)
       current = address(name)
+      check_new(address) unless current
+      BOX_DIRS.each { FileUtils.mkdir_p(File.join(box(name), it), mode: DIR_MODE) }
       return current if current && (role.nil? || role == current.role)
 
-      record = AddressRecord.new(name:, role: role || current&.role, created_at: current&.created_at || now)
-      write_atomic(address_file(name), JSON.generate(record.to_h.merge(created_at: record.created_at.utc.iso8601)))
+      record = current&.with(role:) || AddressRecord.new(member: address.member, team: address.team, role:,
+                                                         created_at: now)
+      write_atomic(address_file(name), JSON.generate(record.record.compact))
       record
     end
 
@@ -258,6 +267,13 @@ module Keryx
 
     private
 
+    def check_new(address)
+      raise Error, "#{address.key} has no team; an address is MEMBER.TEAM, such as #{address.key}.TEAM" if address.flat?
+      return unless address.team == Address::SYSTEM
+
+      raise Error, "#{address.key} is in the scope of keryx's own services, which no address joins"
+    end
+
     def take(lock, within)
       deadline = @clock.call + within
       until lock.flock(File::LOCK_EX | File::LOCK_NB)
@@ -270,7 +286,11 @@ module Keryx
       end
     end
 
-    def box(name) = File.join(root, ADDRESSES, Address.validate_name(name))
+    def box(name)
+      raise Error, "invalid name #{name.to_s.inspect}: #{Address::NAME_RULE}" unless Address.key?(name)
+
+      File.join(root, ADDRESSES, name)
+    end
 
     def address_file(name) = File.join(box(name), 'address.json')
 

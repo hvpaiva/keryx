@@ -14,66 +14,66 @@ class ReceiverTest < Minitest::Test
     def ring(*) = Keryx::Bell::Result.new(status: 'rung', channel: 'test', detail: nil, at: Factory::NOW)
   end
 
-  def store = @store ||= Keryx::Store.new(tmp('zeus')).tap { it.create_address('port') }
+  def store = @store ||= Keryx::Store.new(tmp('zeus')).tap { it.create_address('port.dev') }
 
   def receive(message, bell: QuietBell.new)
-    Keryx::Receiver.new(store:, bell:, host: 'zeus', person: 'person').receive(message.to_json)
+    Keryx::Receiver.new(store:, bell:, host: 'zeus', person: 'person.local').receive(message.to_json)
   end
 
-  def incoming = @incoming ||= build_message(to: 'port@zeus', from: 'orq@athena')
+  def incoming = @incoming ||= build_message(to: 'port.dev@zeus', from: 'orq.dev@athena')
 
   def test_a_bell_that_fails_after_the_message_is_stored_still_reports_it_delivered
     receipt = receive(incoming, bell: FailingBell.new)
 
     assert_equal ['delivered', 'failed', 'No space left on device - receipts'],
                  [receipt['status'], receipt.dig('bell', 'status'), receipt.dig('bell', 'detail')]
-    assert_equal [incoming], store.unread('port')
+    assert_equal [incoming], store.unread('port.dev')
   end
 
   def test_mail_for_a_retired_address_is_refused_as_retired
-    store.retire('port', by: 'person@zeus', now: NOW)
-    receipts = %w[message request reply].map { receive(build_message(to: 'port@zeus', kind: it)) }
+    store.retire('port.dev', by: 'person.local@zeus', now: NOW)
+    receipts = %w[message request reply].map { receive(build_message(to: 'port.dev@zeus', kind: it)) }
 
-    assert_equal([{ 'status' => 'refused', 'detail' => 'port@zeus is retired; mail to it is refused' }] * 3,
+    assert_equal([{ 'status' => 'refused', 'detail' => 'port.dev@zeus is retired; mail to it is refused' }] * 3,
                  receipts.map { it.except('id') })
-    assert_empty store.mailbox('port')
+    assert_empty store.mailbox('port.dev')
   end
 
   # A request that reached the mailbox as the address was retired stays open on its sender's machine until its
   # withdrawal lands next to it.
   def test_a_withdrawal_reaches_its_request_in_a_retired_mailbox_and_no_other
-    request = build_message(to: 'port@zeus', kind: 'request')
-    store.deliver('port', request)
-    store.retire('port', by: 'person@zeus', now: NOW)
-    withdrawal = ->(of) { build_message(to: 'port@zeus', kind: 'withdrawal', in_reply_to: of, thread: of) }
+    request = build_message(to: 'port.dev@zeus', kind: 'request')
+    store.deliver('port.dev', request)
+    store.retire('port.dev', by: 'person.local@zeus', now: NOW)
+    withdrawal = ->(of) { build_message(to: 'port.dev@zeus', kind: 'withdrawal', in_reply_to: of, thread: of) }
     stray = Keryx::Ulid.generate
 
     assert_equal 'delivered', receive(withdrawal.call(request.id))['status']
     assert_equal 'refused', receive(withdrawal.call(stray))['status']
-    refute(store.mailbox('port').any? { it.message.in_reply_to == stray })
+    refute(store.mailbox('port.dev').any? { it.message.in_reply_to == stray })
   end
 
   def test_a_numeric_id_thread_or_in_reply_to_is_refused_before_it_is_stored
     numeric = 12_345_678_901_234_567_890_123_456
-    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person')
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local')
     receipts = %w[id thread in_reply_to].map do |field|
       receiver.receive(JSON.generate(JSON.parse(incoming.to_json).merge(field => numeric)))
     end
 
     assert_equal(%w[refused] * 3, receipts.map { it['status'] })
-    assert_empty Dir.children(tmp('zeus', 'addresses', 'port', 'mail'))
+    assert_empty Dir.children(tmp('zeus', 'addresses', 'port.dev', 'mail'))
   end
 
   def test_a_body_over_the_limit_is_refused
-    receipt = receive(build_message(to: 'port@zeus', from: 'orq@athena', body: 'x' * 65_537))
+    receipt = receive(build_message(to: 'port.dev@zeus', from: 'orq.dev@athena', body: 'x' * 65_537))
 
     assert_equal ['refused', 'the body is 65537 bytes and the limit is 65536'], receipt.values_at('status', 'detail')
-    assert_empty store.unread('port')
+    assert_empty store.unread('port.dev')
   end
 
   def test_a_line_over_the_frame_limit_is_refused_without_stopping_the_next
-    huge = build_message(to: 'port@zeus', from: 'orq@athena', body: 'x' * Keryx::Receiver::FRAME_LIMIT)
-    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person')
+    huge = build_message(to: 'port.dev@zeus', from: 'orq.dev@athena', body: 'x' * Keryx::Receiver::FRAME_LIMIT)
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local')
     receipts = []
     receiver.receive_all(StringIO.new("#{huge.to_json}\n#{incoming.to_json}\n")) { receipts << it }
 

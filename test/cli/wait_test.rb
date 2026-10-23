@@ -22,8 +22,8 @@ class WaitTest < Minitest::Test
 
   def setup
     super
-    @orq = join_claude('orq', 111)
-    @rev = join_claude('rev-1', 222)
+    @orq = join_claude('orq.dev', 111)
+    @rev = join_claude('rev-1.dev', 222)
   end
 
   def test_the_timeout_holds_when_the_civil_clock_steps_back
@@ -41,7 +41,7 @@ class WaitTest < Minitest::Test
   private
 
   def assert_times_out_after_five_seconds(step)
-    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
     id = last_id(@rev)
     @clock = SteppedClock.new(clock.now, step)
     civil = clock.now

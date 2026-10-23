@@ -9,9 +9,9 @@ class ThreadTest < Minitest::Test
 
   def setup
     super
-    @orq = join_claude('orq', 111)
-    @rev = join_claude('rev-1', 222)
-    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    @orq = join_claude('orq.dev', 111)
+    @rev = join_claude('rev-1.dev', 222)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
     @id = last_id(@rev)
     clock.advance(1)
   end
@@ -27,9 +27,9 @@ class ThreadTest < Minitest::Test
     message = JSON.parse(keryx('inbox', '-o', 'json', env: @orq).out).last
 
     assert_equal 0, sent.status, sent.err
-    assert_match(/\ASent (\w{26}) to orq@athena in the thread of #{@id}\. The bell rang through claude\.\n\z/,
+    assert_match(/\ASent (\w{26}) to orq.dev@athena in the thread of #{@id}\. The bell rang through claude\.\n\z/,
                  sent.out)
-    assert_equal ['message', @id, @id, 'rev-1@athena'], message.values_at('kind', 'thread', 'in_reply_to', 'from')
+    assert_equal ['message', @id, @id, 'rev-1.dev@athena'], message.values_at('kind', 'thread', 'in_reply_to', 'from')
     assert_empty JSON.parse(keryx('inbox', '-o', 'json', env: @rev).out)
     assert_match(/^re +#{@id}$/, keryx('read', message['id'], env: @orq).out)
   end
@@ -55,13 +55,13 @@ class ThreadTest < Minitest::Test
   end
 
   def test_the_stop_hook_does_not_remind_of_a_request_taken_in_its_thread
-    keryx('ask', 'rev-1', 'Review PR #449', env: @orq)
+    keryx('ask', 'rev-1.dev', 'Review PR #449', env: @orq)
     second = last_id(@rev)
     keryx('read', second, env: @rev)
     keryx('send', '--re', @id, 'Taken', env: @rev)
     reason = JSON.parse(stop(@rev).out)['reason']
 
-    assert_match(/rev-1 has 1 request read but not answered \(#{second} from orq@athena\)\./, reason)
+    assert_match(/rev-1.dev has 1 request read but not answered \(#{second} from orq.dev@athena\)\./, reason)
     refute_includes reason, @id
     assert_includes reason, "'keryx send --re ID TEXT'"
   end
@@ -74,7 +74,7 @@ class ThreadTest < Minitest::Test
     assert_equal 3, keryx('wait', @id, '--timeout', '1s', env: @orq).status
     keryx('leave', env: @rev)
 
-    assert_match(/rev-1@athena has 1 open request/, keryx('retire', 'rev-1').err)
+    assert_match(/rev-1.dev@athena has 1 open request/, keryx('retire', 'rev-1.dev').err)
   end
 
   def test_send_re_refuses_a_request_already_answered
@@ -95,7 +95,7 @@ class ThreadTest < Minitest::Test
   end
 
   def test_send_re_takes_only_a_request
-    keryx('send', 'rev-1', 'heads-up', env: @orq)
+    keryx('send', 'rev-1.dev', 'heads-up', env: @orq)
     result = keryx('send', '--re', last_id(@rev), 'Taken', env: @rev)
 
     assert_equal 1, result.status
@@ -104,7 +104,7 @@ class ThreadTest < Minitest::Test
   end
 
   def test_send_re_takes_no_address_and_the_body_of_a_plain_send
-    with_address = keryx('send', '--re', @id, 'orq', 'Taken', env: @rev)
+    with_address = keryx('send', '--re', @id, 'orq.dev', 'Taken', env: @rev)
 
     assert_equal 2, with_address.status
     assert_match(/--re sends to the request's sender; leave out ADDRESS/, with_address.err)

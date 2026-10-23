@@ -30,11 +30,11 @@ module SpawnHelpers
 
   def in_pane(socket, pane) = { 'HERDR_SOCKET_PATH' => socket, 'HERDR_PANE_ID' => pane }
 
-  # The session in this pane joined NAME, left it, and its pane keeps the herdr name NAME.
+  # The session in this pane joined NAME, left it, and its pane keeps the herdr name spawn gives NAME.
   def left(name)
     caller = join_claude(name, 111).merge(CALLER)
     keryx('leave', env: caller)
-    herdr.put(SOCKET, name, agent('w1:p1', 'claude', 'idle'))
+    herdr.put(SOCKET, Keryx::Spawner.agent_name(name), agent('w1:p1', 'claude', 'idle'))
     caller
   end
 
@@ -53,7 +53,7 @@ module SpawnHelpers
       herdr.put(socket, pane, agent(pane, kind, 'working'))
       alive << pid
       session = kind == 'codex' ? { 'CODEX_THREAD_ID' => "thread-#{pid}" } : claude(pid)
-      keryx('join', name, env: session.merge(in_pane(socket, pane)))
+      keryx('join', name.tr('_', '.'), env: session.merge(in_pane(socket, pane)))
     end
   end
 

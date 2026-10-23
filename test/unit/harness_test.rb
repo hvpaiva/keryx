@@ -5,18 +5,18 @@ require 'test_helper'
 class HarnessTest < Minitest::Test
   ENV_FOR_SESSION = { 'KERYX_HOME' => '/state/keryx', 'KERYX_HOST' => 'athena' }.freeze
 
-  def arguments(kind, **) = Keryx::Harness.arguments(kind, name: 'rev-1', env: ENV_FOR_SESSION, **)
+  def arguments(kind, **) = Keryx::Harness.arguments(kind, name: 'rev-1.dev', env: ENV_FOR_SESSION, **)
 
   def test_claude_is_named_and_gets_the_keryx_settings_for_that_session
     settings = JSON.parse(arguments('claude').last)
 
-    assert_equal ['-n', 'rev-1', '--remote-control', 'rev-1', '--settings'], arguments('claude')[0...-1]
+    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--settings'], arguments('claude')[0...-1]
     assert_equal 'accept', settings['crossSessionInbound']
     assert_equal 'keryx hook stop', settings.dig('hooks', 'Stop', 0, 'hooks', 0, 'command')
   end
 
   def test_claude_takes_the_model_and_the_effort_as_flags
-    assert_equal ['-n', 'rev-1', '--remote-control', 'rev-1', '--model', 'haiku', '--effort', 'low', '--settings'],
+    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--model', 'haiku', '--effort', 'low', '--settings'],
                  arguments('claude', model: 'haiku', effort: 'low')[0...-1]
   end
 
@@ -43,14 +43,14 @@ class HarnessTest < Minitest::Test
   end
 
   def test_the_first_prompt_joins_with_the_role_and_the_ceiling_and_ends_with_the_extra_text
-    prompt = Keryx::Harness.first_prompt('impl@athena', name: 'impl', role: 'lead dev', ceiling: '125k',
-                                                        extra: " Keep\nit short \e[2J")
+    prompt = Keryx::Harness.first_prompt('impl.dev@athena', name: 'impl.dev', role: 'lead dev', ceiling: '125k',
+                                                            extra: " Keep\nit short \e[2J")
 
-    assert_equal "You are impl@athena, the lead dev, started by keryx spawn. Run 'keryx join impl --role lead\\ dev " \
+    assert_equal "You are impl.dev@athena, the lead dev, started by keryx spawn. Run 'keryx join impl.dev --role lead\\ dev " \
                  "--ceiling 125k', then run 'keryx skill' and follow it, then run 'keryx inbox'. Keep it short ^[[2J",
                  prompt
-    assert_equal "You are impl@athena, started by keryx spawn. Run 'keryx join impl', then run 'keryx skill' and " \
-                 "follow it, then run 'keryx inbox'.", Keryx::Harness.first_prompt('impl@athena', name: 'impl')
+    assert_equal "You are impl.dev@athena, started by keryx spawn. Run 'keryx join impl.dev', then run 'keryx " \
+                 "skill' and follow it, then run 'keryx inbox'.", Keryx::Harness.first_prompt('impl.dev@athena', name: 'impl.dev')
   end
 
   def test_the_command_line_single_quotes_the_harness_and_each_argument

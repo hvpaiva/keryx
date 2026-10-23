@@ -67,7 +67,8 @@ module Keryx
         held = if holder
                  app.store.mailbox(holder).map(&:message)
                else
-                 app.store.outbox.outgoing(request.to.split('@').last).reject { it.state == :refused }.map(&:message)
+                 sent = app.store.outbox.outgoing(Address.parse(request.to).host)
+                 sent.reject { it.state == :refused }.map(&:message)
                end
         held.find { it.withdraws?(request) }
       end

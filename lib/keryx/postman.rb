@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
 require_relative 'forwarder'
@@ -11,8 +12,12 @@ require_relative 'ulid'
 module Keryx
   class Postman
     Posted = Data.define(:message, :bell, :forward)
+    FLAT_SENDER = '%<address>s is an address from before team names: it finishes its open requests and starts no ' \
+                  "new work; join MEMBER.TEAM for new work, and 'keryx retire %<address>s' once none is open"
+    FLAT_RECIPIENT = '%<address>s is an address from before team names: it takes only replies, withdrawals and ' \
+                     'messages in its open threads'
 
-    def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {})
+    def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
       @store = store
       @bell = bell
       @forwarder = forwarder
@@ -20,6 +25,7 @@ module Keryx
       @clock = clock
       @person = person
       @measure = measure
+      @live = live
     end
 
     def self.check_body(body)
@@ -36,17 +42,19 @@ module Keryx
     # that gives none leaves the message unwritten; the bell and the forward come after the hold.
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
       check_recipient(recipient)
+      check_flat(sender, recipient, reply_to)
       body = Postman.check_body(body)
       context = @measure.call(sender)
       letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
       return post_away(recipient.host, letter, id, claim) unless recipient.local?(@host)
 
-      @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
-      message, stored = write(letter, id, claim) { @store.deliver(recipient.name, it) }
+      name = recipient.key
+      @store.create_address(name, role: Identity::HUMAN_ROLE) unless @store.address?(name)
+      message, stored = write(letter, id, claim) { @store.deliver(name, it) }
       return unless message
 
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
-      bell = announce(recipient.name, message) if ring && stored == :delivered && recipient.name != sender
+      bell = announce(name, message) if ring && stored == :delivered && name != sender
       Posted.new(message:, bell:, forward: nil)
     end
 
@@ -55,11 +63,11 @@ module Keryx
       now = @clock.call
       message = Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
                             thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil,
-                            body: Postman.check_body(body), context: @measure.call(request.from.split('@').first))
-      return forward(message, request.to.split('@').last) unless holder
+                            body: Postman.check_body(body), context: @measure.call(Address.parse(request.from).key))
+      return forward(message, Address.parse(request.to).host) unless holder
 
       @store.deliver(holder, message)
-      bell = announce(holder, message) unless holder == request.from.split('@').first
+      bell = announce(holder, message) unless holder == Address.parse(request.from).key
       Posted.new(message:, bell:, forward: nil)
     end
 
@@ -112,10 +120,23 @@ module Keryx
 
     def check_recipient(recipient)
       return unless recipient.local?(@host)
-      raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.name)
-      return if @store.address?(recipient.name) || recipient.name == @person
+      raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.key)
+      return if @store.address?(recipient.key) || recipient.key == @person
 
       raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"
+    end
+
+    # An address from before team names only finishes its threads. keryx's own notices still reach one that a live
+    # session holds, since they carry no work and that session must not go blind before it moves.
+    def check_flat(sender, recipient, thread)
+      return if thread
+
+      from = Address.from_key(sender, host: @host)
+      raise Error, format(FLAT_SENDER, address: from) if from.flat?
+      return unless recipient.flat?
+      return if sender == Identity::SYSTEM && recipient.local?(@host) && @live.call(recipient.key)
+
+      raise Error, format(FLAT_RECIPIENT, address: recipient)
     end
   end
 end
