@@ -139,12 +139,20 @@ module Keryx
     # these last lines. A footer that shows no share is no figure; no other line stands in for it.
     # Once the footer gives a figure the pane is looked at again, as another conversation may have taken it meanwhile.
     def cursor(occupant)
-      return unless @lookout.in_pane(occupant).there?
+      first = @lookout.in_pane(occupant)
+      return unless first.there?
 
       footer = @herdr.footer(occupant.herdr_socket, occupant.herdr_pane) or return
       lines = String.new(footer, encoding: Encoding::UTF_8).scrub.lines.last(Herdr::FOOTER_LINES).map(&:strip)
       figure = footer_context(lines.lazy.filter_map { CURSOR_FOOTER.match(it) }.first)
-      figure if figure && @lookout.in_pane(occupant).there?
+      figure if figure && same_conversation?(first, @lookout.in_pane(occupant))
+    end
+
+    # Without a conversation the process stands in for it, and the process may have moved on to another one, so a
+    # conversation the first look named is the one the second look has to name.
+    def same_conversation?(first, again)
+      named = first.agent&.session
+      again.there? && (named.nil? || again.agent.session == named)
     end
 
     def footer_context(match)
