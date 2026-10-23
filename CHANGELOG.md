@@ -8,8 +8,9 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, for
-  Claude Code, Codex and Cursor sessions and any agent in a herdr pane.
+- Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, or
+  with `keryx leave --as NAME` once the session holding one ended without leaving, for Claude Code,
+  Codex and Cursor sessions and any agent in a herdr pane.
 - Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks, and each
   message stored once however often it arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents

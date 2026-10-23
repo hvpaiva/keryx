@@ -110,6 +110,55 @@ class SessionTest < Minitest::Test
     assert_equal 1, keryx('leave', env:).status
   end
 
+  def test_leave_as_releases_an_address_whose_session_ended_and_keeps_its_mail
+    join_claude('rev-1', 111)
+    keryx('send', 'rev-1', 'are you there?')
+    alive.delete(111)
+    result = keryx('leave', '--as', 'rev-1')
+
+    assert_equal 0, result.status, result.err
+    assert_equal 'Released rev-1@athena from its claude session (pid 111), which keryx does not see running. Its ' \
+                 "mailbox keeps receiving.\n", result.out
+    assert_nil store.occupant('rev-1')
+    assert_equal ['are you there?'], store.unread('rev-1').map(&:body)
+  end
+
+  def test_leave_as_releases_a_codex_thread_closed_in_its_pane_or_without_one
+    keryx('join', 'impl', env: { 'CODEX_THREAD_ID' => 'thread-1', 'HERDR_SOCKET_PATH' => '/h.sock',
+                                 'HERDR_PANE_ID' => 'w1:p3' })
+    keryx('join', 'docs', env: { 'CODEX_THREAD_ID' => 'thread-2' })
+
+    assert_equal [0, 0], [keryx('leave', '--as', 'impl').status, keryx('leave', env: { 'KERYX_AS' => 'docs' }).status]
+    assert_nil store.occupant('impl')
+    assert_nil store.occupant('docs')
+  end
+
+  def test_leave_as_refuses_an_address_a_live_session_holds
+    join_claude('rev-1', 111)
+    result = keryx('leave', '--as', 'rev-1')
+
+    assert_equal 1, result.status
+    assert_equal 'error: rev-1@athena is held by another live claude session (pid 111); only that session can ' \
+                 "release it, with 'keryx leave'\n", result.err
+    assert_equal 111, store.occupant('rev-1').pid
+  end
+
+  def test_leave_as_needs_an_address_that_a_session_holds
+    env = join_claude('rev-1', 111)
+    keryx('leave', env:)
+
+    assert_equal "error: no session holds rev-1@athena\n", keryx('leave', '--as', 'rev-1').err
+    assert_match(/no address ghost/, keryx('leave', '--as', 'ghost').err)
+  end
+
+  def test_leave_as_the_address_this_session_holds_is_a_plain_leave
+    env = join_claude('rev-1', 111)
+    result = keryx('leave', '--as', 'rev-1', env:)
+
+    assert_equal "Left rev-1@athena. Its mailbox keeps receiving.\n", result.out
+    assert_nil store.occupant('rev-1')
+  end
+
   def test_whoami_for_an_agent_and_for_a_person
     env = join_claude('rev-1', 111, role: 'reviewer')
 

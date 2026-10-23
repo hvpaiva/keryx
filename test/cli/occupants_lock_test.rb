@@ -52,6 +52,17 @@ class OccupantsLockTest < Minitest::Test
     end
   end
 
+  def test_leave_as_gives_up_when_another_command_keeps_the_lock
+    keryx('join', 'impl', env: { 'CODEX_THREAD_ID' => 'closed' })
+    holding_the_lock do
+      result = in_time { keryx('leave', '--as', 'impl') }
+
+      assert_equal 1, result.status
+      assert_match(/occupants\.lock stayed locked by another keryx command for 15s/, result.err)
+      assert_equal 'closed', store.occupant('impl').session_id
+    end
+  end
+
   private
 
   def holding_the_lock

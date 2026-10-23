@@ -70,6 +70,9 @@ with no address until it joins again. `App#me` records a new process or socket u
 from the occupant it reads again there, so it never writes back an address a join released. `leave`
 finds the session's address and removes it under the lock too, so a refresh cannot write it back
 and the occupant of a session that took the address over in between is never removed.
+`leave --as NAME` releases an address for a session that ended without leaving. Under the same
+lock it refuses when the roster sees the occupant live, as join does, and removes the occupant
+otherwise, so a session that joins in between keeps the address.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
 make, and then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all;

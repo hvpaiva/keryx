@@ -18,7 +18,7 @@ require_relative 'store'
 
 module Keryx
   class App
-    attr_reader :env, :cwd, :clock, :sleeper, :process
+    attr_reader :env, :cwd, :as, :clock, :sleeper, :process
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
                    claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new, remote: nil,
