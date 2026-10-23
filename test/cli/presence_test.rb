@@ -92,6 +92,20 @@ class PresenceTest < Minitest::Test
     assert_equal 1, keryx('leave', '--as', 'rev-1').status
   end
 
+  # The one test that reads a real start, of this test's own process.
+  def test_a_session_keeps_its_address_when_the_time_zone_changes
+    @processes = Keryx::Processes.new
+    zone = ENV.fetch('TZ', nil)
+    ENV['TZ'] = 'UTC'
+    join_claude('rev-1', Process.pid)
+    ENV['TZ'] = 'America/Sao_Paulo'
+
+    assert_equal 1, keryx('leave', '--as', 'rev-1').status
+    assert_equal Process.pid, store.occupant('rev-1').pid
+  ensure
+    ENV['TZ'] = zone
+  end
+
   def test_a_spawned_codex_whose_hooks_are_not_trusted_is_typed_into_while_its_process_runs
     runs_in('w1:p3', 500)
     keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))

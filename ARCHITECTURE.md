@@ -56,16 +56,18 @@ the commands it runs.
 A harness started from another harness's shell inherits the outer one's variables, so keryx reads
 Cursor's and Codex's before Claude Code's.
 
-`keryx join` writes these down as the address's occupant, with the harness's process and its start
-time as `ps` prints it. Claude Code names its process in `CLAUDE_PID`; for Codex and Cursor in a
-herdr pane, the process is the pane's foreground group, recorded only when it is an ancestor of the
-join, which leaves out a Codex session that runs its commands under Codex's shared server. Later
-commands find their address by matching the caller against the occupants (`Identity`), which means
-the same Claude Code process or session, the same Codex thread or Cursor conversation, or the same
-harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its
-address, and `App#me` then records the new process and socket. It keeps the recorded process until
-`ps` shows that the command no longer runs under it or that another process now has its pid, so a
-lookup that fails erases nothing.
+`keryx join` writes these down as the address's occupant, with the harness's process and when it
+started: on Linux the clock tick since boot from `/proc/PID/stat`, elsewhere `ps`'s start time in
+UTC, so neither the caller's time zone nor a step of the wall clock changes it. Claude Code names
+its process in `CLAUDE_PID`; for Codex and Cursor in a herdr pane, the process is the pane's
+foreground group, recorded only when it is an ancestor of the join, which leaves out a Codex
+session that runs its commands under Codex's shared server. Later commands find their address by
+matching the caller against the occupants (`Identity`), which means the same Claude Code process
+or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
+pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
+records the new process and socket. It keeps the recorded process until `ps` shows that the
+command no longer runs under it or that another process now has its pid, so a lookup that fails
+erases nothing.
 
 Whether a session is live comes from that process, alive with its recorded start time, or else
 from its pane: gone when herdr shows no agent, another harness or another session there, live
