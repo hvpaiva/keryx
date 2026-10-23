@@ -14,7 +14,10 @@ module Keryx
       new(used: data['used'], window:) if window.nil? || count?(window)
     end
 
-    def self.count?(value) = value.is_a?(Integer) && value.positive?
+    # Far above any window today, so a larger count is no figure, whoever stamped it.
+    MAX_TOKENS = 1_000_000_000
+
+    def self.count?(value) = value.is_a?(Integer) && value.positive? && value <= MAX_TOKENS
 
     def share = window && (used * 100r / window).round
 

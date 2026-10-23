@@ -16,16 +16,20 @@ class ContextFiguresTest < Minitest::Test
     @orq = join_claude('orq', 111, role: 'orchestrator')
   end
 
-  def copy(fixture, *parts)
+  # The fixtures belong to session-1 and thread-1, and each line keryx reads must name the session it measures.
+  def copy(fixture, session, *parts)
     path = tmp('home', *parts)
     FileUtils.mkdir_p(File.dirname(path))
-    FileUtils.cp(File.join(FIXTURES, fixture), path)
+    File.write(path, File.read(File.join(FIXTURES, fixture)).gsub(/"(session|thread)-1"/, %("#{session}")))
   end
 
-  def claude_transcript(pid) = copy('claude-transcript.jsonl', '.claude', 'projects', '-work', "session-#{pid}.jsonl")
+  def claude_transcript(pid)
+    copy('claude-transcript.jsonl', "session-#{pid}", '.claude', 'projects', '-work', "session-#{pid}.jsonl")
+  end
 
   def codex_rollout(thread)
-    copy('codex-rollout.jsonl', '.codex', 'sessions', '2026', '10', '22', "rollout-2026-10-22T17-00-00-#{thread}.jsonl")
+    copy('codex-rollout.jsonl', thread, '.codex', 'sessions', '2026', '10', '22',
+         "rollout-2026-10-22T17-00-00-#{thread}.jsonl")
   end
 
   def join_codex(name, thread)
@@ -124,5 +128,29 @@ class ContextFiguresTest < Minitest::Test
 
     assert_equal 'delivered', receipt['status']
     assert_equal([['from zeus', nil]], inbox({}).map { it.values_at('body', 'context') })
+  end
+
+  def test_acting_as_an_address_stamps_nothing_even_for_ones_own_or_a_former_session_in_this_pane
+    claude_transcript(111)
+    keryx('--as', 'orq', 'send', 'person', 'as my own address', env: @orq)
+    store.create_address('former')
+    store.bind('former', build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET,
+                                        herdr_pane: 'w1:p3'))
+    codex_rollout('thread-1')
+    herdr.put(SOCKET, 'w1:p3', Keryx::Herdr::Agent.new(pane: 'w1:p3', kind: 'codex', status: 'idle',
+                                                       session: 'thread-2'))
+    keryx('--as', 'former', 'send', 'person', 'as the former session',
+          env: { 'CODEX_THREAD_ID' => 'thread-2', 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p3' })
+
+    assert_equal([nil, nil], inbox({}).map { it['context'] })
+  end
+
+  def test_a_stamp_with_a_count_no_window_could_hold_is_dropped_and_the_message_kept
+    message = build_message(from: 'orq@zeus', to: 'person@athena', body: 'from zeus')
+    data = JSON.parse(message.to_json).merge('context' => { 'used' => 10**100, 'window' => 1 })
+    keryx('__receive', input: "#{JSON.generate(data)}\n")
+
+    assert_equal([['from zeus', nil]], inbox({}).map { it.values_at('body', 'context') })
+    refute_match(/^context/, keryx('read', message.id).out)
   end
 end

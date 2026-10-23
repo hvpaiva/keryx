@@ -13,7 +13,7 @@ class CeilingTest < Minitest::Test
   def claude_transcript(pid)
     path = tmp('home', '.claude', 'projects', '-work', "session-#{pid}.jsonl")
     FileUtils.mkdir_p(File.dirname(path))
-    FileUtils.cp(File.join(FIXTURES, 'claude-transcript.jsonl'), path)
+    File.write(path, File.read(File.join(FIXTURES, 'claude-transcript.jsonl')).gsub('"session-1"', %("session-#{pid}")))
   end
 
   def join_with_ceiling(name, pid, ceiling)

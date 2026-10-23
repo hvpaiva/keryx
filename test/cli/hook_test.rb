@@ -70,7 +70,8 @@ class HookTest < Minitest::Test
     keryx('send', 'rev-1', 'hello', env: @orq)
     full = store
     full.define_singleton_method(:prepare_mark) { |*| raise Errno::ENOSPC, 'receipts' }
-    hook = Keryx::StopHook.new(store: full, herdr:, caller: Keryx::Caller.from_env(@rev, cwd: '/work', herdr:))
+    hook = Keryx::StopHook.new(store: full, herdr:, caller: Keryx::Caller.from_env(@rev, cwd: '/work', herdr:),
+                               meter: nil)
     given = []
 
     assert_raises(Errno::ENOSPC) { hook.decide('session_id' => 'session-222') { given << it } }
@@ -188,12 +189,12 @@ class HookTest < Minitest::Test
     path = transcript_at('-work', 'session-222.jsonl')
 
     assert_equal [0, ''], stop_with_transcript(path).to_h.values_at(:status, :out)
-    assert_equal File.realpath(path), recorded('rev-1')
+    assert_equal path, recorded('rev-1')
     keryx('whoami', env: @rev.merge('CLAUDE_CODE_MESSAGING_SOCKET' => '/tmp/cc-222-new.sock'))
 
     occupant = store.occupant('rev-1')
 
-    assert_equal ['/tmp/cc-222-new.sock', File.realpath(path)], [occupant.claude_socket, occupant.transcript]
+    assert_equal ['/tmp/cc-222-new.sock', path], [occupant.claude_socket, occupant.transcript]
   end
 
   def test_the_hook_records_no_transcript_outside_where_claude_code_keeps_that_session
@@ -226,6 +227,18 @@ class HookTest < Minitest::Test
     assert_nil recorded('rev-1')
     stop_with_transcript(path)
 
-    assert_equal File.realpath(path), recorded('rev-1')
+    assert_equal path, recorded('rev-1')
+  end
+
+  def test_a_transcript_path_the_hook_cannot_use_never_changes_its_decision
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    elsewhere = tmp('other', 'projects', '-work', 'session-222.jsonl')
+    FileUtils.mkdir_p(File.dirname(elsewhere))
+    File.write(elsewhere, '')
+    runs = ["#{transcript_at('-work', 'session-222.jsonl')}\0", elsewhere].map { stop_with_transcript(it) }
+
+    assert_equal([[0, ''], [0, '']], runs.map { [it.status, it.err] })
+    assert_equal 'block', JSON.parse(runs.first.out)['decision']
+    assert_nil recorded('rev-1')
   end
 end
