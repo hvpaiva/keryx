@@ -40,7 +40,10 @@ module Keryx
                                    'the bells in and run the stop hook, for that session only. Codex runs a new hook ' \
                                    'only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
                                    "spawn installs no hook for them; 'keryx hook --help' shows how to add it. " \
-                                   "Arguments after -- go to the harness unchanged.\n\n" \
+                                   'Arguments after -- go to the harness unchanged. They and the first prompt, ' \
+                                   "--prompt included, are part of the harness's command line, which any local " \
+                                   'process can read, so none of them may carry a secret; the request goes to the ' \
+                                   "mailbox, in files only your user can read.\n\n" \
                                    'A dialog in the new pane, such as a folder trust or permission question, is ' \
                                    'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
@@ -108,7 +111,9 @@ module Keryx
       def harness_options(parser)
         parser.on('--model MODEL', 'Ask the harness for MODEL') { options[:model] = it }
         parser.on('--effort LEVEL', 'Ask claude or codex for this reasoning effort') { options[:effort] = it }
-        parser.on('--prompt TEXT', 'Add TEXT to the first prompt the session gets') { options[:prompt] = it }
+        parser.on('--prompt TEXT', 'Add TEXT, up to 2 KiB, to the first prompt the session gets') do |text|
+          options[:prompt] = text
+        end
         Join.ceiling_option(parser, options)
       end
 
@@ -126,7 +131,7 @@ module Keryx
         Postman.check_body(text) if text
 
         %i[model effort].each { check_setting(it) }
-        Harness.check(options[:harness], effort: options[:effort])
+        Harness.check(options[:harness], **options.slice(:effort, :prompt))
         self.passthrough = Harness.passthrough(passthrough)
         check_label
         timeout

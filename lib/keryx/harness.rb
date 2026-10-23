@@ -13,11 +13,17 @@ module Keryx
       'hooks' => { 'Stop' => [{ 'hooks' => [{ 'type' => 'command', 'command' => 'keryx hook stop' }] }] }
     )
     CURSOR_EFFORT = "cursor takes no --effort; give the effort in the model, as in --model 'NAME[effort=high]'"
+    PROMPT_BYTES = 2048
 
     module_function
 
-    def check(kind, effort:)
+    def check(kind, effort: nil, prompt: nil)
       raise UsageError, CURSOR_EFFORT if kind == 'cursor' && effort
+      return if prompt.nil? || prompt.bytesize <= PROMPT_BYTES
+
+      raise UsageError, "--prompt is #{prompt.bytesize} bytes and the limit is #{PROMPT_BYTES}: the first prompt is " \
+                        "part of the harness's command line, which any local process can read. Give longer " \
+                        'instructions as the request, with TEXT or --file, which goes to the mailbox instead.'
     end
 
     # Under an ASCII locale Ruby reads every argument as binary, so each one is taken as the UTF-8 a harness expects.
