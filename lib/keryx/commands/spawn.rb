@@ -48,7 +48,9 @@ module Keryx
                                    'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
                                    'gave up. --timeout counts from the moment spawn starts, and spawn exits with ' \
-                                   "status 3 when it passes before the join.\n\n" \
+                                   'status 3 when it passes before the join. A herdr call already started may ' \
+                                   'finish after it, but spawn checks the timeout before each next step and starts ' \
+                                   "no harness once it passed, so a pane it opened by then holds only a shell.\n\n" \
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
                                    "after spawn gave up; 'keryx join --help' explains both.",
@@ -222,22 +224,20 @@ module Keryx
       end
 
       def launch(name, before, director)
-        deadline = @started + timeout
         @pane = place(name)
-        spawner.direct(name, @pane, options[:harness], director) if director
-        spawner.free_name(name)
-        @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
+        @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, director:,
                                                              arguments: harness_arguments(name, @pane))
       end
 
       def place(name)
-        spawner.place(herdr_caller.herdr_pane, label: name, split: options[:split] || DIRECTIONS.first,
-                                               tab: options[:tab], cwd: directory, env: session_env).id
+        spawner.place(herdr_caller.herdr_pane, label: name, address: app.full(name), kind: options[:harness],
+                                               split: options[:split] || DIRECTIONS.first, tab: options[:tab],
+                                               cwd: directory, env: session_env).id
       end
 
       def spawner
         @spawner ||= Spawner.new(herdr: app.herdr, store: app.store, socket: herdr_caller.herdr_socket,
-                                 clock: app.clock, sleeper: app.sleeper,
+                                 clock: app.clock, sleeper: app.sleeper, deadline: @started + timeout,
                                  notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) })
       end
 

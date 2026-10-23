@@ -72,6 +72,8 @@ class FakeHerdr
   attr_writer :sizes
   # area is the size of a tab herdr creates.
   attr_accessor :start_outcome, :start_polls, :on_start, :rename_error, :layout_error, :area, :clear_error
+  # Called with the name of a herdr call, such as :split or :rename, while it runs, so a test can make it slow.
+  attr_accessor :on_call
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
     @agents = agents
@@ -125,6 +127,7 @@ class FakeHerdr
 
   def layout(socket, id)
     layouts << id
+    on_call&.call(:layout)
     raise Keryx::Error, layout_error if layout_error
 
     tab = pane(socket, id).tab
@@ -136,18 +139,21 @@ class FakeHerdr
 
   def split(socket, from, direction:, cwd:, env: {})
     @splits << [from, direction, cwd, env]
+    on_call&.call(:split)
     parent = pane(socket, from)
     add_pane(parent.workspace, parent.tab).tap { halve(from, it.id, direction) }
   end
 
   def create_tab(_socket, workspace, label:, cwd:, env: {})
     @created_tabs << [workspace, label, cwd, env]
+    on_call&.call(:create_tab)
     tab = Keryx::Herdr::Tab.new(id: "#{workspace}:t#{tabs(nil, workspace).size + 1}", label:)
     (@tabs[workspace] ||= []) << tab
     add_pane(workspace, tab.id).tap { sizes[it.id] = area.dup if area }
   end
 
   def rename(socket, pane, label)
+    on_call&.call(:rename)
     raise Keryx::Error, rename_error if rename_error
 
     @renames << [socket, pane, label]
@@ -156,6 +162,7 @@ class FakeHerdr
   def cleared = @cleared ||= []
 
   def clear_name(socket, pane)
+    on_call&.call(:clear_name)
     raise Keryx::Error, clear_error if clear_error
 
     cleared << [socket, pane]

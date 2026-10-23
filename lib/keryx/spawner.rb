@@ -24,20 +24,26 @@ module Keryx
                 'checking its size. Splitting is the only change spawn makes to a pane it did not create, and it ' \
                 'labels the new pane NAME.'.freeze
 
-    def initialize(herdr:, store:, socket:, clock:, sleeper:, notice:)
+    def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:)
       @herdr = herdr
       @store = store
       @socket = socket
       @clock = clock
       @sleeper = sleeper
+      @deadline = deadline
       @notice = notice
       @noticed = false
       @dialog = false
       @seen = false
     end
 
-    def place(from, label:, **placement)
-      placed(from, label, **placement).tap { name(it.id, label) }
+    def place(from, label:, address:, kind:, **placement)
+      opening = opening(from, label, **placement)
+      due("the timeout passed before spawn opened a pane; it started no session for #{address}")
+      opening.call.tap do |pane|
+        due(opened(pane.id, kind))
+        name(pane.id, label)
+      end
     end
 
     # herdr names agents apart from keryx, so a session that left its address keeps its herdr name, in its own pane.
@@ -50,21 +56,15 @@ module Keryx
                    "'herdr agent rename #{pane} NEWNAME'"
     end
 
-    def free_name(name)
-      @herdr.clear_name(@socket, @kept) if @kept
-    rescue Error => e
-      raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
-    end
-
-    def run(name, address, pane, kind:, arguments:, before:, deadline:)
-      starting = @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: deadline - @clock.call)
+    def run(name, address, pane, kind:, arguments:, before:, director:)
+      starting = start(name, pane, kind, arguments, director)
       loop do
         occupant = arrived(name, before)
-        return on_time(occupant, address, pane, deadline) if occupant && started?(occupant, pane, kind)
+        return on_time(occupant, address, pane) if occupant && started?(occupant, pane, kind)
         raise Error, conflict(address, occupant, pane) if occupant
 
         watch(address, pane, kind, ready?(starting, pane, kind))
-        raise WaitTimeout, late(address, pane) if @clock.call >= deadline
+        raise WaitTimeout, late(address, pane) if @clock.call >= @deadline
 
         @sleeper.call(POLL_SECONDS)
       end
@@ -83,12 +83,40 @@ module Keryx
 
     private
 
-    def placed(from, label, split:, tab:, cwd:, env:)
+    # No step that changes something starts after the deadline, and none is cut short at it, since a split cut short
+    # could leave a pane whose id spawn never learns.
+    def due(late)
+      raise WaitTimeout, late if @clock.call >= @deadline
+    end
+
+    def opened(pane, kind)
+      "the timeout passed after spawn opened pane #{pane}, and it started no #{kind} session there; the pane holds " \
+        "only a shell, which 'herdr pane close #{pane}' closes"
+    end
+
+    def start(name, pane, kind, arguments, director)
+      late = opened(pane, kind)
+      due(late)
+      direct(name, pane, kind, director) if director
+      due(late)
+      free_name(name)
+      due(late)
+      @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: @deadline - @clock.call)
+    end
+
+    def free_name(name)
+      @herdr.clear_name(@socket, @kept) if @kept
+    rescue Error => e
+      raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
+    end
+
+    # The step that opens the new pane, once the reads that choose it are done.
+    def opening(from, label, split:, tab:, cwd:, env:)
       return fitted([from], label, split:, cwd:, env:) { @herdr.pane(@socket, from).workspace } unless tab
 
       workspace = @herdr.pane(@socket, from).workspace
       tabs = @herdr.tabs(@socket, workspace).select { it.label == tab }
-      return @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) if tabs.empty?
+      return -> { @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) } if tabs.empty?
 
       fitted(last_panes(workspace, tabs, tab), tab, split:, cwd:, env:) { workspace }
     end
@@ -101,13 +129,14 @@ module Keryx
       last
     end
 
-    # Splits the pane of these panes' tabs that leaves the new one the most room, or else opens a tab.
+    # A split of the pane of these panes' tabs that leaves the new one the most room, or else a new tab.
     def fitted(through, label, split:, cwd:, env:)
-      rects = layouts(through) or return @herdr.split(@socket, through.first, direction: split, cwd:, env:)
+      rects = layouts(through) or return -> { @herdr.split(@socket, through.first, direction: split, cwd:, env:) }
       best = roomiest(rects, split)
-      return @herdr.split(@socket, best.pane, direction: split, cwd:, env:) if best
+      return -> { @herdr.split(@socket, best.pane, direction: split, cwd:, env:) } if best
 
-      @herdr.create_tab(@socket, yield, label:, cwd:, env:)
+      workspace = yield
+      -> { @herdr.create_tab(@socket, workspace, label:, cwd:, env:) }
     end
 
     def layouts(through)
@@ -150,8 +179,8 @@ module Keryx
       true
     end
 
-    def on_time(occupant, address, pane, deadline)
-      return occupant if occupant.joined_at <= deadline
+    def on_time(occupant, address, pane)
+      return occupant if occupant.joined_at <= @deadline
 
       raise WaitTimeout, "#{address} joined only after the timeout passed; its session runs in pane #{pane}"
     end
