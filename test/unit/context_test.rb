@@ -28,7 +28,8 @@ class ContextTest < Minitest::Test
 
   def test_a_shape_it_does_not_know_is_no_figure
     [nil, 'big', [], { 'used' => 0 }, { 'used' => -1 }, { 'used' => '5' }, { 'used' => 5.5 },
-     { 'used' => 5, 'window' => 0 }, { 'used' => 5, 'window' => '9' }, { 'window' => 9 }]
+     { 'used' => 5, 'window' => 0 }, { 'used' => 5, 'window' => '9' }, { 'window' => 9 },
+     { 'used' => 1_000_000_001 }, { 'used' => 5, 'window' => 10**12 }]
       .each { assert_nil Keryx::Context.from_record(it), it.inspect }
   end
 end

@@ -140,4 +140,13 @@ class ContextFiguresTest < Minitest::Test
 
     assert_equal([nil, nil], inbox({}).map { it['context'] })
   end
+
+  def test_a_stamp_with_a_count_no_window_could_hold_is_dropped_and_the_message_kept
+    message = build_message(from: 'orq@zeus', to: 'person@athena', body: 'from zeus')
+    data = JSON.parse(message.to_json).merge('context' => { 'used' => 10**100, 'window' => 1 })
+    keryx('__receive', input: "#{JSON.generate(data)}\n")
+
+    assert_equal([['from zeus', nil]], inbox({}).map { it.values_at('body', 'context') })
+    refute_match(/^context/, keryx('read', message.id).out)
+  end
 end
