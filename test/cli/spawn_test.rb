@@ -198,4 +198,17 @@ class SpawnTest < Minitest::Test
     assert_empty herdr.splits
     assert_empty store.mailbox('rev-1')
   end
+
+  def test_an_address_retired_while_the_pane_opened_starts_no_harness_and_spawn_does_not_wait
+    retired = []
+    session_joins
+    meanwhile { retired << keryx('retire', 'rev-1').status }
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal [1, [0]], [result.status, retired]
+    assert_equal 'error: rev-1@athena is retired; it was retired after spawn checked the address, and spawn started ' \
+                 "no claude session in pane w1:p2; the pane holds only a shell, which 'herdr pane close w1:p2' " \
+                 "closes\n", result.err
+    assert_equal [[], [], true], [herdr.cleared, herdr.starts, store.retired?('rev-1')]
+  end
 end

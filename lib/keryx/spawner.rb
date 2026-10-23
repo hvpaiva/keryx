@@ -74,7 +74,7 @@ module Keryx
     end
 
     def run(name, address, pane, kind:, arguments:, before:, director:, prompt:)
-      starting = start(name, pane, kind, arguments, director)
+      starting = start(name, address, pane, kind, arguments:, director:)
       @dialog = Dialog.new(herdr: @herdr, socket: @socket, pane:, address:, director:, prompt:, notice: @notice,
                            post: @post)
       loop do
@@ -114,8 +114,9 @@ module Keryx
 
     def shell(pane) = "the pane holds only a shell, which 'herdr pane close #{pane}' closes"
 
-    # spawn checked the address and the herdr name before it opened the pane, and a session can change either meanwhile.
-    def start(name, pane, kind, arguments, director)
+    # spawn checked the address and the herdr name before it opened the pane, and a session can change either meanwhile,
+    # as retire can the address.
+    def start(name, address, pane, kind, arguments:, director:)
       late = opened(pane, kind)
       due(late)
       direct(name, pane, kind, director) if director
@@ -123,6 +124,7 @@ module Keryx
       kept = @kept && keeps?(name)
       stopped = "spawn started no #{kind} session in pane #{pane}; #{shell(pane)}"
       held(late, stopped) do
+        refuse_retired(name, address, "it was retired after spawn checked the address, and #{stopped}")
         @vacant.call(name, "it joined after spawn checked the address, and #{stopped}")
         free_name(name, late) if kept
       end
@@ -136,7 +138,8 @@ module Keryx
     def keeps?(name) = herdr_name(name) { @herdr.agent(@socket, name)&.pane == @kept }
 
     # join takes this lock too, so a join lands before the address check, which stops spawn, or after the clear, which
-    # then freed the name of an address no session held. spawn waits for it as a join does, but not past its timeout.
+    # then freed the name of an address no session held. retire takes it too, so a retire before the check stops spawn.
+    # spawn waits for it as a join does, but not past its timeout.
     def held(late, stopped, &)
       within = (@deadline - @clock.call).clamp(0, Store::LOCK_SECONDS)
       @store.with_occupants_lock(within:, &)
@@ -144,6 +147,10 @@ module Keryx
       raise WaitTimeout, late if within < Store::LOCK_SECONDS
 
       raise Store::Busy, "#{e.message}; #{stopped}"
+    end
+
+    def refuse_retired(name, address, advice)
+      raise Error, "#{address} is retired; #{advice}" if @store.retired?(name)
     end
 
     def free_name(name, late)
