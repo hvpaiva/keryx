@@ -25,8 +25,8 @@ class OverviewTest < Minitest::Test
     clock.advance(900)
     output = keryx('status').out
 
-    assert_equal [%w[ADDRESS ROLE SESSION UNREAD WAITING], %w[orq@athena orchestrator live 1 0],
-                  %w[rev-1@athena reviewer live 1 1]], section(output, 'ADDRESSES')
+    assert_equal [%w[ADDRESS ROLE SESSION CONTEXT UNREAD WAITING], %w[orq@athena orchestrator live unknown 1 0],
+                  %w[rev-1@athena reviewer live unknown 1 1]], section(output, 'ADDRESSES')
     assert_equal ['orq@athena', 'rev-1@athena', '15m', 'overdue 5m', 'unread', 'Review PR #448'],
                  section(output, 'OPEN REQUESTS')[1][1..]
     assert_equal %w[orq@athena rev-1@athena failed], section(output, 'NOT RUNG')[1][1..3]

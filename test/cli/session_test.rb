@@ -193,8 +193,8 @@ class SessionTest < Minitest::Test
     keryx('send', 'rev-1', 'hello')
     lines = keryx('who').out.lines.map(&:split)
 
-    assert_equal [%w[ADDRESS ROLE HARNESS SESSION UNREAD], %w[orq@athena orchestrator claude live 0],
-                  %w[person@athena human - none 0], %w[rev-1@athena - claude gone 1]], lines
+    assert_equal [%w[ADDRESS ROLE HARNESS SESSION CONTEXT UNREAD], %w[orq@athena orchestrator claude live unknown 0],
+                  %w[person@athena human - none - 0], %w[rev-1@athena - claude gone - 1]], lines
   end
 
   def test_who_shows_herdr_state_for_panes
