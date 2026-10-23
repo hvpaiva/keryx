@@ -41,19 +41,19 @@ module Keryx
     end
 
     # herdr names agents apart from keryx, so a session that left its address keeps its herdr name, in its own pane.
-    def kept_name(name, own)
+    def claim_name(name, own)
       agent = @herdr.agent(@socket, name) or return
-      return agent.pane if agent.pane == own
+      return @kept = agent.pane if agent.pane == own
 
       pane = Text.plain(agent.pane)
       raise Error, "herdr already runs an agent named #{name}, in pane #{pane}; choose another name, or free it with " \
                    "'herdr agent rename #{pane} NEWNAME'"
     end
 
-    def free_name(name, pane)
-      @herdr.clear_name(@socket, pane)
+    def free_name(name)
+      @herdr.clear_name(@socket, @kept) if @kept
     rescue Error => e
-      raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(pane)}: #{e.message}"
+      raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
     end
 
     def run(name, address, pane, kind:, arguments:, before:, deadline:)

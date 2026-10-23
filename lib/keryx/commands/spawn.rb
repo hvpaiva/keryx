@@ -99,10 +99,8 @@ module Keryx
       end
 
       def placement_options(parser)
-        parser.on('--split DIRECTION', DIRECTIONS,
-                  'Split right, halving the width, or down, halving the height (default: right)') do |direction|
-          options[:split] = direction
-        end
+        split = 'Split right, halving the width, or down, halving the height (default: right)'
+        parser.on('--split DIRECTION', DIRECTIONS, split) { options[:split] = it }
         parser.on('--tab LABEL', 'Place the session in a tab labelled LABEL, a new one when none has room') do |label|
           options[:tab] = label
         end
@@ -204,7 +202,7 @@ module Keryx
 
       def claim(name)
         Join.refuse_taken(app, name, FREE)
-        @kept_name = spawner.kept_name(name, herdr_caller.herdr_pane)
+        spawner.claim_name(name, herdr_caller.herdr_pane)
         app.store.create_address(name, role: options[:role])
         # An earlier spawn's session may never have joined, and this spawn records a director only when it has one.
         app.store.forget_spawned(name)
@@ -227,12 +225,10 @@ module Keryx
         deadline = @started + timeout
         @pane = place(name)
         spawner.direct(name, @pane, options[:harness], director) if director
-        free_name(name)
+        spawner.free_name(name)
         @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, deadline:,
                                                              arguments: harness_arguments(name, @pane))
       end
-
-      def free_name(name) = @kept_name && spawner.free_name(name, @kept_name)
 
       def place(name)
         spawner.place(herdr_caller.herdr_pane, label: name, split: options[:split] || DIRECTIONS.first,
