@@ -10,7 +10,7 @@ class SpawnerTest < Minitest::Test
     herdr = FakeHerdr.new(panes: [Keryx::Herdr::Pane.new(id: 'w1:p1', tab: 'w1:t1', workspace: 'w1')],
                           tabs: { 'w1' => [Keryx::Herdr::Tab.new(id: 'w1:t2', label: 'agents')] })
     spawner = Keryx::Spawner.new(herdr:, store: nil, socket: '/h.sock', clock: -> { Factory::NOW }, sleeper: ->(_) {},
-                                 deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {})
+                                 deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
     error = assert_raises(Keryx::Error) do
       spawner.place('w1:p1', label: 'rev-1', address: 'rev-1@athena', kind: 'claude', split: 'right', tab: 'agents',
                              cwd: '/work', env: {})
@@ -38,7 +38,7 @@ class SpawnerTest < Minitest::Test
     herdr = FakeHerdr.new
     herdr.on_start = ->(*) { raise Keryx::Error, 'herdr: not found' }
     spawner = Keryx::Spawner.new(herdr:, store: nil, socket: '/h.sock', clock: -> { Factory::NOW }, sleeper: ->(_) {},
-                                 deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {})
+                                 deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
     error = assert_raises(Keryx::Error) do
       spawner.run('rev-1', 'rev-1@athena', 'w1:p2', kind: 'claude', arguments: [], before: nil, director: nil,
                                                     prompt: 'Review it')
@@ -49,7 +49,7 @@ class SpawnerTest < Minitest::Test
 
   def spawner(store, notices = [])
     Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW }, sleeper: ->(_) {},
-                       deadline: NOW + 60, notice: ->(text) { notices << text }, post: ->(*) {})
+                       deadline: NOW + 60, notice: ->(text) { notices << text }, post: ->(*) {}, vacant: ->(*) {})
   end
 
   def test_the_director_is_recorded_for_the_harness_spawn_starts_in_its_pane

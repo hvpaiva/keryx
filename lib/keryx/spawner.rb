@@ -33,7 +33,8 @@ module Keryx
               'may finish after it, but spawn checks the timeout before each next step and starts no harness once it ' \
               'passed, so a pane it opened by then holds only a shell.'
 
-    def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:, post:)
+    # vacant(name, advice) raises the error Spawn's claim raises when a session holds the address.
+    def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:, post:, vacant:)
       @herdr = herdr
       @store = store
       @socket = socket
@@ -42,6 +43,7 @@ module Keryx
       @deadline = deadline
       @notice = notice
       @post = post
+      @vacant = vacant
       @seen = false
     end
 
@@ -100,22 +102,28 @@ module Keryx
     end
 
     def opened(pane, kind)
-      "the timeout passed after spawn opened pane #{pane}, and it started no #{kind} session there; the pane holds " \
-        "only a shell, which 'herdr pane close #{pane}' closes"
+      "the timeout passed after spawn opened pane #{pane}, and it started no #{kind} session there; #{shell(pane)}"
     end
 
+    def shell(pane) = "the pane holds only a shell, which 'herdr pane close #{pane}' closes"
+
+    # spawn checked the address and the herdr name before it opened the pane, and a session can change either meanwhile.
     def start(name, pane, kind, arguments, director)
       late = opened(pane, kind)
       due(late)
       direct(name, pane, kind, director) if director
       due(late)
-      free_name(name)
+      @vacant.call(name, "it joined after spawn checked the address, and spawn started no #{kind} session in pane " \
+                         "#{pane}; #{shell(pane)}")
+      free_name(name) if @kept
       due(late)
       @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: @deadline - @clock.call)
     end
 
+    # herdr clears whatever name the pane holds when the rename runs, so the pane can still change names between this
+    # look and the clear.
     def free_name(name)
-      @herdr.clear_name(@socket, @kept) if @kept
+      @herdr.clear_name(@socket, @kept) if @herdr.agent(@socket, name)&.pane == @kept
     rescue Error => e
       raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
     end

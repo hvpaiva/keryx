@@ -23,6 +23,29 @@ class SpawnChecksTest < Minitest::Test
     ['rev-1', '--harness', 'claude', ' '] => [2, /the message is empty/]
   }.freeze
 
+  # The session in this pane joined NAME, left it, and its pane keeps the herdr name NAME.
+  def left(name)
+    caller = join_claude(name, 111).merge(CALLER)
+    keryx('leave', env: caller)
+    herdr.put(SOCKET, name, agent('w1:p1', 'claude', 'idle'))
+    caller
+  end
+
+  # Runs while herdr splits, after spawn checked the address and the herdr name and before it frees the name.
+  def meanwhile
+    herdr.on_call = ->(call) { yield if call == :split }
+  end
+
+  def joins(name, env)
+    result = keryx('join', name, env:)
+    raise "join failed: #{result.err}" unless result.status.zero?
+  end
+
+  def renamed(from, to, pane)
+    herdr.put(SOCKET, from, nil)
+    herdr.put(SOCKET, to, agent(pane, 'claude', 'idle'))
+  end
+
   def test_spawn_runs_only_in_a_herdr_pane
     result = keryx('spawn', 'rev-1', '--harness', 'claude', 'Review it')
 
@@ -81,9 +104,7 @@ class SpawnChecksTest < Minitest::Test
   end
 
   def test_spawn_frees_the_herdr_name_its_own_pane_keeps_after_leaving_just_before_the_start
-    caller = join_claude('orq', 111).merge(CALLER)
-    keryx('leave', env: caller)
-    herdr.put(SOCKET, 'orq', agent('w1:p1', 'claude', 'idle'))
+    caller = left('orq')
     session_joins(pid: 600)
     joins = herdr.on_start
     cleared = nil
@@ -96,6 +117,61 @@ class SpawnChecksTest < Minitest::Test
     assert_equal 0, result.status, result.err
     assert_equal [[SOCKET, 'w1:p1']], cleared
     assert_equal([%w[orq w1:p2]], herdr.starts.map { it.values_at(:name, :pane) })
+  end
+
+  def test_an_address_joined_again_after_the_check_stops_spawn_before_it_frees_the_name_or_starts
+    caller = left('orq')
+    meanwhile { joins('orq', caller) }
+    result = spawn('orq', '--harness', 'codex', env: caller)
+
+    assert_equal 1, result.status
+    assert_equal 'error: orq@athena is held by another live claude session (pid 111, pane w1:p1); it joined after ' \
+                 'spawn checked the address, and spawn started no codex session in pane w1:p2; the pane holds only a ' \
+                 "shell, which 'herdr pane close w1:p2' closes\n", result.err
+    assert_equal [[], []], [herdr.cleared, herdr.starts]
+  end
+
+  def test_an_address_a_session_joined_while_the_pane_opened_starts_no_harness
+    meanwhile { join_claude('rev-1', 111) }
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal 1, result.status
+    assert_match(/\Aerror: rev-1@athena is held by another live claude session \(pid 111\); it joined after spawn /,
+                 result.err)
+    assert_equal [1, [], []], [herdr.splits.size, herdr.cleared, herdr.starts]
+  end
+
+  def test_a_herdr_name_the_own_pane_traded_for_another_after_the_check_is_not_cleared
+    caller = left('orq')
+    session_joins(pid: 600)
+    meanwhile do
+      renamed('orq', 'keeper', 'w1:p1')
+      joins('keeper', caller)
+    end
+    result = spawn('orq', '--harness', 'codex', env: caller)
+
+    assert_equal 0, result.status, result.err
+    assert_empty herdr.cleared
+    assert_equal([%w[orq w1:p2]], herdr.starts.map { it.values_at(:name, :pane) })
+    assert_equal [111, 'w1:p2'], [store.occupant('keeper').pid, store.occupant('orq').herdr_pane]
+  end
+
+  def test_a_herdr_name_and_address_another_pane_took_after_the_check_stop_spawn_before_it_clears_or_starts
+    caller = left('orq')
+    meanwhile do
+      renamed('orq', 'keeper', 'w1:p1')
+      joins('keeper', caller)
+      herdr.put(SOCKET, 'orq', agent('w1:p7', 'claude', 'idle'))
+      alive << 222
+      joins('orq', claude(222).merge(in_pane(SOCKET, 'w1:p7')))
+    end
+    result = spawn('orq', '--harness', 'codex', env: caller)
+
+    assert_equal 1, result.status
+    assert_equal 'error: orq@athena is held by another live claude session (pid 222, pane w1:p7); it joined after ' \
+                 'spawn checked the address, and spawn started no codex session in pane w1:p2; the pane holds only a ' \
+                 "shell, which 'herdr pane close w1:p2' closes\n", result.err
+    assert_equal [[], [], 111], [herdr.cleared, herdr.starts, store.occupant('keeper').pid]
   end
 
   def test_a_herdr_name_spawn_cannot_free_is_an_error_with_herdr_reason

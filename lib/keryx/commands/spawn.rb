@@ -236,7 +236,7 @@ module Keryx
         @spawner ||= Spawner.new(herdr: app.herdr, store: app.store, socket: herdr_caller.herdr_socket,
                                  clock: app.clock, sleeper: app.sleeper, deadline: @started + timeout,
                                  notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) },
-                                 post: method(:tell))
+                                 post: method(:tell), vacant: ->(name, advice) { Join.refuse_taken(app, name, advice) })
       end
 
       def tell(name, body)
