@@ -10,6 +10,7 @@ class SpawnWaitTest < Minitest::Test
 
   def test_a_dialog_is_reported_once_and_the_join_still_counts
     herdr.start_outcome = NOT_READY
+    herdr.views[[SOCKET, 'w1:p2']] = Screens.captured.fetch('claude-120')
     polls = 0
     herdr.on_start = lambda do |socket, pane, name, kind|
       herdr.put(socket, pane, lambda do
@@ -22,7 +23,7 @@ class SpawnWaitTest < Minitest::Test
 
     assert_equal 0, result.status, result.err
     assert_equal 1, result.err.scan('shows a dialog').size
-    assert_match(/\APane w1:p2 shows a dialog, such as a folder trust or permission question\. Answer it there;/,
+    assert_match(/\APane w1:p2 shows a dialog, and rev-1@athena joins once it is answered; keryx never answers one\. /,
                  result.err)
   end
 
@@ -43,8 +44,9 @@ class SpawnWaitTest < Minitest::Test
 
     assert_equal 3, result.status
     assert_match(/^Pane w1:p2 shows a dialog/, result.err)
-    assert_match(/pane w1:p2 shows a dialog for you to answer, and the session joins by itself once it is answered$/,
+    assert_match(/pane w1:p2 shows the dialog below, and the session joins by itself once it is answered; keryx never /,
                  result.err)
+    assert result.err.end_with?("never answers one\n  Hooks need review\n  > 1. Review hooks\n")
   end
 
   def test_a_dialog_a_narrow_pane_wraps_is_still_reported

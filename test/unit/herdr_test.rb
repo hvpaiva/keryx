@@ -56,6 +56,14 @@ class HerdrTest < Minitest::Test
     assert_nil Keryx::Herdr.new(runner: FakeRunner.new).screen(SOCKET, 'w1:p1')
   end
 
+  def test_visible_reads_the_pane_as_a_person_sees_it
+    runner = FakeRunner.new(%w[herdr pane read] => { out: "Hooks need review\n" })
+
+    assert_equal "Hooks need review\n", Keryx::Herdr.new(runner:).visible(SOCKET, 'w1:p2')
+    assert_equal %w[herdr pane read w1:p2 --source visible --lines 60], runner.argvs.first
+    assert_nil Keryx::Herdr.new(runner: FakeRunner.new).visible(SOCKET, 'w1:p2')
+  end
+
   def test_footer_reads_the_bottom_lines_of_the_visible_screen
     runner = FakeRunner.new(%w[herdr pane read] => { out: "model 300K\n" })
 

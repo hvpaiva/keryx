@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../courier'
 require_relative '../duration'
 require_relative '../harness'
 require_relative '../paths'
@@ -44,13 +45,7 @@ module Keryx
                                    'process can read, so none of them may carry a secret; the request goes to the ' \
                                    'mailbox, in files only your user can read. spawn refuses a command line over ' \
                                    "4000 bytes on Linux or 1000 on macOS, which the pane's terminal would cut.\n\n" \
-                                   'A dialog in the new pane, such as a folder trust or permission question, is ' \
-                                   'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
-                                   'first prompt behind the dialog and joins once it is answered, even after spawn ' \
-                                   'gave up. --timeout counts from the moment spawn starts, and spawn exits with ' \
-                                   'status 3 when it passes before the join. A herdr call already started may ' \
-                                   'finish after it, but spawn checks the timeout before each next step and starts ' \
-                                   "no harness once it passed, so a pane it opened by then holds only a shell.\n\n" \
+                                   "#{Spawner::WAITING}\n\n" \
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
                                    "after spawn gave up; 'keryx join --help' explains both.",
@@ -215,17 +210,19 @@ module Keryx
                          due_at:, ring: false).message
       end
 
+      # The request goes on the first line, since a dialog's text can follow it.
       def waiting(request)
         yield
       rescue Error => e
         raise unless request
 
-        raise e.class, "#{e.message}; the request #{request.id} waits in its mailbox"
+        raise e.class, e.message.sub(/$/, "; the request #{request.id} waits in its mailbox")
       end
 
       def launch(name, before, director)
         @pane = place(name)
         @occupant = spawner.run(name, app.full(name), @pane, kind: options[:harness], before:, director:,
+                                                             prompt: first_prompt(name),
                                                              arguments: harness_arguments(name, @pane))
       end
 
@@ -238,7 +235,13 @@ module Keryx
       def spawner
         @spawner ||= Spawner.new(herdr: app.herdr, store: app.store, socket: herdr_caller.herdr_socket,
                                  clock: app.clock, sleeper: app.sleeper, deadline: @started + timeout,
-                                 notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) })
+                                 notice: ->(text) { terminal.warn(Text.plain(text, layout: true)) },
+                                 post: method(:tell))
+      end
+
+      def tell(name, body)
+        app.postman.post(sender: Keryx::Courier::NAME, recipient: Address.new(name:, host: app.host), kind: 'message',
+                         body:)
       end
 
       def report(name, request)

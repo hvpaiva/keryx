@@ -225,11 +225,20 @@ herdr socket and pane, as `-c shell_environment_policy.set` values.
 spawn then polls the store until the address has an occupant of the harness it started, in the herdr
 socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,
 reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
-`agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog count as a dialog, and
-a screen the bell finds too narrow to tell is reported as such; spawn reports either once while it
-keeps waiting. It stops when the pane has no agent of that harness left or `--timeout`, counted
-from the moment spawn starts, passes. A join recorded after
-that moment counts as too late, however soon spawn notices it.
+`agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog mean that one may show,
+and `Dialog` then reads the pane as a person sees it, with `herdr pane read --source visible`. It
+quotes only a read the bell's rule takes for a dialog below the command herdr typed, since that
+command holds the first prompt, whose words could pass for one. The quote is the dialog block, from
+the last box top or rule with the dialog still below it, at most 24 lines of 160 characters, with
+control characters made visible. spawn prints it once and posts the same text once, as a message
+from keryx to the address spawn runs as, which rings that address while spawn keeps waiting; with no
+such address it posts nothing, since the post would create one. A read that is not a dialog yet
+spends nothing, and the next poll reads again. A screen the bell finds too narrow to tell is
+reported as such, once, and quoted to no one. spawn stops when the pane has no agent of that harness
+left or `--timeout`, counted from the moment spawn starts, passes. After a quote, the error at the
+timeout reads the pane again and quotes the dialog it shows then, or the one quoted before when that
+read shows none. A join recorded after that moment counts as too late, however soon spawn notices
+it.
 
 ## The stop hook
 

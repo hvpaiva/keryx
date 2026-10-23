@@ -16,6 +16,7 @@ module Keryx
     NO_LAYOUT = 'herdr answered without a pane layout'
     SCREEN_LINES = '20'
     FOOTER_LINES = 4
+    VISIBLE_LINES = '60'
     # herdr answered that the pane is gone or runs no agent, which is not the same as not answering.
     NONE = :none
     NOT_FOUND = %w[agent_not_found pane_not_found].freeze
@@ -81,6 +82,12 @@ module Keryx
 
     def footer(socket, pane)
       result = run(socket, 'pane', 'read', pane, '--source', 'visible', '--lines', FOOTER_LINES.to_s)
+      result.success ? result.out : nil
+    end
+
+    # The pane as a person sees it, tall enough for a dialog with the command herdr typed above it.
+    def visible(socket, pane)
+      result = run(socket, 'pane', 'read', pane, '--source', 'visible', '--lines', VISIBLE_LINES)
       result.success ? result.out : nil
     end
 

@@ -109,6 +109,14 @@ class FakeHerdr
 
   def footer(socket, pane) = footers[[socket, pane]]
 
+  # The pane as a person sees it by pane, by default what the detection screen shows; a lambda gives each read in turn.
+  def views = @views ||= {}
+
+  def visible(socket, pane)
+    view = views.fetch([socket, pane]) { screen(socket, pane) }
+    view.respond_to?(:call) ? view.call : view
+  end
+
   def prompt(socket, pane, text)
     @prompts << [socket, pane, text]
     @prompt_outcome

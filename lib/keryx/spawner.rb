@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'bell'
+require_relative 'dialog'
 require_relative 'error'
 require_relative 'spawned'
 require_relative 'text'
@@ -23,8 +24,16 @@ module Keryx
                 'When herdr gives no layout, it splits this pane, or the last pane of the tab LABEL, without ' \
                 'checking its size. Splitting is the only change spawn makes to a pane it did not create, and it ' \
                 'labels the new pane NAME.'.freeze
+    WAITING = 'A dialog in the new pane, such as a folder trust or permission question, stops the session. spawn ' \
+              'quotes the dialog once, on stderr and in a message from keryx to the address spawn runs as, when ' \
+              'there is one, which rings that address, and keeps waiting; it never answers the dialog. The session ' \
+              'holds its first prompt behind the dialog and joins once it is answered, even after spawn gave up. ' \
+              '--timeout counts from the moment spawn starts, and spawn exits with status 3 when it passes before ' \
+              'the join; its error quotes the dialog again, as the pane then shows it. A herdr call already started ' \
+              'may finish after it, but spawn checks the timeout before each next step and starts no harness once it ' \
+              'passed, so a pane it opened by then holds only a shell.'
 
-    def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:)
+    def initialize(herdr:, store:, socket:, clock:, sleeper:, deadline:, notice:, post:)
       @herdr = herdr
       @store = store
       @socket = socket
@@ -32,8 +41,7 @@ module Keryx
       @sleeper = sleeper
       @deadline = deadline
       @notice = notice
-      @noticed = false
-      @dialog = false
+      @post = post
       @seen = false
     end
 
@@ -56,15 +64,17 @@ module Keryx
                    "'herdr agent rename #{pane} NEWNAME'"
     end
 
-    def run(name, address, pane, kind:, arguments:, before:, director:)
+    def run(name, address, pane, kind:, arguments:, before:, director:, prompt:)
       starting = start(name, pane, kind, arguments, director)
+      @dialog = Dialog.new(herdr: @herdr, socket: @socket, pane:, address:, director:, prompt:, notice: @notice,
+                           post: @post)
       loop do
         occupant = arrived(name, before)
         return on_time(occupant, address, pane) if occupant && started?(occupant, pane, kind)
         raise Error, conflict(address, occupant, pane) if occupant
 
         watch(address, pane, kind, ready?(starting, pane, kind))
-        raise WaitTimeout, late(address, pane) if @clock.call >= @deadline
+        raise WaitTimeout, @dialog.late if @clock.call >= @deadline
 
         @sleeper.call(POLL_SECONDS)
       end
@@ -175,7 +185,7 @@ module Keryx
                      "#{[outcome.code, outcome.detail].compact.join(': ')}"
       end
 
-      dialog(pane)
+      @dialog.signal(:dialog)
       true
     end
 
@@ -205,31 +215,7 @@ module Keryx
 
     def shown(pane, agent)
       @seen = true
-      @dialog = agent.status == BLOCKED ? :dialog : Bell.obstacle(@herdr.screen(@socket, pane))
-      dialog(pane, @dialog) if @dialog
+      @dialog.signal(agent.status == BLOCKED ? :dialog : Bell.obstacle(@herdr.screen(@socket, pane)))
     end
-
-    def dialog(pane, obstacle = :dialog)
-      @dialog = obstacle
-      return if @noticed
-
-      @noticed = true
-      @notice.call("Pane #{pane} #{shows(obstacle)}, such as a folder trust or permission question. " \
-                   "#{obstacle == :cramped ? 'Look at it' : 'Answer it'} there; keryx never answers one. The session " \
-                   "joins once #{obstacle == :cramped ? 'any dialog' : 'it'} is answered.")
-    end
-
-    def late(address, pane)
-      return "#{address} has not joined yet; look at pane #{pane}" unless @dialog
-      if @dialog == :cramped
-        return "#{address} has not joined yet: pane #{pane} #{shows(:cramped)}; look at it, and the session joins by " \
-               'itself once any dialog is answered'
-      end
-
-      "#{address} has not joined yet: pane #{pane} shows a dialog for you to answer, and the session joins by itself " \
-        'once it is answered'
-    end
-
-    def shows(obstacle) = obstacle == :cramped ? 'is too narrow to tell whether it shows a dialog' : 'shows a dialog'
   end
 end

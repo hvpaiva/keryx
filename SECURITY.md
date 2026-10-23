@@ -46,7 +46,8 @@ language models.
   and the pane's shell may keep the typed command in its history, so neither the first prompt nor
   `--prompt` may carry a secret. The request, given as TEXT or with `--file`, goes to the mailbox
   instead, in files of mode 0600. spawn refuses harness arguments that hold control characters,
-  makes those in `--prompt` visible, and leaves every dialog in the new pane for you to answer.
+  makes those in `--prompt` visible, and quotes a dialog in the new pane to you and, in a message
+  from keryx, to the address it runs as, but still answers none.
 - Mailbox directories are created with mode 0700 and files with 0600.
 
 `crossSessionInbound: "accept"` in a Claude Code session's settings lets any process of your user

@@ -40,6 +40,8 @@ All notable changes to this project are documented here. The format follows
 - A 2 KiB limit on the text `keryx spawn --prompt` adds to the first prompt, and a note in spawn's
   help and SECURITY.md that the first prompt is part of the harness's command line, which any
   local process can read, so it must carry no secret.
+- `keryx spawn` quotes a dialog that stops the new session and sends it as a message from keryx to
+  the address spawn runs as, whose bell rings while spawn still waits.
 - Shell completion for bash, zsh and fish.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main
