@@ -25,6 +25,14 @@ module Keryx
 
     def valid?(text) = text.is_a?(String) && FORMAT.match?(text)
 
+    # The id that sorts right after ID whatever the clock says; nothing sorts after the last id or after what is no id.
+    def after(id)
+      return unless valid?(id)
+
+      number = id.each_char.reduce(0) { |sum, digit| (sum * 32) + ALPHABET.index(digit) } + 1
+      encode(number, TIME_LENGTH + RANDOM_LENGTH) if number < 32**(TIME_LENGTH + RANDOM_LENGTH)
+    end
+
     def encode(number, length)
       Array.new(length) do
         digit = ALPHABET[number % 32]

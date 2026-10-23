@@ -101,23 +101,32 @@ module Keryx
     end
 
     # Once per recipient for each join and ceiling, and never nearing the ceiling once told it reached it. The first
-    # courier to tell a notice claims its id, with the time it is sent so the recipient reads notices in order, and
-    # every later post uses that id, so the store keeps one copy however many couriers or rounds post it. Only the
-    # courier that writes the mark reports it.
+    # courier to tell a notice claims its id as it writes it, and every later post uses that id, so the store keeps
+    # one copy however many couriers or rounds post it. Only the courier that writes the mark reports it.
     def tell(name, recipient, occupant, context, stage)
       mark = context_mark(occupant, stage, recipient)
-      return if @store.marked?(name, mark, CONTEXT_MARK)
-      return if stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), CONTEXT_MARK)
+      return if @store.marked?(name, mark, CONTEXT_MARK) || superseded?(name, recipient, occupant, stage, CONTEXT_MARK)
       return unless same_join?(@store.occupant(name), occupant)
 
       body = notice(name, context, occupant.ceiling, stage)
-      @postman.post(sender: NAME, recipient:, kind: 'message', id: notice_id(name, mark), body:)
+      claim = -> { notice_id(name, recipient, occupant, stage) }
+      return unless @postman.post(sender: NAME, recipient:, kind: 'message', body:, claim:)
       return unless @store.mark_once(name, mark, CONTEXT_MARK)
 
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
     rescue Error, SystemCallError => e
       @errors << "could not tell #{recipient} about the context of #{name}@#{@host}; #{e.message}"
       nil
+    end
+
+    # A ceiling notice claims its id in the hold that writes it and is marked only after it, so its claim is what keeps
+    # the notice near it back.
+    def due?(name, recipient, occupant, stage)
+      same_join?(@store.occupant(name), occupant) && !superseded?(name, recipient, occupant, stage, CONTEXT_CLAIM)
+    end
+
+    def superseded?(name, recipient, occupant, stage, kind)
+      stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), kind)
     end
 
     # A session that joined the address while the figure was read is not the session the figure belongs to.
@@ -127,11 +136,41 @@ module Keryx
       Ulid.derive(occupant.joined_at, "context #{stage} #{occupant.ceiling} #{recipient}")
     end
 
-    def notice_id(name, mark)
-      id = @store.claim(name, mark, CONTEXT_CLAIM, Ulid.generate(@clock.call))
-      return id if Ulid.valid?(id)
+    # Asked in the post's hold of the occupants lock, and none for a notice no longer due. A ceiling's id sorts after
+    # the id claimed for the notice near it to the same recipient for the same join, so no recipient reads that
+    # notice after the ceiling's, whatever the clock says, unless that claim is damaged.
+    def notice_id(name, recipient, occupant, stage)
+      return unless due?(name, recipient, occupant, stage)
 
-      raise Error, "the id claimed for the notice #{mark} is damaged"
+      id = Ulid.generate(@clock.call)
+      id = [id, after_near(name, recipient, occupant)].compact.max if stage == :ceiling
+      claim(name, recipient, occupant, stage, id)
+    end
+
+    # Every courier claims in the hold, so the fresh id written over a damaged claim is the one the next courier reads
+    # back, and the store keeps one copy. A notice posted under the damaged id and never marked goes out again, which
+    # costs less than a notice held back for good. The damage is a problem and an error of the round.
+    def claim(name, recipient, occupant, stage, id)
+      mark = context_mark(occupant, stage, recipient)
+      @store.claim(name, mark, CONTEXT_CLAIM, id) { Ulid.valid?(it) }
+    rescue Store::Damaged => e
+      @store.problems << e.message
+      @errors << "the #{stage} notice of #{name}@#{@host} to #{recipient} writes a fresh id over its damaged claim; " \
+                 "#{e.message}"
+      @store.reclaim(name, mark, CONTEXT_CLAIM, id)
+    end
+
+    # A damaged claim can no longer place the ceiling after the notice near it. Losing the ceiling costs more than that
+    # order, so the ceiling takes a fresh id, and the damage is a problem and an error of the round.
+    def after_near(name, recipient, occupant)
+      mark = context_mark(occupant, :near, recipient)
+      near = @store.claimed(name, mark, CONTEXT_CLAIM) { Ulid.valid?(it) } or return
+      Ulid.after(near)
+    rescue Error => e
+      @store.problems << e.message
+      @errors << "the ceiling notice of #{name}@#{@host} to #{recipient} takes a fresh id and may sort before the " \
+                 "notice near it; #{e.message}"
+      nil
     end
 
     def notice(name, context, ceiling, stage)

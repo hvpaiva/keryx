@@ -165,4 +165,21 @@ class CeilingTest < Minitest::Test
     assert_equal ['keryx@athena', nil], notice.values_at('from', 'context')
     assert_empty keryx('courier', '--once').out
   end
+
+  def test_a_damaged_claim_of_the_notice_near_the_ceiling_is_shown_and_holds_no_ceiling_notice_back
+    claude_transcript(300)
+    join_with_ceiling('impl', 300, '125k')
+    keryx('courier', '--once')
+    claim = Dir[tmp('state', 'addresses', 'impl', 'receipts', '*.context-id')].first
+    File.write(claim, 'not-json')
+    transcript = tmp('home', '.claude', 'projects', '-work', 'session-300.jsonl')
+    read = '"cache_read_input_tokens":'
+    File.write(transcript, File.read(transcript).sub("#{read}120000", "#{read}130000"))
+    runs = [keryx('courier', '--once'), keryx('status')]
+
+    assert_equal "told impl@athena that impl@athena is at 131k 105% of 125k, its context ceiling\n" \
+                 'the ceiling notice of impl@athena to impl@athena takes a fresh id and may sort before the notice ' \
+                 "near it; #{claim} is damaged\n", runs.first.out
+    assert_equal([[0, 1]] * 2, runs.map { [it.status, it.err.scan("warning: #{claim} is damaged").size] })
+  end
 end
