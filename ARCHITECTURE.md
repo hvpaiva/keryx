@@ -39,9 +39,10 @@ recipient, since those may carry a name the machine had before. The sender is th
 same name on the machine that sent the request, which the store shows without a list of former
 names: only this machine writes its outbox, and a message from another machine never has its
 recipient's host, so a request in a mailbox whose sender and recipient share a host was sent from
-here. Because no mail operation has to change two files together, mail takes no locks and a
-crash leaves nothing half done. Only a change of occupants takes a lock, as the next section
-explains.
+here. Because no ordinary mailbox operation has to change two files together, none takes a lock
+and a crash leaves nothing half done. The one exception in mail is rewriting an outcome that holds
+no decision, which takes `outcomes.lock`, as the forwarding section explains. A change of occupants
+takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
