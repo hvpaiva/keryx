@@ -37,9 +37,12 @@ class CourierTest < Minitest::Test
 
   def rosters = @rosters ||= []
 
+  def meters = @meters ||= []
+
   def courier
     @courier ||= Keryx::Courier.new(
-      store:, bell: QuietBell.new, postman:, host: 'athena', clock: -> { LATER }, meter:,
+      store:, bell: QuietBell.new, postman:, host: 'athena', clock: -> { LATER },
+      meter: -> { meter.tap { meters << it } },
       forwarder: Keryx::Forwarder.new(store:, remote: nil, clock: -> { LATER }),
       roster: lambda do
         herdr = FakeHerdr.new
@@ -100,7 +103,7 @@ class CourierTest < Minitest::Test
   def test_each_round_reads_the_sessions_afresh
     2.times { courier.round }
 
-    assert_equal 2, rosters.uniq.size
+    assert_equal [2, 2], [rosters.uniq.size, meters.size]
   end
 
   def impl(ceiling: 125_000, **fields)

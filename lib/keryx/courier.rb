@@ -28,6 +28,7 @@ module Keryx
 
     def round
       roster = @roster.call
+      @measure = @meter.call
       @errors = []
       @open_requests = nil
       Round.new(forwarded: forward, rung: ring_again(roster), overdue: remind_overdue(roster),
@@ -81,7 +82,7 @@ module Keryx
       ceiling = entry.occupant&.ceiling
       return if ceiling.nil? || entry.ended?
 
-      context = @meter.read(entry.occupant)
+      context = @measure.read(entry.occupant)
       [context, context&.stage(ceiling)]
     end
 
