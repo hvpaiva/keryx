@@ -3,6 +3,7 @@
 require_relative '../cli/command'
 require_relative '../duration'
 require_relative 'delivery'
+require_relative 'join'
 
 module Keryx
   module Commands
@@ -12,19 +13,32 @@ module Keryx
                     description: "Send a request that expects a reply.\n\n" \
                                  'The request stays open until the recipient answers it with keryx reply, and ' \
                                  'keryx status lists it while it waits. --within sets a deadline that status ' \
-                                 'reports as overdue once it passes. The reply rings this session when it ' \
-                                 'arrives, so there is no need to wait for it; keryx wait blocks until it comes ' \
-                                 'for the cases that cannot go on without it.',
+                                 'reports as overdue once it passes. The reply rings the session that holds the ' \
+                                 'address it was sent from, this session unless --as names another, so there is ' \
+                                 'no need to wait for it; keryx wait blocks until it comes for the cases that ' \
+                                 'cannot go on without it. When no session holds that address, no bell rings and ' \
+                                 'the reply waits in its mailbox.',
                     examples: [['Ask for a review with a deadline', 'ask rev-1 "Review PR #448" --within 30m'],
                                ['Ask with a longer brief from a file', 'ask impl --file brief.md']]
 
-      def self.follow_up(agent, id)
-        if agent
-          "The reply will ring this session; 'keryx wait #{id}' blocks until it arrives."
-        else
-          "'keryx inbox' shows the reply when it arrives; 'keryx wait #{id}' blocks until then."
-        end
+      def self.follow_up(app, id)
+        as = app.as && " --as #{app.me}"
+        wait = "'keryx#{as} wait #{id}'"
+        holder = (as || app.caller.agent?) && ringing(app, app.me)
+        return "The reply will ring #{holder}; #{wait} blocks until it arrives." if holder
+        return "'keryx inbox' shows the reply when it arrives; #{wait} blocks until then." unless as
+
+        "No session holds #{app.full(app.me)}, so no bell rings for the reply; 'keryx#{as} inbox' shows it when it " \
+          "arrives, and #{wait} blocks until then."
       end
+
+      def self.ringing(app, name)
+        occupant = app.store.occupant(name) or return nil
+        return 'this session' if app.caller.holds?(occupant)
+
+        "the session that holds #{app.full(name)}" if Join::LIVE_SESSIONS.include?(app.roster.session(occupant))
+      end
+      private_class_method :ringing
 
       def define_options(parser)
         body_option(parser)
@@ -37,7 +51,7 @@ module Keryx
         posted = app.postman.post(sender: app.me, recipient: app.address(arguments[0]), kind: 'request',
                                   body: body(arguments[1]), due_at:)
         message = posted.message
-        terminal.puts("#{asked(message)} #{Delivery.note(posted)}", Ask.follow_up(app.caller.agent?, message.id))
+        terminal.puts("#{asked(message)} #{Delivery.note(posted)}", Ask.follow_up(app, message.id))
       end
 
       private

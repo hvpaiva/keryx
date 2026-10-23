@@ -253,7 +253,7 @@ module Keryx
         return unless request
 
         terminal.puts("Its first request is #{terminal.paint(:id, request.id)}.",
-                      Ask.follow_up(app.caller.agent?, request.id))
+                      Ask.follow_up(app, request.id))
       end
     end
   end

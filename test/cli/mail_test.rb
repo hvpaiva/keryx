@@ -54,6 +54,25 @@ class MailTest < Minitest::Test
     assert_equal ['Fix retry.py', 'Are you still there?'], store.unread('impl').map(&:body)
   end
 
+  def test_asking_as_an_address_no_session_holds_says_that_no_bell_rings_for_the_reply
+    keryx('leave', env: @orq)
+    result = keryx('--as', 'orq', 'ask', 'rev-1', 'Review PR #448')
+    id = last_id(@rev)
+
+    assert_equal 0, result.status, result.err
+    assert_equal "No session holds orq@athena, so no bell rings for the reply; 'keryx --as orq inbox' shows it " \
+                 "when it arrives, and 'keryx --as orq wait #{id}' blocks until then.", result.out.lines.last.chomp
+  end
+
+  def test_asking_as_an_address_another_session_holds_names_that_session
+    asked = keryx('--as', 'rev-1', 'ask', 'orq', 'Can you merge it?', env: @orq)
+    own = keryx('--as', 'orq', 'ask', 'rev-1', 'Review PR #448', env: @orq)
+
+    assert_match(/^The reply will ring the session that holds rev-1@athena; 'keryx --as rev-1 wait \w+' blocks/,
+                 asked.out)
+    assert_match(/^The reply will ring this session; 'keryx --as orq wait \w+' blocks until it arrives\.$/, own.out)
+  end
+
   def test_inbox_lists_unread_messages_with_their_deadline
     keryx('ask', 'rev-1', 'Review PR #448', '--within', '30m', env: @orq)
     clock.advance(600)

@@ -95,6 +95,15 @@ class SpawnTest < Minitest::Test
     assert_equal 'orq@athena', store.unread('rev-1').first.from
   end
 
+  def test_spawning_as_an_address_no_session_holds_says_that_no_bell_rings_for_the_reply
+    session_joins
+    keryx('leave', env: join_claude('orq', 111))
+    result = spawn('rev-1', '--harness', 'claude', '--as', 'orq', 'Review it')
+
+    assert_match(/^No session holds orq@athena, so no bell rings for the reply;/, result.out)
+    refute_match(/ring this session/, result.out)
+  end
+
   def test_tab_is_created_when_missing_and_split_once_it_exists
     session_joins(pid: 500)
     spawn('rev-1', '--harness', 'claude', '--tab', 'agents')
