@@ -31,7 +31,7 @@ class AddressTest < Minitest::Test
   end
 
   def test_local_host_prefers_keryx_host
-    assert_equal 'athena', Keryx::Address.local_host({ 'KERYX_HOST' => 'athena' }, hostname: 'RD-008575')
+    assert_equal 'athena', Keryx::Address.local_host({ 'KERYX_HOST' => 'athena' }, hostname: 'LAP-0042')
   end
 
   def test_local_host_rejects_an_invalid_keryx_host
@@ -42,24 +42,24 @@ class AddressTest < Minitest::Test
   def test_local_host_prefers_keryx_host_over_the_config_file
     config = config_file("host = zeus\n")
 
-    assert_equal 'athena', Keryx::Address.local_host({ 'KERYX_HOST' => 'athena' }, config:, hostname: 'rd-008575')
+    assert_equal 'athena', Keryx::Address.local_host({ 'KERYX_HOST' => 'athena' }, config:, hostname: 'lap-0042')
   end
 
   def test_local_host_takes_the_config_file_over_the_machine_name
     config = config_file("host = athena\n")
 
-    assert_equal 'athena', Keryx::Address.local_host({}, config:, hostname: 'RD-008575')
-    assert_equal 'athena', Keryx::Address.local_host({ 'KERYX_HOST' => '' }, config:, hostname: 'RD-008575')
+    assert_equal 'athena', Keryx::Address.local_host({}, config:, hostname: 'LAP-0042')
+    assert_equal 'athena', Keryx::Address.local_host({ 'KERYX_HOST' => '' }, config:, hostname: 'LAP-0042')
   end
 
   def test_local_host_falls_back_to_the_machine_name_without_a_host_in_the_file
-    assert_equal 'rd-008575', Keryx::Address.local_host({}, config: config_file("# none\n"), hostname: 'RD-008575')
+    assert_equal 'lap-0042', Keryx::Address.local_host({}, config: config_file("# none\n"), hostname: 'LAP-0042')
   end
 
   def test_local_host_rejects_an_invalid_host_in_the_config_file_with_its_line
     config = config_file("host = athena\nhost = Athena\n")
 
-    error = assert_raises(Keryx::Error) { Keryx::Address.local_host({}, config:, hostname: 'rd-008575') }
+    error = assert_raises(Keryx::Error) { Keryx::Address.local_host({}, config:, hostname: 'lap-0042') }
     assert_equal "#{config.path}:2: host \"Athena\" is not a valid host name", error.message
   end
 
@@ -71,7 +71,7 @@ class AddressTest < Minitest::Test
   end
 
   def test_local_host_derives_a_valid_label_from_the_machine_name
-    assert_equal 'rd-008575', Keryx::Address.local_host({}, hostname: 'RD-008575.corp.example')
+    assert_equal 'lap-0042', Keryx::Address.local_host({}, hostname: 'LAP-0042.corp.example')
     assert_equal 'my-mac', Keryx::Address.local_host({}, hostname: 'My_Mac')
     assert_equal 'localhost', Keryx::Address.local_host({}, hostname: '')
   end
