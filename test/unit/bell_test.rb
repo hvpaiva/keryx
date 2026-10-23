@@ -74,6 +74,17 @@ class BellTest < Minitest::Test
     end
   end
 
+  def test_a_pane_where_another_session_of_the_harness_runs_is_absent_and_not_typed_into
+    { 'claude' => 'session', 'cursor' => 'conversation' }.each do |harness, label|
+      message = deliver
+      store.bind('rev-1', pane_occupant(harness:, session_id: 'ended', claude_socket: tmp('gone.sock')))
+      herdr = herdr_with('idle', kind: harness, session: 'replacement')
+
+      assert_equal "pane w1:p2 runs #{label} replacement, not ended", bell(herdr:).ring('rev-1', [message]).detail
+      assert_empty herdr.prompts
+    end
+  end
+
   def test_a_dead_claude_socket_without_a_pane_fails
     message = deliver
     store.bind('rev-1', build_occupant(claude_socket: tmp('gone.sock')))

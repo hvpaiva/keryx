@@ -68,7 +68,7 @@ class FakeHerdr
     def stop = @stopped = true
   end
 
-  attr_reader :prompts, :splits, :created_tabs, :starts, :renames
+  attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered
   attr_accessor :start_outcome, :start_polls, :on_start, :rename_error
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
@@ -82,11 +82,17 @@ class FakeHerdr
     @created_tabs = []
     @starts = []
     @renames = []
+    @foregrounds = {}
+    @unanswered = []
     @start_outcome = OK
     @start_polls = 0
   end
 
   def agent(socket, pane) = @agents[[socket, pane]].then { it.respond_to?(:call) ? it.call : it }
+
+  def look(socket, pane) = unanswered.include?([socket, pane]) ? nil : agent(socket, pane) || Keryx::Herdr::NONE
+
+  def foreground(socket, pane) = foregrounds[[socket, pane]]
 
   def agents(socket) = @agents.filter_map { |(server, _pane), agent| agent if server == socket }
 

@@ -4,6 +4,8 @@ require 'json'
 require 'socket'
 require 'time'
 require_relative 'herdr'
+require_relative 'lookout'
+require_relative 'processes'
 require_relative 'runner'
 
 module Keryx
@@ -40,9 +42,11 @@ module Keryx
       squeezed.match?(text.gsub(/\s+/, ''))
     end
 
-    def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)
+    def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
+                   lookout: Lookout.new(herdr:, processes: Processes.new))
       @store = store
       @herdr = herdr
+      @lookout = lookout
       @clock = clock
       @claude_socket = claude_socket
       @codex = codex
@@ -52,6 +56,15 @@ module Keryx
       result = attempt(@store.occupant(name), text(messages))
       messages.each { @store.write_receipt(name, it.id, 'bell', result.record) }
       result
+    end
+
+    # Whether a bell for this occupant would ring or wait to ring again, by the same routing as ring, sending nothing.
+    def reaches?(occupant)
+      return false unless occupant
+      return reachable_pane?(occupant) if occupant.harness == 'codex' && occupant.session_id
+      return true if open_socket?(occupant)
+
+      occupant.herdr? && reachable_pane?(occupant)
     end
 
     private
@@ -73,15 +86,11 @@ module Keryx
     # Codex runs what is queued for any thread it has loaded, and its shared server keeps a thread loaded after
     # the TUI quits, so only a thread herdr shows open in its pane is queued.
     def codex_thread(occupant, text)
-      thread = occupant.session_id
-      agent = occupant.herdr? && @herdr.agent(occupant.herdr_socket, occupant.herdr_pane)
-      return outcome(ABSENT, nil, "thread #{thread} is not open in a herdr pane") unless agent && agent.kind == 'codex'
-      return through_herdr(occupant, text, agent) if agent.session.nil?
-      if agent.session != thread
-        return outcome(ABSENT, nil, "pane #{occupant.herdr_pane} runs thread #{agent.session}, not #{thread}")
-      end
+      seen = @lookout.in_pane(occupant)
+      return unseen(seen) unless seen.there?
+      return typed_into(occupant, seen.agent, text) unless seen.agent.session == occupant.session_id
 
-      queued = through_codex(thread, text)
+      queued = through_codex(occupant.session_id, text)
       # The queue can take seconds to fail, so the pane is read again before anything is typed into it.
       queued.status == FAILED ? through_herdr(occupant, text) : queued
     end
@@ -100,11 +109,14 @@ module Keryx
       outcome(FAILED, 'codex', result.err.lines.first.to_s.strip)
     end
 
-    def through_herdr(occupant, text, agent = @herdr.agent(occupant.herdr_socket, occupant.herdr_pane))
+    def through_herdr(occupant, text)
+      seen = @lookout.in_pane(occupant)
+      seen.there? ? typed_into(occupant, seen.agent, text) : unseen(seen)
+    end
+
+    def typed_into(occupant, agent, text)
       socket = occupant.herdr_socket
       pane = occupant.herdr_pane
-      missing = missing_agent(pane, agent, occupant.harness)
-      return outcome(ABSENT, nil, missing) if missing
       return outcome(DEFERRED, 'herdr', "the agent is #{agent.status}") unless TYPABLE.include?(agent.status)
 
       screen = @herdr.screen(socket, pane)
@@ -114,10 +126,14 @@ module Keryx
       typed(@herdr.prompt(socket, pane, text))
     end
 
-    def missing_agent(pane, agent, harness)
-      return "no agent runs in pane #{pane}" unless agent
+    # herdr or ps not answering may pass, so that bell waits to ring again; anything else is not the session.
+    def unseen(seen) = outcome(seen.verdict == :unanswered ? DEFERRED : ABSENT, nil, seen.detail)
 
-      "pane #{pane} runs #{agent.kind}, not #{harness}" unless agent.kind == harness
+    def reachable_pane?(occupant) = %i[there unanswered].include?(@lookout.in_pane(occupant).verdict)
+
+    def open_socket?(occupant)
+      path = occupant.claude_socket
+      !path.nil? && @claude_socket.open?(path) && @lookout.presence(occupant) == :live
     end
 
     def typed(prompt)
@@ -141,6 +157,8 @@ module Keryx
     end
 
     class ClaudeSocket
+      def open?(path) = File.socket?(path)
+
       def post(path, text)
         UNIXSocket.open(path) do |socket|
           socket.write("#{JSON.generate('type' => 'user', 'message' => { 'role' => 'user', 'content' => text })}\n")

@@ -55,11 +55,21 @@ the commands it runs.
 A harness started from another harness's shell inherits the outer one's variables, so keryx reads
 Cursor's and Codex's before Claude Code's.
 
-`keryx join` writes these down as the address's occupant. Later commands find their address by
-matching the caller against the occupants (`Identity`), which means the same Claude Code process
-or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
-pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
-records the new process and socket.
+`keryx join` writes these down as the address's occupant, with the harness's process and its start
+time as `ps` prints it. Claude Code names its process in `CLAUDE_PID`; for Codex and Cursor in a
+herdr pane, the process is the pane's foreground group, recorded only when it is an ancestor of the
+join, which leaves out a Codex session that runs its commands under Codex's shared server. Later
+commands find their address by matching the caller against the occupants (`Identity`), which means
+the same Claude Code process or session, the same Codex thread or Cursor conversation, or the same
+harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its
+address, and `App#me` then records the new process and socket, looking the process up again only
+when the command no longer runs under the recorded one.
+
+Whether a session is live comes from that process, alive with its recorded start time, or else
+from its pane: gone when herdr shows no agent, another harness or another session there, live
+otherwise, and unknown with neither a process nor a pane. What herdr says the agent is doing
+(idle, working, unknown) only describes a live session in `keryx who`. join takes an address whose
+session is not live, and `leave --as` releases it.
 
 A session holds one address, so join also releases any other address the session holds. It checks
 the address, releases the others and writes the occupant under an exclusive `flock` on
@@ -104,13 +114,18 @@ and the id, never the body. It tries two ways, in order.
 
 Cursor has no channel of its own, so it is always rung by typing.
 
-A Codex thread is queued only while herdr shows it open in the session's pane, by the session id
-herdr's Codex integration reports for that pane. `codex queue` hands the message to whichever Codex
-app-server has the thread loaded, and Codex's shared server keeps a thread loaded for 30 minutes
-after its TUI quits, then runs what was queued with no pane and no one watching. When herdr shows
-Codex in the pane without a session id, which is how a session whose hooks are not trusted looks,
-the bell is typed into the pane instead. When herdr shows another thread there, no Codex at all, or
-the session has no pane, the bell is absent and the message waits in the mailbox.
+Before typing into a pane, `Lookout` checks that the pane still runs the session that joined, and
+not a session that took the pane over. herdr's integrations report the session id of the agent in
+a pane; when herdr reports one, it must equal the occupant's. When herdr reports none, which is how
+a Codex session whose hooks are not trusted looks, the pane's foreground process group must be the
+process the occupant records, with the start time it records. Anything else is absent. When herdr
+or `ps` does not answer, the bell is deferred.
+
+A Codex thread is queued only while herdr shows its id in the session's pane. `codex queue` hands
+the message to whichever Codex app-server has the thread loaded, and Codex's shared server keeps a
+thread loaded for 30 minutes after its TUI quits, then runs what was queued with no pane and no one
+watching. A Codex session that the pane shows only by its process is typed into instead, and one
+herdr does not show at all, or with no pane, gets no bell; the message waits in the mailbox.
 
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
 each message, and `keryx status` reads the receipts to list what did not ring.

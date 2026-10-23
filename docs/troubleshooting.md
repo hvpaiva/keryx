@@ -20,15 +20,18 @@ reason.
 
 - `no session holds the address` means the address has no session now. The next session to join
   it finds the message.
-- `thread ... is not open in a herdr pane` means herdr does not show that Codex thread in the
-  session's pane, because the thread was closed or never ran in herdr. keryx does not queue a bell
-  for it, since Codex would run a closed thread on its own.
-- `no agent runs in pane ...`, `pane ... runs ..., not ...` or `pane ... runs thread ..., not ...`
-  means herdr does not show the session that holds the address in its pane, so keryx did not type
+- `thread ... has no herdr pane` means keryx cannot see that Codex session, and it does not queue a
+  bell for it, since Codex would run a closed thread on its own.
+- `no agent runs in pane ...`, `pane ... runs ..., not ...`, `pane ... runs thread ..., not ...` (or
+  conversation, or session), `pane ... runs process ..., not ...`, `process ... in pane ... is not
+  the one that joined` or `nothing shows that pane ... still runs the session that joined` means
+  keryx cannot show that the pane still runs the session that holds the address, so it did not type
   the bell there. When `keryx who` shows that session as none, gone or unknown, it ended without
   leaving, and `keryx leave --as NAME` releases the address so that the next session to join it
   finds the message. While `who` shows it live, leave refuses, and `keryx join NAME --force` from
   the session that should hold it takes it over.
+- `herdr did not answer ...`, `herdr did not say ...` or `ps did not say ...` means keryx could not
+  check the pane, so the bell waits and the courier tries again.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not
   type into a herdr pane while the agent waited on something else. Answer the dialog, then run
   `keryx ring`.

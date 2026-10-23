@@ -13,6 +13,9 @@ module Keryx
     Pane = Data.define(:id, :tab, :workspace)
     Tab = Data.define(:id, :label)
     SCREEN_LINES = '20'
+    # herdr answered that the pane is gone or runs no agent, which is not the same as not answering.
+    NONE = :none
+    NOT_FOUND = %w[agent_not_found pane_not_found].freeze
     START_TIMEOUT_MS = (3001..300_000)
 
     class Starting
@@ -47,10 +50,20 @@ module Keryx
       @program = program
     end
 
-    def agent(socket, pane)
+    def agent(socket, pane) = look(socket, pane).then { it.is_a?(Agent) ? it : nil }
+
+    def look(socket, pane)
       data = Herdr.json(run(socket, 'agent', 'get', pane))
-      agent = data&.dig('result', 'agent') or return nil
-      agent_of(agent)
+      agent = data&.dig('result', 'agent')
+      return agent_of(agent) if agent.is_a?(Hash)
+
+      NOT_FOUND.include?(Herdr.error_of(data)['code']) ? NONE : nil
+    end
+
+    def foreground(socket, pane)
+      data = Herdr.json(run(socket, 'pane', 'process-info', '--pane', pane))
+      group = data&.dig('result', 'process_info', 'foreground_process_group_id')
+      group if group.is_a?(Integer) && group.positive?
     end
 
     def agents(socket)

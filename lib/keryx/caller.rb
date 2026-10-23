@@ -48,7 +48,8 @@ module Keryx
     end
 
     def occupant(now)
-      Occupant.new(harness:, session_id:, pid:, claude_socket:, herdr_socket:, herdr_pane:, cwd:, joined_at: now)
+      Occupant.new(harness:, session_id:, pid:, started: nil, claude_socket:, herdr_socket:, herdr_pane:, cwd:,
+                   joined_at: now)
     end
   end
 end

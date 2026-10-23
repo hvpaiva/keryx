@@ -3,7 +3,6 @@
 require_relative '../cli/command'
 require_relative '../duration'
 require_relative 'delivery'
-require_relative 'join'
 
 module Keryx
   module Commands
@@ -24,21 +23,29 @@ module Keryx
       def self.follow_up(app, id)
         as = app.as && " --as #{app.me}"
         wait = "'keryx#{as} wait #{id}'"
-        holder = (as || app.caller.agent?) && ringing(app, app.me)
-        return "The reply will ring #{holder}; #{wait} blocks until it arrives." if holder
-        return "'keryx inbox' shows the reply when it arrives; #{wait} blocks until then." unless as
+        unless as || app.caller.agent?
+          return "'keryx inbox' shows the reply when it arrives; #{wait} blocks until then."
+        end
 
-        "No session holds #{app.full(app.me)}, so no bell rings for the reply; 'keryx#{as} inbox' shows it when it " \
-          "arrives, and #{wait} blocks until then."
+        occupant = app.store.occupant(app.me)
+        if app.bell.reaches?(occupant)
+          return "The reply will ring #{holder(app, occupant)}; #{wait} blocks until it arrives."
+        end
+
+        "#{nobody(app, occupant)}, so no bell rings for the reply; 'keryx#{as} inbox' shows it when it arrives, and " \
+          "#{wait} blocks until then."
       end
 
-      def self.ringing(app, name)
-        occupant = app.store.occupant(name) or return nil
-        return 'this session' if app.caller.holds?(occupant)
-
-        "the session that holds #{app.full(name)}" if Join::LIVE_SESSIONS.include?(app.roster.session(occupant))
+      def self.holder(app, occupant)
+        app.caller.holds?(occupant) ? 'this session' : "the session that holds #{app.full(app.me)}"
       end
-      private_class_method :ringing
+
+      def self.nobody(app, occupant)
+        return "No session holds #{app.full(app.me)}" unless occupant
+
+        "keryx cannot reach the session that holds #{app.full(app.me)}"
+      end
+      private_class_method :holder, :nobody
 
       def define_options(parser)
         body_option(parser)

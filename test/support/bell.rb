@@ -7,8 +7,11 @@ module BellHelpers
 
   def queue = @queue ||= CLIHelpers::FakeCodexQueue.new
 
+  def processes = @processes ||= CLIHelpers::FakeProcesses.new([])
+
   def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new)
-    Keryx::Bell.new(store:, herdr:, clock: -> { Factory::NOW }, claude_socket:, codex: queue)
+    Keryx::Bell.new(store:, herdr:, clock: -> { Factory::NOW }, claude_socket:, codex: queue,
+                    lookout: Keryx::Lookout.new(herdr:, processes:))
   end
 
   def deliver(kind: 'request')
@@ -17,11 +20,12 @@ module BellHelpers
   end
 
   def pane_occupant(**overrides)
-    build_occupant(harness: 'codex', session_id: nil, herdr_socket: HERDR_SOCKET, herdr_pane: 'w1:p2', **overrides)
+    build_occupant(harness: 'cursor', session_id: 'conversation-1', herdr_socket: HERDR_SOCKET, herdr_pane: 'w1:p2',
+                   **overrides)
   end
 
   def herdr_with(status, screen: '> ', outcome: Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil),
-                 session: nil, kind: 'codex')
+                 session: 'conversation-1', kind: 'cursor')
     agent = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind:, status:, session:)
     screens = { [HERDR_SOCKET, 'w1:p2'] => screen }
     FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => agent }, screens:, prompt_outcome: outcome)

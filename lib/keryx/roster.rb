@@ -1,13 +1,17 @@
 # frozen_string_literal: true
 
+require_relative 'lookout'
+require_relative 'processes'
+
 module Keryx
   class Roster
     Entry = Data.define(:name, :role, :occupant, :session, :unread)
+    ACTIVITY = %w[idle working blocked done].freeze
 
-    def initialize(store:, herdr:, process: Process)
+    def initialize(store:, herdr:, lookout: Lookout.new(herdr:, processes: Processes.new))
       @store = store
       @herdr = herdr
-      @process = process
+      @lookout = lookout
       @agents = {}
     end
 
@@ -19,17 +23,18 @@ module Keryx
       end
     end
 
+    # Whether the session lives comes from its process or its pane; herdr's activity only describes a live one.
     def session(occupant)
       return 'none' unless occupant
 
-      presence = occupant.presence(process: @process)
-      return 'gone' if presence == :gone
+      presence = @lookout.presence(occupant)
+      return presence.to_s unless presence == :live
 
       agent = occupant.herdr? && agents_on(occupant.herdr_socket)[occupant.herdr_pane]
-      return agent.status if agent && agent.kind == occupant.harness
-
-      presence.to_s
+      agent && agent.kind == occupant.harness && ACTIVITY.include?(agent.status) ? agent.status : 'live'
     end
+
+    def live?(occupant) = !occupant.nil? && @lookout.presence(occupant) == :live
 
     def open_requests
       all = @store.all_messages

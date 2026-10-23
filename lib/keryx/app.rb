@@ -8,8 +8,10 @@ require_relative 'courier'
 require_relative 'forwarder'
 require_relative 'herdr'
 require_relative 'identity'
+require_relative 'lookout'
 require_relative 'paths'
 require_relative 'postman'
+require_relative 'processes'
 require_relative 'receiver'
 require_relative 'remote'
 require_relative 'roster'
@@ -18,11 +20,11 @@ require_relative 'store'
 
 module Keryx
   class App
-    attr_reader :env, :cwd, :as, :clock, :sleeper, :process
+    attr_reader :env, :cwd, :as, :clock, :sleeper, :processes
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
                    claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new, remote: nil,
-                   sleeper: ->(seconds) { sleep(seconds) }, process: Process)
+                   sleeper: ->(seconds) { sleep(seconds) }, processes: Processes.new)
       @env = env
       @cwd = cwd
       @as = as || present(env['KERYX_AS'])
@@ -32,7 +34,7 @@ module Keryx
       @codex = codex
       @remote = remote
       @sleeper = sleeper
-      @process = process
+      @processes = processes
       @reported = []
     end
 
@@ -50,7 +52,9 @@ module Keryx
 
     def identity = @identity ||= Identity.new(store:, caller:, env:)
 
-    def bell = @bell ||= Bell.new(store:, herdr:, clock:, claude_socket: @claude_socket, codex: @codex)
+    def lookout = @lookout ||= Lookout.new(herdr:, processes:)
+
+    def bell = @bell ||= Bell.new(store:, herdr:, clock:, claude_socket: @claude_socket, codex: @codex, lookout:)
 
     def remote = @remote ||= Remote.from_env(env)
 
@@ -64,13 +68,19 @@ module Keryx
 
     def courier
       @courier ||= Courier.new(store:, forwarder:, bell:, postman:, host:, clock:,
-                               roster: -> { Roster.new(store:, herdr:, process:) })
+                               roster: -> { Roster.new(store:, herdr:, lookout:) })
     end
 
-    def roster = @roster ||= Roster.new(store:, herdr:, process:)
+    def roster = @roster ||= Roster.new(store:, herdr:, lookout:)
 
     def me
       @me ||= identity.current(as: @as).tap { refresh(it) unless @as }
+    end
+
+    # The occupant this session records, with the harness process it runs in so that the bell can tell it apart.
+    def session_occupant(joined_at, previous: nil)
+      pid, started = harness_process(previous)
+      caller.occupant(joined_at).with(pid:, started:)
     end
 
     def address(text) = Address.parse(text, local_host: host)
@@ -87,18 +97,43 @@ module Keryx
 
     def refresh(name)
       occupant = store.occupant(name) or return
-      return unless caller.agent? && renewed(occupant) != occupant
+      return unless caller.agent? && (fresh = renewed(occupant)) != occupant
 
-      # A join may have moved the session since the read above, so only the occupant read under the lock counts.
-      store.with_occupants_lock(within: 0) do
-        current = store.occupant(name)
-        store.bind(name, renewed(current)) if current && caller.holds?(current)
-      end
+      store.with_occupants_lock(within: 0) { rebind(name, occupant, fresh) }
     rescue Store::Busy
       nil # The record can wait for a later command; the command that called App#me cannot wait for the lock.
     end
 
-    def renewed(occupant) = caller.occupant(occupant.joined_at).with(cwd: occupant.cwd)
+    # A join may have moved the session since the first read, so only the occupant read under the lock counts.
+    def rebind(name, occupant, fresh)
+      current = store.occupant(name)
+      store.bind(name, current == occupant ? fresh : renewed(current)) if current && caller.holds?(current)
+    end
+
+    def renewed(occupant) = session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd)
+
+    def harness_process(previous)
+      return [previous.pid, previous.started] if previous && still_under?(previous)
+
+      pid = caller.pid || pane_group
+      [pid, pid && processes.started(pid)]
+    end
+
+    # Claude Code names its process; any other harness keeps the one recorded while this command runs under it.
+    def still_under?(occupant)
+      return false unless occupant.pid && occupant.started
+      return occupant.pid == caller.pid if caller.pid
+
+      processes.ancestors(Process.pid).include?(occupant.pid) && processes.started(occupant.pid) == occupant.started
+    end
+
+    # A harness that does not name its process runs as the foreground group of its herdr pane, an ancestor of this one.
+    def pane_group
+      return unless caller.herdr_socket && caller.herdr_pane
+
+      group = herdr.foreground(caller.herdr_socket, caller.herdr_pane)
+      group if group && processes.ancestors(Process.pid).include?(group)
+    end
 
     def present(value) = value.to_s.empty? ? nil : value
   end

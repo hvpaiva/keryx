@@ -8,7 +8,6 @@ module Keryx
       NOT_AN_AGENT = 'join binds the agent session that runs it; run it from inside a Claude Code, Codex or ' \
                      'Cursor session, or from an agent running in a herdr pane'
       SESSION_LABEL = { 'codex' => 'thread', 'cursor' => 'conversation' }.freeze
-      LIVE_SESSIONS = %w[live idle working blocked done].freeze
       ROLE = /\A[[:alnum:]][[:alnum:] ._-]{0,39}\z/
 
       define 'join', section: 'Session Commands', arguments: 'NAME', min: 1, max: 1,
@@ -37,7 +36,7 @@ module Keryx
       def self.refuse_taken(app, name, advice, caller: nil)
         occupant = app.store.occupant(name)
         return if occupant.nil? || caller&.holds?(occupant)
-        return unless LIVE_SESSIONS.include?(app.roster.session(occupant))
+        return unless app.roster.live?(occupant)
 
         raise Error, "#{app.full(name)} is held by another live #{occupant.harness} session " \
                      "(#{where(occupant)}); #{advice}"
@@ -56,17 +55,18 @@ module Keryx
         caller = app.caller
         raise Error, NOT_AN_AGENT unless caller.agent?
 
-        app.store.with_occupants_lock { claim(name, caller) }
+        occupant = app.session_occupant(app.now)
+        app.store.with_occupants_lock { claim(name, caller, occupant) }
         report(name, caller)
       end
 
       private
 
-      def claim(name, caller)
+      def claim(name, caller, occupant)
         refuse_taken(name, caller)
         release_others(name, caller)
         app.store.create_address(name, role: options[:role])
-        app.store.bind(name, caller.occupant(app.now))
+        app.store.bind(name, occupant)
       end
 
       def refuse_taken(name, caller)
