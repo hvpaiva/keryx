@@ -89,6 +89,26 @@ class ForwarderTest < Minitest::Test
     assert_equal %i[forwarded refused forwarded], store.outbox.outgoing.map(&:state)
   end
 
+  def test_an_outcome_whose_only_flaw_is_its_bell_moves_the_message_without_sending_it
+    message = build_message(to: 'port@zeus').tap { store.outbox.queue('zeus', it) }
+    File.write(tmp('state', 'outbox', 'zeus', 'receipts', "#{message.id}.outcome"),
+               JSON.generate('status' => 'forwarded', 'bell' => %w[wrong type]))
+    remote = answering('delivered')
+    result = forwarding(remote).forward('zeus').fetch(message.id)
+
+    assert_equal ['forwarded', nil], [result.status, result.bell]
+    assert_empty remote.sent
+    assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
+  end
+
+  def test_an_answer_with_a_status_keryx_does_not_know_writes_no_outcome
+    message = build_message(to: 'port@zeus').tap { store.outbox.queue('zeus', it) }
+
+    assert_equal 'queued', forwarder('stored').forward('zeus').fetch(message.id).status
+    assert_nil store.outbox.outcome('zeus', message.id)
+    assert_equal [:queued], store.outbox.outgoing.map(&:state)
+  end
+
   def test_an_interrupted_move_is_finished_by_the_next_forward
     message = build_message(to: 'port@zeus').tap { store.outbox.queue('zeus', it) }
     store.outbox.define_singleton_method(:settle) { |*| raise Errno::EIO, 'outbox' }

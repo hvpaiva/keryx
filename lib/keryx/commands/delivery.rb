@@ -21,7 +21,7 @@ module Keryx
                  "'keryx courier' forwards it once #{host} is back."
         end
 
-        bell = result.bell || {}
+        bell = result.bell or return "It reached #{host}, which said nothing of its bell."
         "It reached #{host}. #{bell_note(bell['status'], bell['channel'], bell['detail'], posted.message.to)}"
       end
 
