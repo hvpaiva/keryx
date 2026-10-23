@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../cli/activity_view'
 require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/short_view'
@@ -52,7 +53,7 @@ module Keryx
       def print_table(entries)
         return if entries.empty?
 
-        terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE HARNESS SESSION CONTEXT UNREAD],
+        terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE HARNESS SESSION ACTIVE CONTEXT UNREAD],
                                         entries.map { row(it) }))
       end
 
@@ -60,14 +61,16 @@ module Keryx
 
       def row(entry)
         [[:address, app.full(entry.name)], entry.role || '-', entry.occupant&.harness || '-',
-         [SESSION_ROLES[entry.session], entry.session], CLI::ContextView.cell(app, entry), unread(entry.unread)]
+         [SESSION_ROLES[entry.session], entry.session], CLI::ActivityView.cell(app, entry),
+         CLI::ContextView.cell(app, entry), unread(entry.unread)]
       end
 
       def unread(count) = count.positive? ? [:unread, count.to_s] : '0'
 
       def record(entry)
         { 'address' => app.full(entry.name), 'role' => entry.role, 'harness' => entry.occupant&.harness,
-          'session' => entry.session, 'context' => CLI::ContextView.record(app, entry),
+          'session' => entry.session, 'last_activity' => CLI::ActivityView.record(app, entry),
+          'context' => CLI::ContextView.record(app, entry),
           'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread }
       end
     end

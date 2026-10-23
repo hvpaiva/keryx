@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../cli/activity_view'
 require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/message_view'
@@ -51,7 +52,7 @@ module Keryx
 
       def print_sections(view, requests, unrung, outgoing)
         waiting = requests.map(&:first).tally
-        section('ADDRESSES', %w[ADDRESS ROLE SESSION CONTEXT UNREAD WAITING],
+        section('ADDRESSES', %w[ADDRESS ROLE SESSION ACTIVE CONTEXT UNREAD WAITING],
                 view.entries.map { address_row(it, waiting) })
         view.note('status')&.then { terminal.puts(terminal.paint(:muted, it)) }
         section('OPEN REQUESTS', %w[ID FROM TO AGE DUE STATE SUMMARY], requests.map { request_row(it.last) })
@@ -103,6 +104,7 @@ module Keryx
 
       def address_record(entry, waiting)
         { 'address' => app.full(entry.name), 'role' => entry.role, 'session' => entry.session,
+          'last_activity' => CLI::ActivityView.record(app, entry),
           'context' => CLI::ContextView.record(app, entry), 'ceiling' => entry.occupant&.ceiling,
           'unread' => entry.unread,
           'waiting' => waiting.fetch(entry.name, 0) }
@@ -125,8 +127,9 @@ module Keryx
 
       def address_row(entry, waiting)
         count = waiting.fetch(entry.name, 0)
-        [[:address, app.full(entry.name)], entry.role || '-', entry.session, CLI::ContextView.cell(app, entry),
-         entry.unread.positive? ? [:unread, entry.unread.to_s] : '0', count.positive? ? [:request, count.to_s] : '0']
+        [[:address, app.full(entry.name)], entry.role || '-', entry.session, CLI::ActivityView.cell(app, entry),
+         CLI::ContextView.cell(app, entry), entry.unread.positive? ? [:unread, entry.unread.to_s] : '0',
+         count.positive? ? [:request, count.to_s] : '0']
       end
 
       def request_row(stored)

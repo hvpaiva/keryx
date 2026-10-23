@@ -1,11 +1,13 @@
 # frozen_string_literal: true
 
+require 'digest'
 require 'json'
 require_relative 'context'
 require_relative 'herdr'
 
 module Keryx
-  # Reads the context a session uses from the usage its harness records, and nothing else of the conversation.
+  # Reads the context a session uses from the usage its harness records, and nothing else of the conversation, and when
+  # the harness last wrote the session's own record.
   class Meter
     SESSION_ID = /\A[A-Za-z0-9][A-Za-z0-9-]{0,127}\z/
     BLOCK_BYTES = 64 * 1024
@@ -24,6 +26,7 @@ module Keryx
                                '(?: \u00B7 [\w-]+(?: [\w-]+)*)*)?(?: {2,}\S.*)?\z')
     UNITS = { 'K' => 1000, 'M' => 1_000_000 }.freeze
     NO_COUNT = :no_count
+    CURSOR_STORE = %w[store.db store.db-wal].freeze
 
     # A transcript a Claude Code hook names counts only as that session's file in a folder under a projects
     # directory, with no link on the way. Anything else, whatever it holds, is no transcript.
@@ -50,6 +53,7 @@ module Keryx
       @herdr = herdr
       @lookout = lookout
       @rollouts = {}
+      @paths = {}
     end
 
     # A figure that cannot be read is nil, so measuring never fails the command that asked.
@@ -58,6 +62,18 @@ module Keryx
       when 'claude' then claude(occupant)
       when 'codex' then codex(occupant)
       when 'cursor' then cursor(occupant)
+      end
+    rescue StandardError
+      nil
+    end
+
+    # When the harness last wrote the file it keeps for the session, which says nothing of what it wrote; nil when that
+    # cannot be told, so it never fails the command that asked either.
+    def activity(occupant)
+      case occupant&.harness
+      when 'claude' then written(claude_path(occupant))
+      when 'codex' then written(codex_path(occupant))
+      when 'cursor' then cursor_activity(occupant)
       end
     rescue StandardError
       nil
@@ -75,8 +91,15 @@ module Keryx
 
     def claude(occupant)
       id = session_id(occupant) or return
-      path = transcript(occupant.transcript, occupant) || claude_transcript(id, occupant.cwd) or return
+      path = claude_path(occupant) or return
       last(path) { claude_usage(it, id) }
+    end
+
+    def claude_path(occupant)
+      id = session_id(occupant) or return
+      remembered([:claude, occupant]) do
+        transcript(occupant.transcript, occupant) || claude_transcript(id, occupant.cwd)
+      end
     end
 
     # Claude Code keeps a transcript per session under a folder named after its directory, and shortens long names.
@@ -102,12 +125,34 @@ module Keryx
     end
 
     def codex(occupant)
-      id = session_id(occupant) or return
-      root = home('CODEX_HOME', '.codex', occupant.cwd)
-      found = only(rollouts(root).select { it.end_with?("-#{id}.jsonl") })
-      path = found && unlinked(root, found)
-      count = path && thread?(path, id) && last(path) { codex_usage(it) }
+      path = codex_path(occupant) or return
+      count = last(path) { codex_usage(it) }
       count if count.is_a?(Context)
+    end
+
+    def codex_path(occupant)
+      id = session_id(occupant) or return
+      remembered([:codex, occupant]) do
+        root = home('CODEX_HOME', '.codex', occupant.cwd)
+        found = only(rollouts(root).select { it.end_with?("-#{id}.jsonl") })
+        path = found && unlinked(root, found)
+        path if path && thread?(path, id)
+      end
+    end
+
+    # Cursor keeps each conversation in a folder named after the MD5 of the directory it runs in, a layout of its own
+    # that it does not document. Only the time its store was last written is read, never what it holds.
+    def cursor_activity(occupant)
+      id = session_id(occupant) or return
+      root = File.join(user_home, '.cursor')
+      folder = File.join('chats', Digest::MD5.hexdigest(occupant.cwd), id)
+      CURSOR_STORE.filter_map { store_written(root, File.join(folder, it)) }.max
+    end
+
+    def store_written(root, relative)
+      written(unlinked(root, relative))
+    rescue SystemCallError
+      nil
     end
 
     # One listing per meter, which a command or a courier round makes afresh, since a long Codex history holds tens
@@ -175,8 +220,13 @@ module Keryx
       value = @env[variable].to_s
       return File.expand_path(value, cwd) unless value.empty?
 
-      File.expand_path(folder, @env['HOME'].to_s.empty? ? Dir.home : @env['HOME'])
+      File.expand_path(folder, user_home)
     end
+
+    def user_home = @env['HOME'].to_s.empty? ? Dir.home : @env['HOME']
+
+    # A path found once stands for the meter's life, which is one command or one courier round.
+    def remembered(key) = @paths.key?(key) ? @paths[key] : (@paths[key] = yield)
 
     def only(found) = found.one? ? found.first : nil
 
@@ -188,6 +238,8 @@ module Keryx
     end
 
     def open_regular(path, &) = File.open(path, OPEN) { |file| yield file if file.stat.file? }
+
+    def written(path) = path && open_regular(path, &:mtime)
 
     def last(path, &reader) = open_regular(path) { backwards(it, reader) }
 
