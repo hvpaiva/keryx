@@ -42,8 +42,8 @@ module Keryx
         return left(name) if app.caller.holds?(occupant)
 
         terminal.puts("Released #{terminal.paint(:address, app.full(name))} from its #{Text.plain(occupant.harness)} " \
-                      "session (#{Text.plain(Join.where(occupant))}), which keryx does not see running. Its mailbox " \
-                      'keeps receiving.')
+                      "session (#{Text.plain(Join.where(occupant))}), which keryx does not see running. " \
+                      "#{afterwards(name)}")
         nil
       end
 
@@ -55,8 +55,13 @@ module Keryx
       end
 
       def left(name)
-        terminal.puts("Left #{terminal.paint(:address, app.full(name))}. Its mailbox keeps receiving.")
+        terminal.puts("Left #{terminal.paint(:address, app.full(name))}. #{afterwards(name)}")
         nil
+      end
+
+      # A session address goes with its session; the address itself keeps its mailbox.
+      def afterwards(name)
+        name.include?('/') ? 'Mail to it is refused from now on.' : 'Its mailbox keeps receiving.'
       end
     end
   end

@@ -64,4 +64,13 @@ class OccupantTest < Minitest::Test
     assert_equal [nil, nil], [read.ceiling, read.director]
     assert_nil Keryx::Occupant.from_record(build_occupant.record.merge('ceiling' => 0)).ceiling
   end
+
+  def test_a_session_round_trips_and_one_outside_the_alphabet_reads_as_none
+    occupant = build_occupant(session: 'k3m9qz')
+
+    assert_equal occupant, Keryx::Occupant.from_record(JSON.parse(JSON.generate(occupant.record)))
+    %w[K3M9QZ k3m9q k3m9ql].each do |session|
+      assert_nil Keryx::Occupant.from_record(build_occupant.record.merge('session' => session)).session, session
+    end
+  end
 end

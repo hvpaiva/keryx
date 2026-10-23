@@ -25,10 +25,11 @@ module Keryx
       @agents = {}
     end
 
+    # One row for each bound incarnation: the holder by the address's key, then each session join --force displaced.
     def entries
-      @store.current_names.map do |name|
+      @store.current_names.flat_map do |name|
         role = @store.reporting { @store.address(name)&.role }
-        Entry.new(name:, role:, **holder(name), unread: @store.unread(name).size)
+        @store.incarnations(name).map { Entry.new(name: it, role:, **holder(it), unread: @store.unread(it).size) }
       end
     end
 

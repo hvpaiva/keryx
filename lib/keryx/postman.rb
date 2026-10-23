@@ -16,6 +16,7 @@ module Keryx
                   "new work; join MEMBER.TEAM for new work, and 'keryx retire %<address>s' once none is open"
     FLAT_RECIPIENT = '%<address>s is an address from before team names: it takes only replies, withdrawals and ' \
                      'messages in its open threads'
+    SESSION_LEFT = 'mail to %<address>s is refused: its session left; write to %<stable>s'
 
     def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
       @store = store
@@ -38,6 +39,13 @@ module Keryx
                    'write long content to a file and send its path'
     end
 
+    # A session address takes mail only while its session is bound to the address and runs.
+    def self.session_left(store, address, live)
+      return if address.session.nil? || (store.occupant(address.name) && live.call(address.name))
+
+      format(SESSION_LEFT, address:, stable: address.stable)
+    end
+
     # A claim is asked in the same hold of the occupants lock as the write for the id the message goes under, and one
     # that gives none leaves the message unwritten; the bell and the forward come after the hold.
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
@@ -54,20 +62,21 @@ module Keryx
       return unless message
 
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
-      bell = announce(name, message) if ring && stored == :delivered && name != sender
+      bell = announce(recipient.name, message) if ring && stored == :delivered && recipient.name != sender
       Posted.new(message:, bell:, forward: nil)
     end
 
     # The withdrawal goes where the request is, since the request may name this machine by a name it no longer has.
     def withdraw(request, holder:, body:)
       now = @clock.call
+      from, to = [request.from, request.to].map { Address.parse(it) }
       message = Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
                             thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil,
-                            body: Postman.check_body(body), context: @measure.call(Address.parse(request.from).key))
-      return forward(message, Address.parse(request.to).host) unless holder
+                            body: Postman.check_body(body), context: @measure.call(from.name))
+      return forward(message, to.host) unless holder
 
       @store.deliver(holder, message)
-      bell = announce(holder, message) unless holder == Address.parse(request.from).key
+      bell = announce(to.name, message) unless holder == from.key
       Posted.new(message:, bell:, forward: nil)
     end
 
@@ -114,16 +123,26 @@ module Keryx
     def compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:, context:)
       now = @clock.call
       id ||= Ulid.generate(now)
-      Message.new(id:, kind:, from: "#{sender}@#{@host}", to: recipient.to_s, thread: reply_to&.thread || id,
+      Message.new(id:, kind:, from: from(sender, reply_to), to: recipient.to_s, thread: reply_to&.thread || id,
                   in_reply_to: reply_to&.id, created_at: now, due_at:, body:, context:)
+    end
+
+    # In a thread, any incarnation of the address a message went to writes as the address it went to, so a reply or a
+    # message from a session that join --force displaced still answers or takes the request.
+    def from(sender, reply_to)
+      own = Address.from_name(sender, host: @host)
+      to = reply_to && Address.parse(reply_to.to)
+      (to && to.host == own.host && to.key == own.key ? to : own).to_s
     end
 
     def check_recipient(recipient)
       return unless recipient.local?(@host)
       raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.key)
-      return if @store.address?(recipient.key) || recipient.key == @person
+      raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}" unless
+        @store.address?(recipient.key) || recipient.key == @person
 
-      raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"
+      left = Postman.session_left(@store, recipient, @live)
+      raise Error, left if left
     end
 
     # An address from before team names only finishes its threads. keryx's own notices still reach one that a live
@@ -131,7 +150,7 @@ module Keryx
     def check_flat(sender, recipient, thread)
       return if thread
 
-      from = Address.from_key(sender, host: @host)
+      from = Address.from_name(sender, host: @host)
       raise Error, format(FLAT_SENDER, address: from) if from.flat?
       return unless recipient.flat?
       return if sender == Identity::SYSTEM && recipient.local?(@host) && @live.call(recipient.key)

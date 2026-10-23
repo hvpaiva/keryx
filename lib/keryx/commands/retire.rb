@@ -65,13 +65,15 @@ module Keryx
       end
 
       def refuse_held(name)
-        occupant = app.store.occupant(name)
-        if occupant && app.caller.holds?(occupant)
-          raise Error, "this session holds #{app.full(name)}; release it with 'keryx leave' first"
-        end
+        app.store.incarnations(name).each do |incarnation|
+          occupant = app.store.occupant(incarnation)
+          if occupant && app.caller.holds?(occupant)
+            raise Error, "this session holds #{app.full(incarnation)}; release it with 'keryx leave' first"
+          end
 
-        Join.refuse_taken(app, name, "that session releases it with 'keryx leave', and once it ends " \
-                                     "'keryx retire #{name}' works")
+          Join.refuse_taken(app, incarnation, "that session releases it with 'keryx leave', and once it ends " \
+                                              "'keryx retire #{name}' works")
+        end
       end
 
       def refuse_waiting(name)

@@ -20,25 +20,34 @@ module Keryx
         name = app.me
         record = app.store.address(name)
         occupant = app.store.occupant(name)
-        data = { 'address' => app.full(name), 'role' => record&.role, 'unread' => app.store.unread(name).size,
-                 'session' => occupant&.record }
+        data = { 'address' => app.full(name), 'session_address' => session_address(name, occupant),
+                 'role' => record&.role, 'unread' => app.store.unread(name).size, 'session' => occupant&.record }
         json? ? print_json(data) : show(data, occupant)
         nil
       end
 
       private
 
+      def session_address(name, occupant)
+        address = Address.from_name(name, host: app.host)
+        address.with(session: occupant.session).to_s if occupant&.session && !address.flat?
+      end
+
       def show(data, occupant)
         terminal.puts(terminal.paint(:address, data['address']))
         rows = { 'role' => data['role'], 'unread' => data['unread'].to_s }
-        if occupant
-          rows['harness'] = occupant.harness
-          rows['session'] = Join.where(occupant)
-          rows['joined'] = "#{age(occupant.joined_at)} ago"
-        end
+        rows.merge!(session_rows(data, occupant)) if occupant
         rows.compact.each do |label, value|
           terminal.puts("#{terminal.paint(:muted, label.ljust(8))} #{Text.plain(value)}")
         end
+      end
+
+      # A displaced session names the address it came from, and the holder the session address that reaches it alone.
+      def session_rows(data, occupant)
+        displaced = data['address'] == data['session_address']
+        { 'address' => (Address.parse(data['address']).stable.to_s if displaced),
+          'reach' => (data['session_address'] unless displaced), 'harness' => occupant.harness,
+          'session' => Join.where(occupant), 'joined' => "#{age(occupant.joined_at)} ago" }
       end
     end
   end

@@ -28,11 +28,17 @@ module Keryx
       @store.create_address(human_name, role: HUMAN_ROLE).name
     end
 
+    # The key of the address this session holds, or KEY/SESSION when join --force took the address from it while it
+    # ran. The holder is matched first, so a session that took over in the pane of the one it displaced is the holder.
     def held
-      @store.address_names.find do |name|
-        occupant = @store.reporting { @store.occupant(name) }
-        occupant && @caller.holds?(occupant)
+      @store.address_names.each do |name|
+        found = @store.incarnations(name).find do |incarnation|
+          occupant = @store.reporting { @store.occupant(incarnation) }
+          occupant && @caller.holds?(occupant)
+        end
+        return found if found
       end
+      nil
     end
 
     # A person at a terminal is a member of the local scope, named after USER.
@@ -51,7 +57,14 @@ module Keryx
       raise Error, "no address #{address}; addresses are created by 'keryx join'" unless @store.address?(name)
       raise Error, "#{address} is retired; 'keryx join #{name} --revive' brings it back" if @store.retired?(name)
 
-      name
+      address.session ? incarnation(address) : name
+    end
+
+    # The holder's session acts as the address; a displaced one acts as its session address.
+    def incarnation(address)
+      occupant = @store.occupant(address.name) or
+        raise Error, "the session of #{address} left; the address is #{address.stable}"
+      @store.occupant(address.key)&.session == occupant.session ? address.key : address.name
     end
   end
 end

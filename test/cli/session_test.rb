@@ -176,8 +176,11 @@ class SessionTest < Minitest::Test
   def test_whoami_for_an_agent_and_for_a_person
     env = join_claude('rev-1.dev', 111, role: 'reviewer')
 
-    assert_match(/\Arev-1.dev@athena\nrole +reviewer\nunread +0\nharness +claude\nsession +pid 111\njoined +0s ago\n\z/,
-                 keryx('whoami', env:).out)
+    session = store.occupant('rev-1.dev').session
+    out = keryx('whoami', env:).out
+
+    assert_match(/\Arev-1.dev@athena\nrole +reviewer\nunread +0\n/, out)
+    assert_match(%r{\nreach +rev-1.dev@athena/#{session}\nharness +claude\nsession +pid 111\njoined +0s ago\n\z}, out)
     assert_equal 'person.local@athena', JSON.parse(keryx('whoami', '-o', 'json').out)['address']
   end
 

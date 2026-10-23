@@ -119,7 +119,7 @@ module Keryx
       end
 
       def own_team
-        own = app.own_address&.then { Address.from_key(it, host: app.host) }
+        own = app.own_address&.then { Address.from_name(it, host: app.host) }
         own.team unless own.nil? || own.reserved?
       end
 

@@ -37,7 +37,7 @@ module Keryx
     def member(name, sender)
       Address.validate_name(name)
       sender = sender.call if sender.respond_to?(:call)
-      team = sender && Address.from_key(sender, host: @host).team
+      team = sender && Address.from_name(sender, host: @host).team
       return Address.new(member: name, team:, host: @host) if team && !Address::RESERVED.include?(team)
 
       only(name)

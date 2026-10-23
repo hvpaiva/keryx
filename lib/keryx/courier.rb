@@ -93,7 +93,7 @@ module Keryx
     def recipients(roster, name, occupant)
       director = Address.from_key(occupant.director, host: @host) if occupant.director
       director ||= oldest_request(roster, name)&.then { Address.parse(it.from) }
-      [Address.from_key(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
+      [Address.from_name(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
     end
 
     # keryx's notices reach an address from before team names only while a session here holds it.
@@ -121,7 +121,7 @@ module Keryx
 
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
     rescue Error, SystemCallError => e
-      @errors << "could not tell #{recipient} about the context of #{name}@#{@host}; #{e.message}"
+      @errors << "could not tell #{recipient} about the context of #{full(name)}; #{e.message}"
       nil
     end
 
@@ -161,7 +161,7 @@ module Keryx
       @store.claim(name, mark, CONTEXT_CLAIM, id) { Ulid.valid?(it) }
     rescue Store::Damaged => e
       @store.problems << e.message
-      @errors << "the #{stage} notice of #{name}@#{@host} to #{recipient} writes a fresh id over its damaged claim; " \
+      @errors << "the #{stage} notice of #{full(name)} to #{recipient} writes a fresh id over its damaged claim; " \
                  "#{e.message}"
       @store.reclaim(name, mark, CONTEXT_CLAIM, id)
     end
@@ -174,13 +174,15 @@ module Keryx
       Ulid.after(near)
     rescue Error => e
       @store.problems << e.message
-      @errors << "the ceiling notice of #{name}@#{@host} to #{recipient} takes a fresh id and may sort before the " \
+      @errors << "the ceiling notice of #{full(name)} to #{recipient} takes a fresh id and may sort before the " \
                  "notice near it; #{e.message}"
       nil
     end
 
+    def full(name) = Address.from_name(name, host: @host)
+
     def notice(name, context, ceiling, stage)
-      used = "#{name}@#{@host} has #{Tokens.short(context.used)} tokens of context in use, " \
+      used = "#{full(name)} has #{Tokens.short(context.used)} tokens of context in use, " \
              "#{context.share_of(ceiling)}% of its #{Tokens.short(ceiling)} ceiling."
       return "#{used} It reached its ceiling and should reach a stopping point now." if stage == :ceiling
 

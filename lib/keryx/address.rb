@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'securerandom'
 require 'socket'
 require_relative 'error'
 
@@ -42,6 +43,21 @@ module Keryx
       parts = KEY.match(key.to_s) or raise Error, "invalid name #{key.to_s.inspect}: #{NAME_RULE}, with .TEAM " \
                                                   'spelled the same'
       new(member: parts[:member], team: parts[:team], host:)
+    end
+
+    # KEY, or KEY/SESSION for one incarnation of the address: how a command names the session it acts as.
+    def self.from_name(name, host:)
+      key, session = name.to_s.split('/', 2)
+      address = from_key(key, host:)
+      session.nil? ? address : parse("#{address}/#{session}")
+    end
+
+    # A session id that none of TAKEN, the sessions bound to the address, already has.
+    def self.draw_session(taken = [], random: SecureRandom)
+      loop do
+        session = Array.new(SESSION_SIZE) { SESSION_ALPHABET[random.random_number(SESSION_ALPHABET.size)] }.join
+        return session unless taken.include?(session)
+      end
     end
 
     def self.key?(text) = KEY.match?(text.to_s)
@@ -87,6 +103,8 @@ module Keryx
     private_class_method :valid_host
 
     def key = team ? "#{member}.#{team}" : member
+
+    def name = session ? "#{key}/#{session}" : key
 
     def stable = with(session: nil)
 

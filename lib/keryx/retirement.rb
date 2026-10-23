@@ -40,7 +40,7 @@ module Keryx
     # that a session restarted in the old pane would find as its own.
     def retire(name, by:, now:)
       require_address(name)
-      unbind(name)
+      incarnations(name).each { unbind(it) }
       forget_spawned(name)
       write_atomic(retired_file(name), JSON.generate(RetiredRecord.new(retired_at: now, by:).record))
     end

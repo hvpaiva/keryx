@@ -6,6 +6,7 @@ require_relative 'bell'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'message'
+require_relative 'postman'
 require_relative 'retirement'
 require_relative 'ulid'
 
@@ -14,11 +15,12 @@ module Keryx
     FRAME_LIMIT = (6 * Message::MAX_BODY_BYTES) + 4096
     CLAIMED_ID = /"id":"(?<id>[0-9A-HJKMNP-TV-Z]{26})"/
 
-    def initialize(store:, bell:, host:, person:)
+    def initialize(store:, bell:, host:, person:, live: ->(_name) {})
       @store = store
       @bell = bell
       @host = host
       @person = person
+      @live = live
     end
 
     def receive_all(input, &)
@@ -39,7 +41,7 @@ module Keryx
 
       @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
       status = @store.deliver(to.key, message)
-      receipt(message.id, status.to_s, bell: (ring(to.key, message) if status == :delivered))
+      receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
     rescue Error => e
       receipt(claimed_id(line), 'refused', detail: e.message)
     rescue StandardError => e
@@ -73,7 +75,7 @@ module Keryx
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
-      flat(message, from, to)
+      Postman.session_left(@store, to, @live) || flat(message, from, to)
     end
 
     # An address from before team names only finishes its threads, whichever format carried the message.
@@ -87,7 +89,7 @@ module Keryx
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
     def retired(message, to)
-      return if message.withdrawal? && @store.mailbox(to.key).any? { message.withdraws?(it.message) }
+      return if message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }
 
       format(Retirement::RETIRED, to)
     end

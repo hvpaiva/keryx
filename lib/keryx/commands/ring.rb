@@ -15,7 +15,11 @@ module Keryx
                      examples: [['Retry every pending bell', 'ring'], ['Retry one address', 'ring rev-1']]
 
       def call(arguments)
-        names = arguments.empty? ? app.store.current_names : arguments.map { local_name(it) }
+        names = if arguments.empty?
+                  app.store.current_names.flat_map { app.store.incarnations(it) }
+                else
+                  local_names(arguments)
+                end
         waiting = names.filter_map { ring(it) }
         terminal.puts('Nothing to ring: no address has unread messages.') if waiting.empty?
         nil
@@ -23,12 +27,14 @@ module Keryx
 
       private
 
-      def local_name(text)
-        address = app.address(text, flat: true)
-        raise Error, "#{address} is on another machine" unless address.local?(app.host)
-        raise Error, "no address #{address}" unless app.store.address?(address.key)
+      def local_names(texts)
+        texts.map do |text|
+          address = app.address(text, flat: true)
+          raise Error, "#{address} is on another machine" unless address.local?(app.host)
+          raise Error, "no address #{address}" unless app.store.address?(address.key)
 
-        address.key
+          address.name
+        end
       end
 
       def ring(name)

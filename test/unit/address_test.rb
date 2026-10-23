@@ -115,4 +115,21 @@ class AddressTest < Minitest::Test
     assert_equal 'my-mac', Keryx::Address.local_host({}, hostname: 'My_Mac')
     assert_equal 'localhost', Keryx::Address.local_host({}, hostname: '')
   end
+
+  def test_a_name_with_a_session_reads_as_that_incarnation_and_prints_back
+    address = Keryx::Address.from_name('rev-1.dev/k3m9qz', host: 'athena')
+
+    assert_equal ['rev-1.dev@athena/k3m9qz', 'rev-1.dev/k3m9qz', 'rev-1.dev'],
+                 [address.to_s, address.name, Keryx::Address.from_name('rev-1.dev', host: 'athena').name]
+    assert_raises(Keryx::Error) { Keryx::Address.from_name('rev-1.dev/K3M9QZ', host: 'athena') }
+    assert_raises(Keryx::Error) { Keryx::Address.from_name('rev-1/k3m9qz', host: 'athena') }
+  end
+
+  def test_a_drawn_session_is_in_the_alphabet_and_never_one_already_bound
+    draws = Array.new(6, 0) + Array.new(6, 1)
+    random = Object.new.tap { it.define_singleton_method(:random_number) { |_limit| draws.shift } }
+
+    assert_equal '111111', Keryx::Address.draw_session(['000000'], random:)
+    assert_match Keryx::Address::SESSION, Keryx::Address.draw_session
+  end
 end

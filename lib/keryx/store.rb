@@ -9,6 +9,7 @@ require_relative 'files'
 require_relative 'message'
 require_relative 'occupant'
 require_relative 'outbox'
+require_relative 'incarnations'
 require_relative 'retirement'
 require_relative 'spawned'
 
@@ -31,6 +32,7 @@ module Keryx
 
   class Store
     include Files
+    include Incarnations
     include Retirement
 
     class Busy < Error; end
@@ -99,11 +101,13 @@ module Keryx
       record
     end
 
+    # NAME is an address's key, or KEY/SESSION for one of its incarnations; see Incarnations.
     def occupant(name)
-      data = read_json(occupant_file(name)) or return nil
+      path = occupant_path(name)
+      data = read_json(path) or return nil
       Occupant.from_record(data)
     rescue ArgumentError, KeyError, TypeError, NotAnObject
-      raise Error, "#{occupant_file(name)} is damaged"
+      raise Error, "#{path} is damaged"
     end
 
     # A command that walks every address goes on past a file it cannot read: the file is reported once as a problem,
@@ -117,10 +121,10 @@ module Keryx
 
     def bind(name, occupant)
       require_address(name)
-      write_atomic(occupant_file(name), JSON.generate(occupant.record))
+      write_atomic(occupant_path(name), JSON.generate(occupant.record))
     end
 
-    def unbind(name) = FileUtils.rm_f(occupant_file(name))
+    def unbind(name) = FileUtils.rm_f(occupant_path(name))
 
     # What spawn recorded about the session it started, until a session joins the address. A damaged record is none,
     # since the join that reads it removes it.
@@ -152,14 +156,18 @@ module Keryx
       drop_in(box(name), MAIL, message)
     end
 
-    def mailbox(name)
+    # Every message the address holds, whichever of its incarnations it was sent to.
+    def stored(name)
       read = read_ids(name)
       messages_in(File.join(box(name), MAIL)).map { StoredMessage.new(it, read.include?(it.id) ? :read : :unread) }
     end
 
+    # What the incarnation NAME lists; see Incarnations#sees.
+    def mailbox(name) = sees(name).then { |seen| stored(name).select { seen.call(it.message) } }
+
     def unread(name)
       read = read_ids(name)
-      messages_in(File.join(box(name), MAIL)) { !read.include?(it) }
+      messages_in(File.join(box(name), MAIL)) { !read.include?(it) }.select(&sees(name))
     end
 
     # By id, each request among MESSAGES that its own sender withdrew in the mailbox of NAME, with that withdrawal.
@@ -173,12 +181,11 @@ module Keryx
 
     def find(name, reference)
       reference = Store.reference(reference)
-      ids = ids_in(File.join(box(name), MAIL)).select { it.start_with?(reference) }
+      found = messages_in(File.join(box(name), MAIL)) { it.start_with?(reference) }.select(&sees(name, by_id: true))
+      ids = found.map(&:id)
       raise Error, "#{reference} matches #{ids.size} messages (#{ids.join(', ')}); type more of the id" if ids.size > 1
 
-      message = ids.one? && read_message(File.join(box(name), MAIL, "#{ids.first}.json"))
-      raise Error, "no message #{reference} in the mailbox of #{name}" unless message
-
+      message = found.first or raise Error, "no message #{reference} in the mailbox of #{name}"
       StoredMessage.new(message, read_ids(name).include?(message.id) ? :read : :unread)
     end
 
@@ -192,19 +199,12 @@ module Keryx
     def outbox = @outbox ||= Outbox.new(root, problems: @problems)
 
     def all_messages
-      kept = address_names.flat_map { |name| mailbox(name).map { [name, it] } }
+      kept = address_names.flat_map { |name| stored(name).map { [name, it] } }
       sent = outbox.outgoing.reject { it.state == :refused }.map { [nil, StoredMessage.new(it.message, it.state)] }
       kept + sent
     end
 
     def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
-
-    def sent_requests(name)
-      all_messages.filter_map do |holder, stored|
-        request = stored.message
-        [holder, request] if request.request? && Store.sender_here(holder, request) == name
-      end
-    end
 
     def write_receipt(name, id, kind, data)
       write_atomic(receipt_file(name, id, kind), JSON.generate(data))
@@ -286,11 +286,7 @@ module Keryx
       end
     end
 
-    def box(name)
-      raise Error, "invalid name #{name.to_s.inspect}: #{Address::NAME_RULE}" unless Address.key?(name)
-
-      File.join(root, ADDRESSES, name)
-    end
+    def box(name) = File.join(root, ADDRESSES, split(name).first)
 
     def address_file(name) = File.join(box(name), 'address.json')
 

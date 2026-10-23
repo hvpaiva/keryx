@@ -72,11 +72,13 @@ module Keryx
 
     def postman
       @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name,
-                               measure: ->(name) { context_of(name) },
-                               live: ->(name) { roster.live?(store.reporting { store.occupant(name) }) })
+                               measure: ->(name) { context_of(name) }, live:)
     end
 
-    def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
+    def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name, live:)
+
+    # Whether the session of the incarnation NAME runs.
+    def live = ->(name) { roster.live?(store.reporting { store.occupant(name) }) }
 
     def courier
       @courier ||= Courier.new(store:, forwarder:, bell:, postman:, host:, clock:,
@@ -122,7 +124,7 @@ module Keryx
     # before team names, which only finishes its threads.
     def address(text, flat: false) = resolver.resolve(text, sender: -> { own_address }, flat:)
 
-    def full(name) = "#{name}@#{host}"
+    def full(name) = Address.from_name(name, host:).to_s
 
     # Each problem is taken once for the life of the process, and the lists are emptied since the courier never ends.
     def take_problems
