@@ -27,7 +27,10 @@ module PresenceHelpers
 
   def carry_thread(thread, *pids) = pids.each { processes.environments[it] = { 'CODEX_THREAD_ID' => thread } }
 
-  def session(name) = JSON.parse(keryx('who', '-o', 'json').out).find { it['address'] == "#{name}@athena" }['session']
+  def session(name)
+    addresses = JSON.parse(keryx('who', '--all', '-o', 'json').out)['addresses']
+    addresses.find { it['address'] == "#{name}@athena" }['session']
+  end
 
   # A record written before keryx kept processes has no start field at all.
   def bind_impl(older: false, **fields)

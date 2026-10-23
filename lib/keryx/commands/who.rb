@@ -2,6 +2,7 @@
 
 require_relative '../cli/command'
 require_relative '../cli/context_view'
+require_relative '../cli/short_view'
 require_relative '../cli/table'
 
 module Keryx
@@ -19,24 +20,43 @@ module Keryx
       define 'who', section: 'Session Commands',
                     summary: 'List the addresses on this machine',
                     description: "List the addresses on this machine and the sessions holding them.\n\n" \
+                                 "#{CLI::ShortView::HELP} The last line says how many it left out, and --all " \
+                                 'lists every address. With -o json, view says which list it is, short or all, and ' \
+                                 "hidden how many addresses it left out.\n\n" \
                                  'SESSION is none when no session holds the address, gone when the session ended, ' \
                                  "live when its process runs, or herdr's view of the agent (idle, working, " \
                                  "blocked, done) when herdr sees it in its pane.\n\n" \
                                  "#{CONTEXT}",
-                    examples: [['See who can receive messages', 'who'], ['List addresses for a script', 'who -o json']]
+                    examples: [['See who can receive messages', 'who'],
+                               ['List every address, those nobody holds included', 'who --all'],
+                               ['List addresses for a script', 'who -o json']]
 
-      def define_options(parser) = output_option(parser)
+      def define_options(parser)
+        CLI::ShortView.option(parser, options)
+        output_option(parser)
+      end
 
       def call(_arguments)
-        entries = app.roster.entries
-        return print_json(entries.map { record(it) }) if json?
+        roster = app.roster
+        entries = roster.entries
+        view = CLI::ShortView.of(entries, all: options[:all]) { roster.open_requests }
+        return print_json(json(view)) if json?
         return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
+
+        print_table(view.entries)
+        view.note('who')&.then { terminal.puts(terminal.paint(:muted, it)) }
+      end
+
+      private
+
+      def print_table(entries)
+        return if entries.empty?
 
         terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE HARNESS SESSION CONTEXT UNREAD],
                                         entries.map { row(it) }))
       end
 
-      private
+      def json(view) = { 'view' => view.name, 'hidden' => view.hidden, 'addresses' => view.entries.map { record(it) } }
 
       def row(entry)
         [[:address, app.full(entry.name)], entry.role || '-', entry.occupant&.harness || '-',

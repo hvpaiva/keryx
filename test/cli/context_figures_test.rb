@@ -43,9 +43,11 @@ class ContextFiguresTest < Minitest::Test
                                'HERDR_PANE_ID' => pane })
   end
 
-  def who = keryx('who').out.lines.drop(1).to_h { it.strip.split(/ {3,}/).values_at(0, 4) }
+  def who = keryx('who', '--all').out.lines.drop(1).to_h { it.strip.split(/ {3,}/).values_at(0, 4) }
 
-  def who_json = JSON.parse(keryx('who', '-o', 'json').out).to_h { [it['address'], it['context']] }
+  def who_json
+    JSON.parse(keryx('who', '--all', '-o', 'json').out)['addresses'].to_h { [it['address'], it['context']] }
+  end
 
   def test_who_shows_what_each_harness_reports_and_nothing_for_a_session_that_ended
     claude_transcript(111)

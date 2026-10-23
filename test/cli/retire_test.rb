@@ -89,7 +89,9 @@ class RetireTest < Minitest::Test
     status = JSON.parse(keryx('status', '-o', 'json').out)
 
     refute_includes keryx('who').out, 'rev-1@'
+    refute_includes keryx('who', '--all').out, 'rev-1@'
     refute_includes status['addresses'].map { it['address'] }, 'rev-1@athena'
+    refute_includes keryx('status', '--all').out, 'rev-1@'
     assert_empty status['not_rung']
   end
 

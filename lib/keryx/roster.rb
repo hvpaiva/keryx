@@ -2,6 +2,7 @@
 
 require_relative 'lookout'
 require_relative 'processes'
+require_relative 'store'
 
 module Keryx
   class Roster
@@ -10,6 +11,9 @@ module Keryx
 
       # The bell reads the occupant again, so a session whose occupant could not be read is never rung.
       def ringable? = !occupant.nil? && !ended?
+
+      # Nobody holds the address and nobody writes to it: no session, nothing unread and no request waiting on it.
+      def quiet?(waiting) = ended? && unread.zero? && !waiting.include?(name)
     end
     ACTIVITY = %w[idle working blocked done].freeze
     UNKNOWN = 'unknown'
@@ -53,6 +57,11 @@ module Keryx
     def settlement(request) = @store.all_messages.map { it.last.message }.find { Roster.settles?(it, request) }
 
     def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
+
+    # The addresses here that open requests wait on, as their recipient or as the address that sent them from here.
+    def self.waiting_on(open)
+      open.flat_map { |holder, stored| [holder, Store.sender_here(holder, stored.message)] }.compact.to_set
+    end
 
     private
 

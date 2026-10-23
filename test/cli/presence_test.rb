@@ -119,7 +119,7 @@ class PresenceTest < Minitest::Test
 
     assert_equal [1, 1, 1], statuses
     assert_equal [111, 'thread-1', 'thread-2'], kept
-    assert_equal 'live', JSON.parse(keryx('who', '-o', 'json').out).find { it['address'] == 'rev-1@athena' }['session']
+    assert_equal 'live', session('rev-1')
   end
 
   def test_the_reply_note_promises_no_bell_the_bell_would_not_ring

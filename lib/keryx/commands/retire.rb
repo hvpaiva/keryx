@@ -13,11 +13,11 @@ module Keryx
                                     "releases with 'keryx leave', and while a request sent to it waits for its " \
                                     'answer or one it sent waits for a reply. The refusal names each request and ' \
                                     "the command that settles it, such as 'keryx reply ID --as NAME'.\n\n" \
-                                    'Once retired, the address is gone from keryx who and keryx status, mail to it ' \
-                                    'is refused, from this machine and from others, and no command acts as it with ' \
-                                    '--as. Its files stay where they were, under addresses/NAME in the keryx state ' \
-                                    "directory, and 'keryx join NAME --revive' brings it back with its mailbox as " \
-                                    "it was.\n\n" \
+                                    'Once retired, the address is gone from keryx who and keryx status, even with ' \
+                                    '--all, mail to it is refused, from this machine and from others, and no ' \
+                                    'command acts as it with --as. Its files stay where they were, under ' \
+                                    "addresses/NAME in the keryx state directory, and 'keryx join NAME --revive' " \
+                                    "brings it back with its mailbox as it was.\n\n" \
                                     'An address is retired on the machine that has it, since only that machine ' \
                                     'sees its session and its mail.',
                        examples: [['Retire the address of a reviewer whose session ended', 'retire rev-1'],
