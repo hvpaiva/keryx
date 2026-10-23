@@ -76,6 +76,8 @@ module CLIHelpers
 
   def clock = @clock ||= Clock.new(Factory::NOW)
 
+  def monotonic = @monotonic ||= Clock.new(0)
+
   def codex = @codex ||= FakeCodexQueue.new
 
   def sockets = @sockets ||= FakeClaudeSockets.new
@@ -117,7 +119,8 @@ module CLIHelpers
     terminal = Keryx::CLI::Terminal.new(out:, err:, input: StringIO.new(input), env: base_env.merge(env))
     factory = lambda do |globals|
       Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets, codex:,
-                     remote:, sleeper: ->(seconds) { clock.advance(seconds) }, processes:)
+                     remote:, sleeper: ->(seconds) { [clock, monotonic].each { it.advance(seconds) } }, processes:,
+                     monotonic:)
     end
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)
   end

@@ -46,17 +46,19 @@ module Keryx
 
       private
 
-      def deadline = options[:timeout] && (app.now + Duration.parse(options[:timeout]))
+      def deadline = options[:timeout] && (app.monotonic.call + Duration.parse(options[:timeout]))
 
       def poll(name, holder, request, deadline)
         loop do
           settled = reply(name, request) || withdrawal(holder, request)
           return settled if settled
-          raise WaitTimeout, "no reply to #{request.id} from #{request.to} yet" if deadline && app.now >= deadline
+          raise WaitTimeout, "no reply to #{request.id} from #{request.to} yet" if passed?(deadline)
 
           app.sleeper.call(POLL_SECONDS)
         end
       end
+
+      def passed?(deadline) = deadline && app.monotonic.call >= deadline
 
       def reply(name, request) = app.store.mailbox(name).map(&:message).find { it.answers?(request) }
 
