@@ -92,25 +92,38 @@ class SpawnPlacementTest < Minitest::Test
     assert_empty herdr.created_tabs
   end
 
-  def test_a_layout_herdr_cannot_give_leaves_this_pane_split_as_before
+  def test_a_layout_herdr_cannot_give_opens_a_new_tab_instead_of_splitting_a_pane_it_could_not_measure
     herdr.layout_error = 'herdr pane layout failed: unrecognized subcommand'
     session_joins
     result = spawn('rev-1', '--harness', 'claude')
 
     assert_equal 0, result.status, result.err
-    assert_equal [['w1:p1', 'right', '/work', session_env]], herdr.splits
+    assert_empty herdr.splits
+    assert_equal [['w1', 'rev-1', '/work', session_env]], herdr.created_tabs
     assert_equal 'spawn could not read the layout of pane w1:p1: herdr pane layout failed: unrecognized subcommand; ' \
-                 "it splits pane w1:p1 without checking its size.\n", result.err
+                 "it opens a new tab rather than split a pane it could not measure.\n", result.err
   end
 
-  def test_a_layout_without_panes_leaves_the_last_pane_of_the_tab_split_as_before
+  def test_a_layout_without_panes_opens_a_new_tab_with_the_label
     workspace(%w[w1:t1 main] => { 'w1:p1' => AREA }, %w[w1:t2 agents] => { 'w1:p2' => nil, 'w1:p3' => nil })
     session_joins
     result = spawn('rev-1', '--harness', 'claude', '--tab', 'agents', '--split', 'down')
 
     assert_equal 0, result.status, result.err
-    assert_equal([%w[w1:p3 down]], herdr.splits.map { it.first(2) })
-    assert_match(/\Aspawn could not read the layout of pane w1:p3: herdr answered without a pane layout; it splits /,
+    assert_empty herdr.splits
+    assert_equal [['w1', 'agents', '/work', session_env]], herdr.created_tabs
+    assert_match(/\Aspawn could not read the layout of pane w1:p3: herdr answered without a pane layout; it opens a /,
                  result.err)
+  end
+
+  def test_one_tab_whose_layout_herdr_cannot_give_opens_a_new_tab_though_another_has_room
+    workspace(%w[w1:t1 main] => { 'w1:p1' => AREA }, %w[w1:t2 agents] => { 'w1:p2' => [200, 48] },
+              %w[w1:t3 agents] => { 'w1:p3' => nil })
+    session_joins
+    result = spawn('rev-1', '--harness', 'claude', '--tab', 'agents')
+
+    assert_equal 0, result.status, result.err
+    assert_empty herdr.splits
+    assert_equal [['w1', 'agents', '/work', session_env]], herdr.created_tabs
   end
 end

@@ -202,9 +202,9 @@ pane the floor of half the pane it splits, so spawn splits the pane that leaves 
 room along the split direction, provided the new one gets at least 80 columns and 24 rows, and
 otherwise opens a new tab. That minimum is the classic terminal: Cursor's trust box (about 76
 columns), its footer and Codex's hooks screen keep whole lines, which the bell and the context
-reading need, and it holds the 20 lines the bell reads with Cursor's 4 footer lines. A herdr that
-gives no layout gets the split of the caller's pane, or of the tab's last pane, with a notice.
-Splitting is the only change spawn makes to a pane it did not create. `Spawner` then labels the new
+reading need, and it holds the 20 lines the bell reads with Cursor's 4 footer lines. When herdr
+gives no layout for one of those panes, spawn opens the new tab too, with a notice, and never splits
+a pane it could not measure. Splitting is the only change spawn makes to a pane it did not create. `Spawner` then labels the new
 pane with the address's name, and runs
 `herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
 that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial

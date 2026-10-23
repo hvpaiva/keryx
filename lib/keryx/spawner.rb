@@ -21,9 +21,9 @@ module Keryx
                 'splits the one that leaves the new pane the most room along --split, provided the new pane gets at ' \
                 "least #{MIN_COLUMNS} columns and #{MIN_ROWS} rows, which keep a harness's dialogs and footer on " \
                 'whole lines; when no pane has that room, it opens a new tab labelled LABEL, or NAME without --tab. ' \
-                'When herdr gives no layout, it splits this pane, or the last pane of the tab LABEL, without ' \
-                'checking its size. Splitting is the only change spawn makes to a pane it did not create, and it ' \
-                'labels the new pane NAME.'.freeze
+                'When herdr gives no layout for one of those panes, it opens that new tab too, and never splits a ' \
+                'pane it could not measure. Splitting is the only change spawn makes to a pane it did not create, ' \
+                'and it labels the new pane NAME.'.freeze
     WAITING = 'A dialog in the new pane, such as a folder trust or permission question, stops the session. spawn ' \
               'quotes the dialog once, on stderr and in a message from keryx to the address spawn runs as, when ' \
               'there is one, which rings that address, and keeps waiting; it never answers the dialog. The session ' \
@@ -141,8 +141,7 @@ module Keryx
 
     # A split of the pane of these panes' tabs that leaves the new one the most room, or else a new tab.
     def fitted(through, label, split:, cwd:, env:)
-      rects = layouts(through) or return -> { @herdr.split(@socket, through.first, direction: split, cwd:, env:) }
-      best = roomiest(rects, split)
+      best = layouts(through)&.then { roomiest(it, split) }
       return -> { @herdr.split(@socket, best.pane, direction: split, cwd:, env:) } if best
 
       workspace = yield
@@ -153,8 +152,8 @@ module Keryx
       through.flat_map do |pane|
         @herdr.layout(@socket, pane)
       rescue Error => e
-        @notice.call("spawn could not read the layout of pane #{pane}: #{e.message}; it splits pane #{through.first} " \
-                     'without checking its size.')
+        @notice.call("spawn could not read the layout of pane #{pane}: #{e.message}; it opens a new tab rather than " \
+                     'split a pane it could not measure.')
         return nil
       end
     end
