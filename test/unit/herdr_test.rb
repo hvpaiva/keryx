@@ -56,6 +56,15 @@ class HerdrTest < Minitest::Test
     assert_nil Keryx::Herdr.new(runner: FakeRunner.new).screen(SOCKET, 'w1:p1')
   end
 
+  def test_footer_reads_the_bottom_lines_of_the_visible_screen
+    runner = FakeRunner.new(%w[herdr pane read] => { out: "model 300K\n" })
+
+    assert_equal "model 300K\n", Keryx::Herdr.new(runner:).footer(SOCKET, 'w1:p1')
+    assert_equal ['herdr', 'pane', 'read', 'w1:p1', '--source', 'visible', '--lines', '4'],
+                 runner.argvs.first
+    assert_nil Keryx::Herdr.new(runner: FakeRunner.new).footer(SOCKET, 'w1:p1')
+  end
+
   def test_prompt_reports_herdr_error_codes
     blocked = { success: false, err: '{"error":{"code":"agent_blocked","message":"agent is blocked"}}' }
     outcome = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent prompt] => blocked)).prompt(SOCKET, 'w1:p1', 'hi')

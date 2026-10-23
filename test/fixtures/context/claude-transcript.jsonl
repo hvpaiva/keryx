@@ -1,0 +1,7 @@
+{"type":"user","isSidechain":false,"sessionId":"session-1","message":{"role":"user","content":"Review the retry path"}}
+{"type":"assistant","isSidechain":false,"sessionId":"session-1","message":{"model":"claude-test","role":"assistant","content":[{"type":"text","text":"Reading retry.py"}],"usage":{"input_tokens":4,"cache_creation_input_tokens":1200,"cache_read_input_tokens":110000,"output_tokens":80}}}
+{"type":"assistant","isSidechain":false,"sessionId":"session-1","message":{"model":"claude-test","role":"assistant","content":[{"type":"text","text":"The retry path waits twice"}],"usage":{"input_tokens":3,"cache_creation_input_tokens":1200,"cache_read_input_tokens":120000,"output_tokens":40}}}
+{"type":"assistant","isSidechain":true,"sessionId":"session-1","message":{"model":"claude-test","role":"assistant","content":[{"type":"text","text":"A helper's turn"}],"usage":{"input_tokens":5,"cache_creation_input_tokens":0,"cache_read_input_tokens":9000,"output_tokens":12}}}
+{"type":"assistant","isSidechain":false,"sessionId":"session-1","message":{"model":"<synthetic>","role":"assistant","content":[{"type":"text","text":"API Error"}],"usage":{"input_tokens":0,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}}
+{"type":"user","isSidechain":false,"sessionId":"session-1","message":{"role":"user","content":[{"type":"tool_result","content":"log line \"usage\":{\"input_tokens\":999999}"}]}}
+{"type":"system","subtype":"turn_duration","isSidechain":false,"sessionId":"session-1","durationMs":5200}

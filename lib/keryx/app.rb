@@ -9,6 +9,7 @@ require_relative 'forwarder'
 require_relative 'herdr'
 require_relative 'identity'
 require_relative 'lookout'
+require_relative 'meter'
 require_relative 'paths'
 require_relative 'postman'
 require_relative 'processes'
@@ -76,6 +77,8 @@ module Keryx
 
     def roster = @roster ||= Roster.new(store:, herdr:, lookout:)
 
+    def meter = @meter ||= Meter.new(env:, herdr:, lookout:)
+
     def me
       @me ||= identity.current(as: @as).tap { refresh(it) unless @as }
     end
@@ -117,7 +120,9 @@ module Keryx
       store.bind(name, current == occupant ? fresh : renewed(current)) if current && caller.holds?(current)
     end
 
-    def renewed(occupant) = session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd)
+    def renewed(occupant)
+      session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd, transcript: occupant.transcript)
+    end
 
     def harness_process(previous, &) = (previous&.pid && kept(previous)) || current_process(&)
 

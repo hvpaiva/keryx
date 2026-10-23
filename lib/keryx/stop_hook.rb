@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require_relative 'error'
 require_relative 'identity'
+require_relative 'meter'
 require_relative 'roster'
 
 module Keryx
@@ -17,7 +19,9 @@ module Keryx
     # Prepares the marks before the block and keeps them after it, so a hook cut off in between reminds again.
     def decide(payload)
       harness = harness_of(payload)
-      name = Identity.new(store: @store, caller: session_caller(harness, payload), env: {}).held
+      caller = session_caller(harness, payload)
+      name = Identity.new(store: @store, caller:, env: {}).held
+      record_transcript(name, caller, payload) if harness == 'claude'
       pending = name ? pending(name) : {}
       decision = decision(harness, reminder(name, pending)) or return
 
@@ -48,6 +52,28 @@ module Keryx
       session = payload[harness == 'cursor' ? 'conversation_id' : 'session_id']
       @caller.with(harness:, session_id: session, pid: nil, claude_socket: nil)
     end
+
+    # Claude Code names a session's transcript only to its hooks, and the meter derives it otherwise. Recording is
+    # best effort and never waits for the lock, so it cannot hold up the end of a turn.
+    def record_transcript(name, caller, payload)
+      path = new_transcript(name, payload) or return
+
+      @store.with_occupants_lock(within: 0) do
+        current = @store.occupant(name)
+        @store.bind(name, current.with(transcript: path)) if current && caller.holds?(current) && own?(current, path)
+      end
+    rescue Error, SystemCallError
+      nil
+    end
+
+    # Only the transcript of the session the occupant records, which a session restarted under the same process is not.
+    def new_transcript(name, payload)
+      occupant = name && @store.occupant(name) or return
+      path = Meter.transcript(payload['transcript_path'], payload['session_id'])
+      path if path && occupant.transcript != path && own?(occupant, path)
+    end
+
+    def own?(occupant, path) = File.basename(path) == "#{occupant.session_id}.jsonl"
 
     def pending(name)
       { UNREAD_MARK => @store.unread(name), UNANSWERED_MARK => unanswered_requests(name) }

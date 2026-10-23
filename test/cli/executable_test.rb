@@ -10,11 +10,12 @@ class ExecutableTest < Minitest::Test
   EXE = File.expand_path('../../exe/keryx', __dir__)
   INHERITED = %w[CLAUDECODE CLAUDE_PID CLAUDE_CODE_SESSION_ID CLAUDE_CODE_MESSAGING_SOCKET HERDR_SOCKET_PATH KERYX_SSH
                  HERDR_PANE_ID CODEX_THREAD_ID CURSOR_CONVERSATION_ID KERYX_AS KERYX_COLOR KERYX_REMOTE_COMMAND NO_COLOR
-                 FORCE_COLOR].freeze
+                 FORCE_COLOR CLAUDE_CONFIG_DIR CODEX_HOME].freeze
 
   def run_keryx(*argv, env: {}, input: '')
     base = INHERITED.to_h { [it, nil] }.merge('KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena',
-                                              'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person')
+                                              'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person',
+                                              'HOME' => tmp('home'))
     Open3.capture3(base.merge(env), RbConfig.ruby, EXE, *argv, stdin_data: input)
   end
 
