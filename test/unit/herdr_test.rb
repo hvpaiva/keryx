@@ -4,6 +4,10 @@ require 'test_helper'
 
 class HerdrTest < Minitest::Test
   SOCKET = '/run/user/1000/herdr.sock'
+  WRONG_SHAPES = ['[]', 'true', '7', '"idle"', 'null', '{"result":[]}', '{"result":true}'].freeze
+  AGENT = { 'pane_id' => 'w1:p2', 'agent' => 'codex', 'agent_status' => 'idle' }.freeze
+  MALFORMED_AGENTS = [true, 7, [], {}, AGENT.merge('pane_id' => 2), AGENT.merge('agent' => nil),
+                      AGENT.merge('agent_status' => ['idle']), AGENT.except('agent_status')].freeze
 
   def agent_json(pane, kind, status, session: nil)
     agent = { 'pane_id' => pane, 'agent' => kind, 'agent_status' => status, 'agent_session' => session }.compact
@@ -46,6 +50,58 @@ class HerdrTest < Minitest::Test
 
     assert_equal([%w[claude s-1]], agents.map { [it.kind, it.session] })
     assert_empty Keryx::Herdr.new(runner: FakeRunner.new).agents(SOCKET)
+  end
+
+  def answering(command, out) = Keryx::Herdr.new(runner: FakeRunner.new(command => { out: }))
+
+  def test_look_takes_an_answer_of_the_wrong_shape_for_no_answer
+    answers = WRONG_SHAPES + ['{"result":{"agent":[]}}', '{"result":{"agent":"codex"}}'] +
+              MALFORMED_AGENTS.map { JSON.generate('result' => { 'agent' => it }) }
+    looks = answers.map { answering(%w[herdr agent get], it).look(SOCKET, 'w1:p2') }
+
+    assert_equal [nil] * answers.size, looks
+  end
+
+  def test_look_still_tells_a_pane_herdr_says_is_gone
+    gone = %w[agent_not_found pane_not_found].map do |code|
+      refused = { success: false, err: JSON.generate('result' => [], 'error' => { 'code' => code }) }
+      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent get] => refused)).look(SOCKET, 'w1:p2')
+    end
+
+    assert_equal [Keryx::Herdr::NONE] * 2, gone
+  end
+
+  def test_an_agent_session_of_the_wrong_shape_is_no_session
+    sessions = [{ 'kind' => 'id', 'value' => 7 }, { 'kind' => 'id' }, 'thread-1', %w[id thread-1]].map do |session|
+      answering(%w[herdr agent get], JSON.generate('result' => { 'agent' => AGENT.merge('agent_session' => session) }))
+        .agent(SOCKET, 'w1:p2')
+    end
+
+    assert_equal [Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'codex', status: 'idle')] * 4, sessions
+  end
+
+  def test_foreground_reads_the_group_only_from_an_answer_of_the_right_shape
+    info = ->(value) { JSON.generate('result' => { 'process_info' => { 'foreground_process_group_id' => value } }) }
+    wrong = WRONG_SHAPES + ['{"result":{"process_info":[]}}', '{"result":{"process_info":7}}', info.call('500'),
+                            info.call(0)]
+    foreground = ->(answer) { answering(%w[herdr pane process-info], answer).foreground(SOCKET, 'w1:p2') }
+
+    assert_equal [nil] * wrong.size, wrong.map(&foreground)
+    assert_equal 500, foreground.call(info.call(500))
+  end
+
+  def test_agents_takes_a_list_of_the_wrong_shape_for_no_agents
+    answers = WRONG_SHAPES + ['{"result":{"agents":{}}}', '{"result":{"agents":"w1:p2"}}', '{"result":{"agents":7}}']
+    lists = answers.map { answering(%w[herdr agent list], it).agents(SOCKET) }
+
+    assert_equal [[]] * answers.size, lists
+  end
+
+  def test_agents_drops_the_records_of_the_wrong_shape_and_keeps_the_rest
+    list = JSON.generate('result' => { 'agents' => [*MALFORMED_AGENTS.first(4), AGENT, *MALFORMED_AGENTS.drop(4)] })
+
+    assert_equal [Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'codex', status: 'idle')],
+                 answering(%w[herdr agent list], list).agents(SOCKET)
   end
 
   def test_screen_reads_the_detection_text

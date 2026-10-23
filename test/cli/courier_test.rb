@@ -46,6 +46,20 @@ class CourierCommandTest < Minitest::Test
     assert_equal 1, printed.last.scan('unknown key "hots"').size
   end
 
+  def test_an_agent_list_of_the_wrong_shape_defers_the_bell_and_the_round_goes_on
+    store.create_address('docs')
+    store.bind('docs', build_occupant(harness: 'cursor', session_id: 'conversation-1', herdr_socket: '/h.sock',
+                                      herdr_pane: 'w1:p1'))
+    rounds = ['[]', 'true', '7', '{"result":[]}', '{"result":{"agents":[true]}}'].map do |answer|
+      request = build_message(to: 'docs@athena', kind: 'request', body: 'Review PR #448')
+      store.deliver('docs', request)
+      @herdr = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent list] => { out: answer }))
+      [keryx('courier', '--once').status, store.receipt('docs', request.id, 'bell')&.fetch('status')]
+    end
+
+    assert_equal [[0, Keryx::Bell::DEFERRED]] * 5, rounds
+  end
+
   def test_the_problems_taken_are_not_kept
     app = Keryx::App.new(env: base_env, herdr:, clock:, processes:)
     damage('rev-1', Keryx::Ulid.generate(NOW))
