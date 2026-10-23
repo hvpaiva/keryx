@@ -149,14 +149,14 @@ class HookTest < Minitest::Test
     assert_match(/keryx hook stop: /, result.err)
   end
 
-  def test_a_damaged_file_cannot_put_control_characters_on_the_screen
+  def test_damaged_input_cannot_put_control_characters_on_the_screen
     keryx('join', 'broken', env: claude(333))
     File.write(tmp('state', 'addresses', 'broken', 'occupant.json'), "{\"joined_at\": bad\e[2J}\n")
-    result = stop(@rev)
+    damaged = [stop(@rev), keryx('hook', 'stop', env: @rev, input: "{\"session_id\": bad\e[2J}")]
 
-    assert_equal [0, ''], [result.status, result.out]
-    assert_match(/\Akeryx hook stop: .*occupant\.json is not valid JSON .*bad\^\[\[2J/, result.err)
-    refute_includes result.err, "\e"
+    assert_match(/\Awarning: .*occupant\.json is not valid JSON .*bad\^\[\[2J/, damaged.first.err)
+    assert_match(/\Akeryx hook stop: .*bad\^\[\[2J/, damaged.last.err)
+    damaged.each { assert_equal [0, '', false], [it.status, it.out, it.err.include?("\e")] }
   end
 
   def test_a_payload_that_is_not_an_object_never_fails_the_session
