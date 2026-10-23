@@ -21,6 +21,7 @@ outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
 outbox/HOST/refused/           messages the other machine refused
 outbox/HOST/receipts/          forwarding attempts and outcomes, one file each per message
+outbox/HOST/outcomes.lock      locked while a command replaces an outcome that holds no decision
 ```
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
@@ -170,14 +171,17 @@ host read from the file. The courier's service and the non-interactive SSH sessi
 mail have only their own environment, so a custom `XDG_CONFIG_HOME` has to be set for them too.
 
 A message for an address on another host goes to `outbox/HOST/`, written in `tmp/` and linked into
-`new/` like a delivery. `Forwarder` sends what waits in `new/` through `Remote`, which runs
-`ssh HOST keryx __receive` with one message per line. On the other machine, `Receiver` refuses a
-message for another host, one that claims to come from its own host, and one for an address it
-lacks. It stores the rest under their ids, rings the local session and prints a receipt for each.
-The sender then records the outcome and moves the message to `cur/` or `refused/`. The outcome is
-written before the move and only once, so an attempt that fails after another one settled the
+`new/` like a delivery. `Forwarder` moves a message in `new/` that already has an outcome by it, and
+sends the rest through `Remote`, which runs `ssh HOST keryx __receive` with one message per line. On
+the other machine, `Receiver` refuses a message for another host, one that claims to come from its
+own host, and one for an address it lacks. It stores the rest under their ids, rings the local
+session and prints a receipt for each. The sender then records the outcome and moves the message to
+`cur/` or `refused/` by the outcome that stayed. The outcome is written before the move and its
+first decision stays, so an attempt that fails or hears otherwise after another one settled the
 message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
-Without a receipt the message stays in `new/`, and another file in `receipts/` counts the attempts.
+Only an outcome file that holds no decision is written again, under `outcomes.lock`, so a second
+repair keeps the first. Without a receipt the message stays in `new/`, and another file in
+`receipts/` counts the attempts.
 
 The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the
 machine that answers closes a request as soon as the reply is written, and the sender's machine
