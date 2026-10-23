@@ -51,6 +51,12 @@ class HelpTest < Minitest::Test
     assert_includes prose, 'a sender on another machine sees only that it arrived'
   end
 
+  def test_the_help_of_courier_says_that_a_working_cursor_session_queues_the_notice
+    prose = keryx('courier', '--help').out.gsub(/\s+/, ' ')
+
+    assert_includes prose, 'keryx types it into a working Cursor session, which queues it until its turn ends.'
+  end
+
   def test_spawn_help_shows_the_harness_arguments_after_the_separator
     out = keryx('spawn', '--help').out
 
