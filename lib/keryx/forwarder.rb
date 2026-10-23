@@ -18,12 +18,14 @@ module Keryx
       @clock = clock
     end
 
+    # A message that kept its outcome but not its move, since the attempt stopped between the two, is not sent again.
     def forward(host)
-      messages = @store.outbox.queued(host)
-      return {} if messages.empty?
-
-      answer = @remote.deliver(host, messages)
-      messages.to_h { [it.id, settle(host, it, answer)] }
+      queued = @store.outbox.queued(host).map { [it, settled(host, it.id)] }
+      waiting = queued.reject(&:last).map(&:first)
+      answer = @remote.deliver(host, waiting) unless waiting.empty?
+      queued.to_h do |message, outcome|
+        [message.id, outcome ? move(host, message.id, outcome) : settle(host, message, answer)]
+      end
     end
 
     def settled(host, id)
@@ -47,8 +49,12 @@ module Keryx
     # The outcome comes first, so a sender that finds the message gone from new/ can read how it settled.
     def finish(host, message, status, detail, bell: nil)
       @store.outbox.write_outcome(host, message.id, data(status, detail, bell:))
-      @store.outbox.settle(host, message.id, status.to_sym)
-      settled(host, message.id)
+      settled(host, message.id)&.then { move(host, message.id, it) }
+    end
+
+    def move(host, id, outcome)
+      @store.outbox.settle(host, id, outcome.status.to_sym)
+      outcome
     end
 
     def wait(host, message, reason)
