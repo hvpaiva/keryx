@@ -73,7 +73,8 @@ journalctl --user -u keryx-courier -f
 
 The journal shows one line for each message forwarded or refused, each bell rung again and each
 deadline reported, and a host's waiting line only when it changes. Warnings about the config file
-come first, before the first round.
+come first, before the first round, and a problem in the mailboxes, such as a damaged file, is a
+warning printed once, after the round that first found it.
 
 ## The config file
 

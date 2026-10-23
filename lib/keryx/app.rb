@@ -87,8 +87,11 @@ module Keryx
 
     def full(name) = "#{name}@#{host}"
 
+    # Each problem is taken once for the life of the process, and the lists are emptied since the courier never ends.
     def take_problems
-      fresh = [*@config&.problems, *@store&.problems].uniq - @reported
+      lists = [@config&.problems, @store&.problems].compact
+      fresh = lists.flatten.uniq - @reported
+      lists.each(&:clear)
       @reported.concat(fresh)
       fresh
     end
