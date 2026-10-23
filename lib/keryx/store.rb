@@ -12,7 +12,14 @@ require_relative 'outbox'
 require_relative 'spawned'
 
 module Keryx
-  AddressRecord = Data.define(:name, :role, :created_at)
+  AddressRecord = Data.define(:name, :role, :created_at) do
+    def self.from_record(data)
+      name, role = data.values_at('name', 'role')
+      raise TypeError, 'the name or the role is not text' unless [name, role].all? { it.nil? || it.is_a?(String) }
+
+      new(name:, role:, created_at: Time.iso8601(data['created_at'].to_s))
+    end
+  end
   StoredMessage = Data.define(:message, :state)
 
   class Store
@@ -57,8 +64,8 @@ module Keryx
 
     def address(name)
       data = read_json(address_file(name)) or return nil
-      AddressRecord.new(name: data['name'], role: data['role'], created_at: Time.iso8601(data['created_at'].to_s))
-    rescue ArgumentError, KeyError, TypeError
+      AddressRecord.from_record(data)
+    rescue ArgumentError, KeyError, TypeError, NotAnObject
       raise Error, "#{address_file(name)} is damaged"
     end
 
@@ -76,7 +83,7 @@ module Keryx
     def occupant(name)
       data = read_json(occupant_file(name)) or return nil
       Occupant.from_record(data)
-    rescue ArgumentError, KeyError, TypeError
+    rescue ArgumentError, KeyError, TypeError, NotAnObject
       raise Error, "#{occupant_file(name)} is damaged"
     end
 

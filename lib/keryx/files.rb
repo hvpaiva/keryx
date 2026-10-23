@@ -24,6 +24,8 @@ module Keryx
       receipt['bell'].nil? || bell?(receipt['bell']) ? bad : [*bad, 'bell']
     end
 
+    class NotAnObject < Error; end
+
     private
 
     def make_dirs(base, dirs) = dirs.each { FileUtils.mkdir_p(File.join(base, it), mode: DIR_MODE) }
@@ -72,7 +74,7 @@ module Keryx
       data = JSON.parse(text)
       return data if data.is_a?(Hash)
 
-      raise Error, "#{path} is not a JSON object"
+      raise NotAnObject, "#{path} is not a JSON object"
     rescue Errno::ENOENT
       nil
     rescue JSON::ParserError => e
