@@ -4,6 +4,8 @@ require 'json'
 require 'socket'
 require 'time'
 require_relative 'herdr'
+require_relative 'lookout'
+require_relative 'processes'
 require_relative 'runner'
 
 module Keryx
@@ -16,17 +18,68 @@ module Keryx
     DEFERRED = 'deferred'
     FAILED = 'failed'
     ABSENT = 'absent'
+    NOBODY = 'no session holds the address'
     # Claude Code holds typed text until its current step ends, Codex steers the turn with it, Cursor queues it.
     TYPABLE = %w[idle done working].freeze
     DIALOG = Regexp.union(
       /held (peer )?message/i, /deliver this message/i, /hooks need review/i, /trust (this|the) (workspace|folder)/i,
-      /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter to (select|confirm)/i, /press enter/i,
-      /allow (this|once|always)/i
+      /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter (to )?(select|confirm)/i, /press enter/i,
+      /allow (this|once|always)/i, /trust all and continue/i, /continue without trusting/i
     )
+    # The marker before the selected option: Codex's, Claude Code's and Cursor's. An ASCII ">" is a prompt.
+    MARKER = /\A\s*[\u203a\u276f\u25b6]\s*/
+    # A number with its dot, a key in brackets, or a Yes or No that ends the line or comes before a comma.
+    LABEL = /\G(\d+\.(?!\d)|\[\w\]|(Yes|No)(?=,|\s*\z))/
+    # The footer a dialog ends with, such as Codex's "enter confirm" and "esc skip", unlike code on the screen.
+    SQUEEZED_FOOTER = Regexp.union(/enter(to)?(select|confirm)\W{1,3}esc(to)?(skip|cancel|exit)/i,
+                                   /\u00b7esc(to)?(skip|cancel|exit)/i, /entertoselect,orpress/i)
+    # Words do not fit on lines this short, so such a screen cannot show a dialog's options or its footer.
+    CRAMPED_CHARACTERS = 3
+    CRAMPED_LINES = 4
+    BOX_DRAWING = /[\u2500-\u257f]/
+    OBSTACLES = { dialog: 'the screen shows a dialog',
+                  cramped: 'the pane is too narrow to tell whether it shows a dialog' }.freeze
 
-    def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)
+    # A narrow pane wraps a dialog over several lines, often inside a box, so its phrases are matched on the lines
+    # joined, its options line by line, and its footer with no spaces at all, whatever the width.
+    def self.dialog?(screen)
+      lines = lines(screen)
+      DIALOG.match?(lines.join(' ').split.join(' ')) || options?(lines) ||
+        SQUEEZED_FOOTER.match?(lines.join.gsub(/\s+/, ''))
+    end
+
+    def self.cramped?(screen)
+      text = lines(screen).map { it.gsub(/\s+/, '') }.reject(&:empty?)
+      text.size >= CRAMPED_LINES && text.all? { it.size <= CRAMPED_CHARACTERS }
+    end
+
+    # What keeps a bell from typing into a screen, as a key of OBSTACLES, or nil.
+    def self.obstacle(screen)
+      return :dialog if dialog?(screen)
+
+      :cramped if cramped?(screen)
+    end
+
+    # A marked option and, before a blank line, another option at the same column.
+    def self.options?(lines)
+      lines.each_with_index.any? do |line, index|
+        column = MARKER.match(line)&.end(0)
+        next false unless column && LABEL.match?(line, column)
+
+        lines[(index + 1)..].take_while { !it.strip.empty? }.any? do |other|
+          other[0, column].strip.empty? && LABEL.match?(other, column)
+        end
+      end
+    end
+
+    def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
+    private_class_method :options?, :lines
+
+    def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
+                   lookout: Lookout.new(herdr:, processes: Processes.new))
       @store = store
       @herdr = herdr
+      @lookout = lookout
       @clock = clock
       @claude_socket = claude_socket
       @codex = codex
@@ -38,24 +91,41 @@ module Keryx
       result
     end
 
+    # Whether a bell for this occupant would ring or wait to ring again, by the same routing as ring, sending nothing.
+    def reaches?(occupant)
+      return false unless occupant
+      return reachable_pane?(occupant) if occupant.harness == 'codex' && occupant.session_id
+      return true if open_socket?(occupant)
+
+      occupant.herdr? && reachable_pane?(occupant)
+    end
+
     private
 
     def attempt(occupant, text)
-      return outcome(ABSENT, nil, 'no session holds the address') unless occupant
-
-      native = through_harness(occupant, text)
-      return native if native && !(native.status == FAILED && occupant.herdr?)
+      return outcome(ABSENT, nil, NOBODY) unless occupant
+      return codex_thread(occupant, text) if occupant.harness == 'codex' && occupant.session_id
+      return claude_session(occupant, text) if occupant.claude_socket
       return through_herdr(occupant, text) if occupant.herdr?
 
-      native || outcome(ABSENT, nil, 'the session has no Claude Code socket, Codex thread or herdr pane')
+      outcome(ABSENT, nil, 'the session has no Claude Code socket, Codex thread or herdr pane')
     end
 
-    def through_harness(occupant, text)
-      if occupant.claude_socket
-        through_claude(occupant.claude_socket, text)
-      elsif occupant.harness == 'codex' && occupant.session_id
-        through_codex(occupant.session_id, text)
-      end
+    def claude_session(occupant, text)
+      posted = through_claude(occupant.claude_socket, text)
+      posted.status == FAILED && occupant.herdr? ? through_herdr(occupant, text) : posted
+    end
+
+    # Codex runs what is queued for any thread it has loaded, and its shared server keeps a thread loaded after
+    # the TUI quits, so only a thread herdr shows open in its pane is queued.
+    def codex_thread(occupant, text)
+      seen = @lookout.in_pane(occupant)
+      return unseen(seen) unless seen.there?
+      return typed_into(occupant, seen.agent, text) unless seen.agent.session == occupant.session_id
+
+      queued = through_codex(occupant.session_id, text)
+      # The queue can take seconds to fail, so the pane is read again before anything is typed into it.
+      queued.status == FAILED ? through_herdr(occupant, text) : queued
     end
 
     def through_claude(path, text)
@@ -73,17 +143,32 @@ module Keryx
     end
 
     def through_herdr(occupant, text)
+      seen = @lookout.in_pane(occupant)
+      seen.there? ? typed_into(occupant, seen.agent, text) : unseen(seen)
+    end
+
+    def typed_into(occupant, agent, text)
       socket = occupant.herdr_socket
       pane = occupant.herdr_pane
-      agent = @herdr.agent(socket, pane)
-      return outcome(FAILED, 'herdr', "no agent in pane #{pane}") unless agent
       return outcome(DEFERRED, 'herdr', "the agent is #{agent.status}") unless TYPABLE.include?(agent.status)
 
       screen = @herdr.screen(socket, pane)
       return outcome(DEFERRED, 'herdr', 'the screen could not be read') if screen.nil?
-      return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if DIALOG.match?(screen)
+
+      obstacle = Bell.obstacle(screen)
+      return outcome(DEFERRED, 'herdr', OBSTACLES.fetch(obstacle)) if obstacle
 
       typed(@herdr.prompt(socket, pane, text))
+    end
+
+    # herdr or ps not answering may pass, so that bell waits to ring again; anything else is not the session.
+    def unseen(seen) = outcome(seen.verdict == :unanswered ? DEFERRED : ABSENT, nil, seen.detail)
+
+    def reachable_pane?(occupant) = %i[there unanswered].include?(@lookout.in_pane(occupant).verdict)
+
+    def open_socket?(occupant)
+      path = occupant.claude_socket
+      !path.nil? && @claude_socket.open?(path) && @lookout.presence(occupant) == :live
     end
 
     def typed(prompt)
@@ -107,6 +192,8 @@ module Keryx
     end
 
     class ClaudeSocket
+      def open?(path) = File.socket?(path)
+
       def post(path, text)
         UNIXSocket.open(path) do |socket|
           socket.write("#{JSON.generate('type' => 'user', 'message' => { 'role' => 'user', 'content' => text })}\n")

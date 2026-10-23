@@ -47,6 +47,25 @@ class SpawnWaitTest < Minitest::Test
                  result.err)
   end
 
+  def test_a_dialog_a_narrow_pane_wraps_is_still_reported
+    session_runs(screen: Screens::NARROW_CODEX_HOOKS)
+    result = spawn('impl', '--harness', 'codex', '--timeout', '3s')
+
+    assert_equal 3, result.status
+    assert_match(/^Pane w1:p2 shows a dialog/, result.err)
+  end
+
+  def test_a_pane_too_narrow_to_tell_is_reported_as_such
+    session_runs(screen: Screens.captured.fetch('cursor-4'))
+    result = spawn('impl', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal 3, result.status
+    assert_match(/^Pane w1:p2 is too narrow to tell whether it shows a dialog, such as a folder trust or permission /,
+                 result.err)
+    assert_match(/pane w1:p2 is too narrow to tell whether it shows a dialog; look at it, and the session joins by /,
+                 result.err)
+  end
+
   def test_spawn_stops_when_no_session_runs_in_the_pane
     result = spawn('rev-1', '--harness', 'claude')
 

@@ -1,0 +1,20 @@
+
+\u203a 1. Review
+     hooks
+  2. Trust
+     all and
+     continu
+     e
+  3.
+     Continu
+     e
+     without
+     trustin
+     g
+     (hooks
+     won't
+     run)
+
+  enter
+  confirm \u00b7
+  esc skip

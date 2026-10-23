@@ -8,14 +8,15 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, for
-  Claude Code, Codex and Cursor sessions and any agent in a herdr pane.
+- Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, or
+  with `keryx leave --as NAME` once the session holding one ended without leaving, for Claude Code,
+  Codex and Cursor sessions and any agent in a herdr pane.
 - Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks, and each
   message stored once however often it arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents
   can write to the person at the keyboard before that person has used keryx.
-- Bells through the Claude Code peer socket, `codex queue`, or typing into a herdr pane when no
-  dialog shows, which is how Cursor is rung.
+- Bells through the Claude Code peer socket, `codex queue` for a Codex thread herdr shows open in
+  its pane, or typing into a herdr pane when no dialog shows, which is how Cursor is rung.
 - `keryx hook stop`, the stop hook of Claude Code, Codex and Cursor, which reminds a session of
   unread mail and unanswered requests before it ends a turn.
 - Mail between machines over SSH, with an outbox that holds it while the other machine is
@@ -25,8 +26,9 @@ All notable changes to this project are documented here. The format follows
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
 - `keryx skill`, the instructions agents follow to use keryx.
-- `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane, gives it an
-  address and hands it a first request that is in its mailbox before the session exists.
+- `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane labelled with
+  its address, gives it that address and hands it a first request that is in its mailbox before the
+  session exists.
 - Shell completion for bash, zsh and fish.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

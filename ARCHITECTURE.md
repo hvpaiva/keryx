@@ -50,16 +50,30 @@ the commands it runs.
 - Codex sets `CODEX_THREAD_ID`.
 - Cursor sets `CURSOR_CONVERSATION_ID`.
 - herdr sets `HERDR_SOCKET_PATH` and `HERDR_PANE_ID` in its panes, and answers which agent runs in
-  a pane.
+  a pane, with its session id when the harness's herdr integration reports one. A harness that sets
+  none of the variables above is named by herdr and takes that session id.
 
 A harness started from another harness's shell inherits the outer one's variables, so keryx reads
 Cursor's and Codex's before Claude Code's.
 
-`keryx join` writes these down as the address's occupant. Later commands find their address by
+`keryx join` writes these down as the address's occupant, with the harness's process and when it
+started: on Linux the clock tick since boot from `/proc/PID/stat`, elsewhere `ps`'s start time in
+UTC, so neither the caller's time zone nor a step of the wall clock changes it. Claude Code names
+its process in `CLAUDE_PID`; for Codex and Cursor in a herdr pane, the process is the pane's
+foreground group, recorded only when it is an ancestor of the join, which leaves out a Codex
+session that runs its commands under Codex's shared server. Later commands find their address by
 matching the caller against the occupants (`Identity`), which means the same Claude Code process
 or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
 pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
-records the new process and socket.
+records the new process and socket. It keeps the recorded process until `ps` shows that the
+command no longer runs under it or that another process now has its pid, so a lookup that fails
+erases nothing.
+
+Whether a session is live comes from that process, alive with its recorded start time, or else
+from its pane: gone when herdr shows no agent, another harness or another session there, live
+otherwise, and unknown with neither a process nor a pane. What herdr says the agent is doing
+(idle, working, unknown) only describes a live session in `keryx who`. join takes an address whose
+session is not live, and `leave --as` releases it.
 
 A session holds one address, so join also releases any other address the session holds. It checks
 the address, releases the others and writes the occupant under an exclusive `flock` on
@@ -70,6 +84,9 @@ with no address until it joins again. `App#me` records a new process or socket u
 from the occupant it reads again there, so it never writes back an address a join released. `leave`
 finds the session's address and removes it under the lock too, so a refresh cannot write it back
 and the occupant of a session that took the address over in between is never removed.
+`leave --as NAME` releases an address for a session that ended without leaving. Under the same
+lock it refuses when the roster sees the occupant live, as join does, and removes the occupant
+otherwise, so a session that joins in between keeps the address.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
 make, and then fails, so a stopped holder cannot block it for good. `App#me` does not wait at all;
@@ -90,10 +107,34 @@ and the id, never the body. It tries two ways, in order.
 
 1. the harness's own channel, the Claude Code peer socket (one JSON line per connection) or
    `codex queue --thread ID`;
-2. when that fails or does not exist, typing into the herdr pane, if herdr reports the agent idle,
-   done or working and no dialog shows on the bottom of its screen.
+2. when that fails or does not exist, typing into the herdr pane, if herdr shows an agent of the
+   session's harness there, reports it idle, done or working, and no dialog shows on the bottom of
+   its screen. A dialog is told by its phrases, matched with the lines joined and box borders
+   dropped since a narrow pane wraps it; by its options, a selection marker (`›`, `❯` or `▶`) on a
+   number, a key such as `[a]`, or a Yes or No, with another option at the same column below it; or
+   by its footer, such as "enter confirm · esc skip", matched with no spaces at all since a pane
+   narrower than a word breaks the words. The phrases are never matched without spaces, so code such
+   as `allowOnce` does not count. A screen of at least four lines with no more than three
+   characters on any of them, as a pane of a few columns shows, cannot show either, so the bell
+   defers there too, saying the pane is too narrow to tell. A pane that is empty or runs another
+   harness no longer holds the session, so the bell is absent there rather than typed into whoever
+   took the pane.
 
 Cursor has no channel of its own, so it is always rung by typing.
+
+Before typing into a pane, `Lookout` checks that the pane still runs the session that joined, and
+not a session that took the pane over. herdr's integrations report the session id of the agent in
+a pane; when herdr reports one, it must equal the occupant's, and an occupant that recorded none is
+not taken for it. When herdr reports none, which is how a Codex session whose hooks are not trusted
+looks, the pane's foreground process group must be the process the occupant records, with the
+start time it records. Anything else is absent. When herdr or `ps` does not answer, the bell is
+deferred.
+
+A Codex thread is queued only while herdr shows its id in the session's pane. `codex queue` hands
+the message to whichever Codex app-server has the thread loaded, and Codex's shared server keeps a
+thread loaded for 30 minutes after its TUI quits, then runs what was queued with no pane and no one
+watching. A Codex session that the pane shows only by its process is typed into instead, and one
+herdr does not show at all, or with no pane, gets no bell; the message waits in the mailbox.
 
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
 each message, and `keryx status` reads the receipts to list what did not ring.
@@ -131,17 +172,19 @@ schedule, rings again for bells that did not reach a session, and sends the dead
 
 `keryx spawn` starts a harness in a herdr pane and waits for it to join. It checks every option and
 the address first, then creates the address and posts the request, so the request is in the mailbox
-before the session exists. `Spawner` splits the caller's pane, or uses a tab of its workspace, and
-runs `herdr agent start`, which types the harness command into the new pane's shell. `Harness`
-builds that command's arguments, and the first prompt goes last, after a `--`, as the harness's own
-initial prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on
-it once the dialog is answered, so nothing is ever typed into the session itself. herdr's start
-waits while the agent works, and the session starts working on that prompt at once, so it runs in
-the background through `Runner#start` while spawn watches the store, and spawn stops it when it is
-done. herdr names the agent when the start begins and keeps the name once the agent is idle or
-blocked, but drops it if the agent is still working when the timeout spawn passed to herdr runs
-out, so a session busy with its first request can lose its herdr name. keryx does not use that
-name, since the occupant records the pane.
+before the session exists. It rings no bell for it, because the address may still name a session
+that ended and the new session opens its inbox from its first prompt. `Spawner` splits the caller's
+pane, or uses a tab of its workspace, labels the new pane with the address's name, and runs
+`herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
+that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial
+prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on it once
+the dialog is answered, so nothing is ever typed into the session itself. herdr's start waits while
+the agent works, and the session starts working on that prompt at once, so it runs in the background
+through `Runner#start` while spawn watches the store, and spawn stops it when it is done. herdr
+names the agent when the start begins and keeps the name once the agent is idle or blocked, but
+drops it if the agent is still working when the timeout spawn passed to herdr runs out, so a session
+busy with its first request can lose its herdr name. keryx does not use that name, since the
+occupant records the pane.
 
 The new pane gets `KERYX_HOME`, `XDG_CONFIG_HOME`, and `KERYX_HOST` when it is set, through herdr,
 so the session joins the store spawn watches and reads the config file spawn read. Codex passes its
@@ -151,9 +194,10 @@ herdr socket and pane, as `-c shell_environment_policy.set` values.
 spawn then polls the store until the address has an occupant of the harness it started, in the herdr
 socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,
 reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
-`agent_not_ready`, a `blocked` agent or a screen that matches the bell's dialog patterns count as a
-dialog, which spawn reports once while it keeps waiting. It stops when the pane has no agent of that
-harness left or `--timeout`, counted from the moment spawn starts, passes. A join recorded after
+`agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog count as a dialog, and
+a screen the bell finds too narrow to tell is reported as such; spawn reports either once while it
+keeps waiting. It stops when the pane has no agent of that harness left or `--timeout`, counted
+from the moment spawn starts, passes. A join recorded after
 that moment counts as too late, however soon spawn notices it.
 
 ## The stop hook

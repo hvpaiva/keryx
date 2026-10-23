@@ -20,11 +20,26 @@ reason.
 
 - `no session holds the address` means the address has no session now. The next session to join
   it finds the message.
+- `thread ... has no herdr pane` means keryx cannot see that Codex session, and it does not queue a
+  bell for it, since Codex would run a closed thread on its own.
+- `no agent runs in pane ...`, `pane ... runs ..., not ...`, `pane ... runs thread ..., not ...` (or
+  conversation, or session), `pane ... runs process ..., not ...`, `process ... in pane ... is not
+  the one that joined` or `nothing shows that pane ... still runs the session that joined` means
+  keryx cannot show that the pane still runs the session that holds the address, so it did not type
+  the bell there. When `keryx who` shows that session as none, gone or unknown, it ended without
+  leaving, and `keryx leave --as NAME` releases the address so that the next session to join it
+  finds the message. While `who` shows it live, leave refuses, and `keryx join NAME --force` from
+  the session that should hold it takes it over.
+- `herdr did not answer ...`, `herdr did not say ...` or `ps did not say ...` means keryx could not
+  check the pane, so the bell waits and the courier tries again.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not
   type into a herdr pane while the agent waited on something else. Answer the dialog, then run
   `keryx ring`.
 - `the screen could not be read` means herdr did not return the pane's screen, so keryx could not
   rule out a dialog and did not type. The courier tries again.
+- `the pane is too narrow to tell whether it shows a dialog` means the pane is only a few columns
+  wide, so neither a dialog's options nor its footer fit on the screen, and keryx did not type.
+  Widen the pane, then run `keryx ring`.
 - `socket ...` with an error means the Claude Code session that held the address is gone. A session
   restarted in the same herdr pane takes the address back with its first keryx command, and
   `keryx ring` then reaches it.

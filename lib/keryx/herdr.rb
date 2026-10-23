@@ -6,11 +6,16 @@ require_relative 'runner'
 
 module Keryx
   class Herdr
-    Agent = Data.define(:pane, :kind, :status)
+    Agent = Data.define(:pane, :kind, :status, :session) do
+      def initialize(pane:, kind:, status:, session: nil) = super
+    end
     Outcome = Data.define(:ok, :code, :detail)
     Pane = Data.define(:id, :tab, :workspace)
     Tab = Data.define(:id, :label)
     SCREEN_LINES = '20'
+    # herdr answered that the pane is gone or runs no agent, which is not the same as not answering.
+    NONE = :none
+    NOT_FOUND = %w[agent_not_found pane_not_found].freeze
     START_TIMEOUT_MS = (3001..300_000)
 
     class Starting
@@ -45,17 +50,25 @@ module Keryx
       @program = program
     end
 
-    def agent(socket, pane)
+    def agent(socket, pane) = look(socket, pane).then { it.is_a?(Agent) ? it : nil }
+
+    def look(socket, pane)
       data = Herdr.json(run(socket, 'agent', 'get', pane))
-      agent = data&.dig('result', 'agent') or return nil
-      Agent.new(pane: agent['pane_id'], kind: agent['agent'], status: agent['agent_status'])
+      agent = data&.dig('result', 'agent')
+      return agent_of(agent) if agent.is_a?(Hash)
+
+      NOT_FOUND.include?(Herdr.error_of(data)['code']) ? NONE : nil
+    end
+
+    def foreground(socket, pane)
+      data = Herdr.json(run(socket, 'pane', 'process-info', '--pane', pane))
+      group = data&.dig('result', 'process_info', 'foreground_process_group_id')
+      group if group.is_a?(Integer) && group.positive?
     end
 
     def agents(socket)
       data = Herdr.json(run(socket, 'agent', 'list'))
-      Array(data&.dig('result', 'agents')).map do |agent|
-        Agent.new(pane: agent['pane_id'], kind: agent['agent'], status: agent['agent_status'])
-      end
+      Array(data&.dig('result', 'agents')).map { agent_of(it) }
     end
 
     def screen(socket, pane)
@@ -76,6 +89,8 @@ module Keryx
         Tab.new(id: tab['tab_id'], label: tab['label'])
       end
     end
+
+    def rename(socket, pane, label) = control(socket, 'pane', 'rename', pane, label)
 
     def split(socket, pane, direction:, cwd:, env: {})
       pane_of(control(socket, 'pane', 'split', pane, '--direction', direction, '--cwd', cwd, *env_options(env),
@@ -107,6 +122,12 @@ module Keryx
 
       reason = Herdr.error_of(data)['message'] || result.err.strip.lines.first&.strip
       raise Error, "herdr #{arguments.first(2).join(' ')} failed: #{reason.to_s.empty? ? 'no answer' : reason}"
+    end
+
+    def agent_of(data)
+      session = data['agent_session']
+      Agent.new(pane: data['pane_id'], kind: data['agent'], status: data['agent_status'],
+                session: (session['value'] if session.is_a?(Hash) && session['kind'] == 'id'))
     end
 
     def pane_of(data)

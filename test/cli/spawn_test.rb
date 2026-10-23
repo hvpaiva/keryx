@@ -62,6 +62,30 @@ class SpawnTest < Minitest::Test
     assert_match(/the request #{store.unread('impl').first.id} waits in its mailbox$/, result.err)
   end
 
+  def test_the_request_rings_no_session_that_held_the_address_before
+    alive << 111
+    keryx('join', 'rev-1', env: claude(111).merge(in_pane(SOCKET, 'w1:p5')))
+    alive.delete(111)
+    sockets.gone << '/tmp/cc-111.sock'
+    herdr.put(SOCKET, 'w1:p5', agent('w1:p5', 'claude', 'idle'))
+    session_joins
+    result = spawn('rev-1', '--harness', 'claude', 'Review it')
+
+    assert_equal 0, result.status, result.err
+    assert_empty herdr.prompts
+    assert_empty sockets.posts
+    assert_nil store.receipt('rev-1', store.unread('rev-1').first.id, 'bell')
+  end
+
+  def test_the_request_is_not_queued_for_a_codex_thread_that_held_the_address
+    keryx('join', 'rev-1', env: { 'CODEX_THREAD_ID' => 'closed-thread' })
+    session_joins
+    result = spawn('rev-1', '--harness', 'codex', 'Review it')
+
+    assert_equal 0, result.status, result.err
+    assert_empty codex.queued
+  end
+
   def test_an_agent_learns_that_the_reply_will_ring_it
     session_joins
     orq = join_claude('orq', 111)
@@ -69,6 +93,32 @@ class SpawnTest < Minitest::Test
 
     assert_match(/^The reply will ring this session;/, result.out)
     assert_equal 'orq@athena', store.unread('rev-1').first.from
+  end
+
+  def test_spawning_as_an_address_no_session_holds_says_that_no_bell_rings_for_the_reply
+    session_joins
+    keryx('leave', env: join_claude('orq', 111))
+    result = spawn('rev-1', '--harness', 'claude', '--as', 'orq', 'Review it')
+
+    assert_match(/^No session holds orq@athena, so no bell rings for the reply;/, result.out)
+    refute_match(/ring this session/, result.out)
+  end
+
+  def test_the_new_pane_is_labelled_with_the_name_before_the_harness_starts
+    labels = nil
+    herdr.on_start = ->(*) { labels = herdr.renames.dup }
+    spawn('rev-1', '--harness', 'claude', '--timeout', '1s')
+
+    assert_equal [[SOCKET, 'w1:p2', 'rev-1']], labels
+  end
+
+  def test_a_pane_herdr_cannot_label_still_gets_its_session
+    session_joins
+    herdr.rename_error = 'herdr pane rename failed: no answer'
+    result = spawn('rev-1', '--harness', 'claude')
+
+    assert_equal 0, result.status, result.err
+    assert_equal "Pane w1:p2 has no label: herdr pane rename failed: no answer.\n", result.err
   end
 
   def test_tab_is_created_when_missing_and_split_once_it_exists

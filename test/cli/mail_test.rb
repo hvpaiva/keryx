@@ -24,8 +24,13 @@ class MailTest < Minitest::Test
                                        "Run 'keryx read #{id}' to open it."]], sockets.posts
   end
 
+  def codex_in_pane(thread, pane)
+    herdr.put('/h.sock', pane, Keryx::Herdr::Agent.new(pane:, kind: 'codex', status: 'idle', session: thread))
+    { 'CODEX_THREAD_ID' => thread, 'HERDR_SOCKET_PATH' => '/h.sock', 'HERDR_PANE_ID' => pane }
+  end
+
   def test_a_request_to_codex_rings_its_thread_and_the_reply_rings_back
-    impl = { 'CODEX_THREAD_ID' => 'thread-1' }
+    impl = codex_in_pane('thread-1', 'w1:p3')
     keryx('join', 'impl', env: impl)
     keryx('ask', 'impl', 'Fix retry.py', env: @orq)
     id = last_id(impl)
@@ -33,6 +38,39 @@ class MailTest < Minitest::Test
     assert_equal 'thread-1', codex.queued.last.first
     assert_match(/Replied to orq@athena/, keryx('reply', id, 'Fixed in retry_fixed.py', env: impl).out)
     assert_equal '/tmp/cc-111.sock', sockets.posts.last.first
+  end
+
+  def test_a_codex_thread_closed_in_its_pane_is_never_queued_by_ask_ring_or_courier
+    keryx('join', 'impl', env: codex_in_pane('thread-1', 'w1:p3'))
+    keryx('ask', 'impl', 'Fix retry.py', env: @orq)
+    herdr.put('/h.sock', 'w1:p3', nil)
+    clock.advance(1)
+    asked = keryx('ask', 'impl', 'Are you still there?', env: @orq)
+    keryx('ring', 'impl')
+    keryx('courier', '--once')
+
+    assert_equal ['thread-1'], codex.queued.map(&:first)
+    assert_match(/The bell did not reach the session that holds impl@athena \(no agent runs in pane w1:p3\)/, asked.out)
+    assert_equal ['Fix retry.py', 'Are you still there?'], store.unread('impl').map(&:body)
+  end
+
+  def test_asking_as_an_address_no_session_holds_says_that_no_bell_rings_for_the_reply
+    keryx('leave', env: @orq)
+    result = keryx('--as', 'orq', 'ask', 'rev-1', 'Review PR #448')
+    id = last_id(@rev)
+
+    assert_equal 0, result.status, result.err
+    assert_equal "No session holds orq@athena, so no bell rings for the reply; 'keryx --as orq inbox' shows it " \
+                 "when it arrives, and 'keryx --as orq wait #{id}' blocks until then.", result.out.lines.last.chomp
+  end
+
+  def test_asking_as_an_address_another_session_holds_names_that_session
+    asked = keryx('--as', 'rev-1', 'ask', 'orq', 'Can you merge it?', env: @orq)
+    own = keryx('--as', 'orq', 'ask', 'rev-1', 'Review PR #448', env: @orq)
+
+    assert_match(/^The reply will ring the session that holds rev-1@athena; 'keryx --as rev-1 wait \w+' blocks/,
+                 asked.out)
+    assert_match(/^The reply will ring this session; 'keryx --as orq wait \w+' blocks until it arrives\.$/, own.out)
   end
 
   def test_inbox_lists_unread_messages_with_their_deadline

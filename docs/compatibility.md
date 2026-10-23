@@ -7,7 +7,7 @@
 | Ruby | MRI 3.4 and 4.0. The gem requires Ruby 3.4 or later and has no runtime dependencies. |
 | Operating system | Linux and macOS. |
 | Claude Code | 2.1.224 or later, for its peer sockets. |
-| Codex | CLI 0.149 or later, for `codex queue`, with the TUI on Codex's shared background server (the default, which `--no-daemon` turns off). |
+| Codex | CLI 0.149 or later, for `codex queue`, in a herdr pane for bells. |
 | Cursor | The Cursor Agent CLI, in a herdr pane for bells. |
 | Other agents | Any agent that herdr recognizes in its pane. |
 
@@ -26,9 +26,14 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
   `--as`. keryx coordinates sessions you run and is not a security boundary, as the
   [security policy](../SECURITY.md) explains.
 - Typing into a herdr pane depends on herdr recognizing the agent's dialogs. keryx also checks the
-  screen for the common ones, but an unknown dialog can still take the typed bell.
+  screen for the common ones by their phrases, options and footer, so that a dialog a narrow pane
+  wraps or breaks still counts, and does not type into a pane too narrow to tell, but an unknown
+  dialog can still take the typed bell.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
   recognizes.
+- A Codex session gets a bell only while herdr shows it in its pane, since Codex runs a message
+  queued for a closed thread on its own. One outside a herdr pane gets no bell, and its mail waits
+  in the mailbox.
 - `keryx spawn` hands herdr the rest of its `--timeout`, up to five minutes, and herdr 0.9.5 drops
   the agent's name if the agent has not been idle or blocked since it started when that time runs
   out. keryx finds the session by its pane, so only herdr commands that take the agent's name

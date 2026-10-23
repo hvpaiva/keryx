@@ -27,6 +27,8 @@ module CLIHelpers
       @gone = []
     end
 
+    def open?(path) = !@gone.include?(path)
+
     def post(path, text)
       raise Errno::ENOENT, path if @gone.include?(path)
 
@@ -35,19 +37,25 @@ module CLIHelpers
   end
 
   class FakeProcesses
-    def initialize(alive)
+    attr_reader :alive, :starts
+
+    # lineage holds the processes this keryx command runs under, nearest first.
+    def initialize(alive, lineage = [])
       @alive = alive
+      @lineage = lineage
+      @starts = {}
     end
 
-    def kill(_signal, pid)
-      raise Errno::ESRCH unless @alive.include?(pid)
+    def alive?(pid) = @alive.include?(pid)
 
-      1
-    end
+    def started(pid) = @alive.include?(pid) ? @starts.fetch(pid, "started #{pid}") : nil
+
+    def ancestors(_pid) = @lineage
   end
 
   class FakeCodexQueue
     attr_reader :queued, :gone
+    attr_accessor :on_queue
 
     def initialize
       @queued = []
@@ -55,6 +63,7 @@ module CLIHelpers
     end
 
     def queue(thread, text)
+      @on_queue&.call(thread)
       return Keryx::Runner::Result.new(out: '', err: "no thread #{thread}\n", success: false) if @gone.include?(thread)
 
       @queued << [thread, text]
@@ -86,6 +95,10 @@ module CLIHelpers
 
   def alive = @alive ||= []
 
+  def lineage = @lineage ||= []
+
+  def processes = @processes ||= FakeProcesses.new(alive, lineage)
+
   def base_env
     { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person' }
   end
@@ -100,7 +113,7 @@ module CLIHelpers
     terminal = Keryx::CLI::Terminal.new(out:, err:, input: StringIO.new(input), env: base_env.merge(env))
     factory = lambda do |globals|
       Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets, codex:,
-                     remote:, sleeper: ->(seconds) { clock.advance(seconds) }, process: FakeProcesses.new(alive))
+                     remote:, sleeper: ->(seconds) { clock.advance(seconds) }, processes:)
     end
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)
   end

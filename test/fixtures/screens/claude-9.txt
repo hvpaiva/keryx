@@ -1,0 +1,20 @@
+ execute
+ files
+ here.
+
+ Securit
+ y guide
+
+ \u276f No,
+   exit
+   Yes, I
+   trust
+   this
+   folder
+
+ Enter
+ to
+ confirm
+ \u00b7 Esc
+ to
+ cancel

@@ -65,7 +65,7 @@ class HostConfigTest < Minitest::Test
     end
     factory = lambda do |_globals|
       Keryx::App.new(env: terminal.env, herdr:, remote:, clock:, claude_socket: sockets, codex:, sleeper:,
-                     process: FakeProcesses.new(alive))
+                     processes:)
     end
 
     assert_equal 130, Keryx.run(%w[courier], terminal:, app_factory: factory)

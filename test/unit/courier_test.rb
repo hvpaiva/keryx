@@ -25,7 +25,11 @@ class CourierTest < Minitest::Test
     @courier ||= Keryx::Courier.new(
       store:, bell: QuietBell.new, postman:, host: 'athena', clock: -> { LATER },
       forwarder: Keryx::Forwarder.new(store:, remote: nil, clock: -> { LATER }),
-      roster: -> { Keryx::Roster.new(store:, herdr: FakeHerdr.new).tap { rosters << it } }
+      roster: lambda do
+        herdr = FakeHerdr.new
+        lookout = Keryx::Lookout.new(herdr:, processes: CLIHelpers::FakeProcesses.new([]))
+        Keryx::Roster.new(store:, herdr:, lookout:).tap { rosters << it }
+      end
     )
   end
 

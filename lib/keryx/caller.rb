@@ -9,7 +9,7 @@ module Keryx
     def self.from_env(env, cwd:, herdr:)
       socket = value(env, 'HERDR_SOCKET_PATH')
       pane = value(env, 'HERDR_PANE_ID')
-      fields = harness_fields(env) || { harness: pane_harness(herdr, socket, pane) }
+      fields = harness_fields(env) || pane_fields(herdr, socket, pane)
       new(harness: fields[:harness], session_id: fields[:session_id], pid: fields[:pid],
           claude_socket: fields[:claude_socket], herdr_socket: socket, herdr_pane: pane, cwd:)
     end
@@ -26,13 +26,17 @@ module Keryx
       end
     end
 
-    def self.pane_harness(herdr, socket, pane) = socket && pane ? herdr.agent(socket, pane)&.kind : nil
+    # A harness that sets no variable of its own takes its name and its session id from what herdr reports.
+    def self.pane_fields(herdr, socket, pane)
+      agent = herdr.agent(socket, pane) if socket && pane
+      { harness: agent&.kind, session_id: agent&.session }
+    end
 
     def self.value(env, name)
       text = env[name].to_s
       text.empty? ? nil : text
     end
-    private_class_method :harness_fields, :pane_harness, :value
+    private_class_method :harness_fields, :pane_fields, :value
 
     def agent? = !harness.nil?
 
@@ -48,7 +52,8 @@ module Keryx
     end
 
     def occupant(now)
-      Occupant.new(harness:, session_id:, pid:, claude_socket:, herdr_socket:, herdr_pane:, cwd:, joined_at: now)
+      Occupant.new(harness:, session_id:, pid:, started: nil, claude_socket:, herdr_socket:, herdr_pane:, cwd:,
+                   joined_at: now)
     end
   end
 end

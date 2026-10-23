@@ -15,7 +15,11 @@ module Keryx
       DESCRIPTION = "keryx carries messages between AI coding agent sessions.\n\n" \
                     'Each session joins an address, such as rev-1, and keeps it while it runs. A message is ' \
                     "written to the recipient's mailbox first and then announced to the session holding the " \
-                    "address, through its harness's own channel when there is one."
+                    "address, through its harness's own channel when there is one.\n\n" \
+                    'A Codex session is rung only while herdr shows it in its pane, by its thread or its own ' \
+                    "process, because Codex's shared server keeps a closed thread loaded for 30 minutes and runs " \
+                    'whatever is queued for it with no one watching. A Codex session outside a herdr pane gets no ' \
+                    'bell, and its mail waits in the mailbox.'
       SIGINT_STATUS = 130
       DEBUG_VARIABLE = 'KERYX_DEBUG'
       COLOR_VARIABLE = 'KERYX_COLOR'

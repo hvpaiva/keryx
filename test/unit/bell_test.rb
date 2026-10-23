@@ -6,28 +6,7 @@ require 'socket'
 class BellTest < Minitest::Test
   include TempDir
   include Factory
-
-  HERDR_SOCKET = '/run/user/1000/herdr.sock'
-
-  def store = @store ||= Keryx::Store.new(tmp('state'))
-
-  def bell(herdr: FakeHerdr.new, claude_socket: Keryx::Bell::ClaudeSocket.new, codex: CLIHelpers::FakeCodexQueue.new)
-    Keryx::Bell.new(store:, herdr:, clock: -> { NOW }, claude_socket:, codex:)
-  end
-
-  def deliver(kind: 'request')
-    store.create_address('rev-1')
-    build_message(to: 'rev-1@athena', kind:).tap { store.deliver('rev-1', it) }
-  end
-
-  def pane_occupant(**overrides)
-    build_occupant(harness: 'codex', session_id: nil, herdr_socket: HERDR_SOCKET, herdr_pane: 'w1:p2', **overrides)
-  end
-
-  def herdr_with(status, screen: '> ', outcome: Keryx::Herdr::Outcome.new(ok: true, code: nil, detail: nil))
-    FakeHerdr.new({ [HERDR_SOCKET, 'w1:p2'] => Keryx::Herdr::Agent.new('w1:p2', 'codex', status) },
-                  screens: { [HERDR_SOCKET, 'w1:p2'] => screen }, prompt_outcome: outcome)
-  end
+  include BellHelpers
 
   def with_claude_socket
     path = tmp('cc.sock')
@@ -76,11 +55,34 @@ class BellTest < Minitest::Test
   def test_a_dead_claude_socket_falls_back_to_the_herdr_pane
     message = deliver
     store.bind('rev-1', pane_occupant(harness: 'claude', claude_socket: tmp('gone.sock')))
-    herdr = herdr_with('idle')
+    herdr = herdr_with('idle', kind: 'claude')
     result = bell(herdr:).ring('rev-1', [message])
 
     assert_equal %w[rung herdr], [result.status, result.channel]
     assert_equal 1, herdr.prompts.size
+  end
+
+  def test_a_pane_that_runs_another_harness_is_absent_and_not_typed_into
+    [%w[claude codex], %w[cursor claude], %w[codex cursor]].each do |harness, running|
+      message = deliver
+      store.bind('rev-1', pane_occupant(harness:, claude_socket: (tmp('gone.sock') if harness == 'claude')))
+      herdr = herdr_with('idle', kind: running)
+      result = bell(herdr:).ring('rev-1', [message])
+
+      assert_equal ['absent', "pane w1:p2 runs #{running}, not #{harness}"], [result.status, result.detail]
+      assert_empty herdr.prompts
+    end
+  end
+
+  def test_a_pane_where_another_session_of_the_harness_runs_is_absent_and_not_typed_into
+    { 'claude' => 'session', 'cursor' => 'conversation' }.each do |harness, label|
+      message = deliver
+      store.bind('rev-1', pane_occupant(harness:, session_id: 'ended', claude_socket: tmp('gone.sock')))
+      herdr = herdr_with('idle', kind: harness, session: 'replacement')
+
+      assert_equal "pane w1:p2 runs #{label} replacement, not ended", bell(herdr:).ring('rev-1', [message]).detail
+      assert_empty herdr.prompts
+    end
   end
 
   def test_a_dead_claude_socket_without_a_pane_fails
@@ -90,29 +92,6 @@ class BellTest < Minitest::Test
 
     assert_equal %w[failed claude], [result.status, result.channel]
     assert_match(/gone.sock/, result.detail)
-  end
-
-  def test_a_codex_session_is_rung_through_its_queue
-    message = deliver
-    store.bind('rev-1', build_occupant(harness: 'codex', session_id: 'thread-1'))
-    queue = CLIHelpers::FakeCodexQueue.new
-    result = bell(codex: queue).ring('rev-1', [message])
-
-    assert_equal %w[rung codex], [result.status, result.channel]
-    assert_equal 'thread-1', queue.queued.first.first
-    assert_match(/\A\[keryx\] New request for rev-1@athena/, queue.queued.first.last)
-  end
-
-  def test_a_failed_codex_queue_falls_back_to_the_pane_or_fails
-    message = deliver
-    queue = CLIHelpers::FakeCodexQueue.new.tap { it.gone << 'thread-1' }
-    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
-
-    assert_equal 'herdr', bell(herdr: herdr_with('idle'), codex: queue).ring('rev-1', [message]).channel
-    store.bind('rev-1', build_occupant(harness: 'codex', session_id: 'thread-1'))
-    result = bell(codex: queue).ring('rev-1', [message])
-
-    assert_equal ['failed', 'no thread thread-1'], [result.status, result.detail]
   end
 
   def test_herdr_types_into_an_idle_or_working_agent
@@ -138,14 +117,43 @@ class BellTest < Minitest::Test
 
   def test_herdr_defers_when_the_screen_shows_a_dialog
     ['Hooks need review', '[a] Trust this workspace', 'Held message from another session',
-     'Do you want to proceed? (y/n)'].each do |screen|
+     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::TINY_CODEX_HOOKS, Screens::NARROW_BOX,
+     Screens::WRAPPED_OPTIONS]
+      .each do |screen|
+        message = deliver
+        store.bind('rev-1', pane_occupant)
+        herdr = herdr_with('idle', screen:)
+
+        assert_equal 'the screen shows a dialog', bell(herdr:).ring('rev-1', [message]).detail, screen
+        assert_empty herdr.prompts
+      end
+  end
+
+  def test_a_pane_too_narrow_to_show_a_dialog_defers
+    [Screens::TINY_QUESTION, Screens.captured.fetch('cursor-9')].each do |screen|
       message = deliver
       store.bind('rev-1', pane_occupant)
       herdr = herdr_with('idle', screen:)
 
-      assert_equal 'the screen shows a dialog', bell(herdr:).ring('rev-1', [message]).detail, screen
+      assert_equal 'the pane is too narrow to tell whether it shows a dialog',
+                   bell(herdr:).ring('rev-1', [message]).detail, screen
       assert_empty herdr.prompts
     end
+  end
+
+  def test_every_dialog_captured_from_herdr_counts_at_any_width
+    assert_equal 36, Screens.captured.size
+    assert_empty(Screens.captured.reject { |_name, screen| Keryx::Bell.obstacle(screen) }.keys)
+  end
+
+  def test_an_ordinary_screen_is_no_dialog
+    code = "Updated the configuration:\nconst allowOnce = false;\nonEnterConfirm(form);\nTests passed.\n\n> "
+    answered = "\u203a yes\n\n\u2022 No problem, I will go on.\n  No other file changes.\n"
+    list = "\u203a 1.5 seconds faster\n  2.1 seconds before\n"
+
+    idle = "\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n"
+
+    [idle, code, "allowOnce()\nfalse\n> ", answered, list, '> '].each { assert_nil Keryx::Bell.obstacle(it), it }
   end
 
   def test_herdr_defers_when_the_screen_cannot_be_read
@@ -168,11 +176,12 @@ class BellTest < Minitest::Test
     assert_equal 'timeout: no answer', bell(herdr: herdr_with('idle', outcome: stalled)).ring('rev-1', [message]).detail
   end
 
-  def test_an_empty_pane_fails
+  def test_an_empty_pane_is_absent
     message = deliver
     store.bind('rev-1', pane_occupant)
+    result = bell.ring('rev-1', [message])
 
-    assert_equal 'no agent in pane w1:p2', bell.ring('rev-1', [message]).detail
+    assert_equal ['absent', 'no agent runs in pane w1:p2'], [result.status, result.detail]
   end
 
   def test_an_occupant_with_no_channel_is_absent

@@ -34,7 +34,8 @@ language models.
   when they are set.
 - Typing is the last resort. keryx types into a pane only when herdr reports the agent idle, done
   or working and the bottom of the screen shows no dialog keryx knows, so a bell does not answer
-  an approval prompt.
+  an approval prompt, and only when herdr's session id or the pane's foreground process shows that
+  the pane still runs the session that joined, so a session that took the pane over gets no bell.
 - `keryx spawn` types nothing into an agent. herdr types the harness command, each argument quoted,
   into the shell of the pane spawn just created, and the first prompt travels as an argument of
   that command. spawn refuses harness arguments that hold control characters, makes those in

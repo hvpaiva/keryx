@@ -27,7 +27,7 @@ module Factory
   end
 
   def build_occupant(**overrides)
-    Keryx::Occupant.new(harness: 'claude', session_id: 'session-1', pid: nil, claude_socket: nil, herdr_socket: nil,
-                        herdr_pane: nil, cwd: '/work', joined_at: NOW, **overrides)
+    Keryx::Occupant.new(harness: 'claude', session_id: 'session-1', pid: nil, started: nil, claude_socket: nil,
+                        herdr_socket: nil, herdr_pane: nil, cwd: '/work', joined_at: NOW, **overrides)
   end
 end
