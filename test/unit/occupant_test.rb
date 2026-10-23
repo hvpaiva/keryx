@@ -36,4 +36,13 @@ class OccupantTest < Minitest::Test
 
     assert_nil Keryx::Occupant.from_record(record).started
   end
+
+  def test_only_a_record_without_a_start_field_can_still_get_its_process_from_a_command
+    record = build_occupant.record
+
+    assert Keryx::Occupant.from_record(record.except('started')).refreshable
+    refute Keryx::Occupant.from_record(record).refreshable
+    refute build_occupant.refreshable
+    refute_includes Keryx::Occupant.from_record(record.except('started')).record, 'refreshable'
+  end
 end

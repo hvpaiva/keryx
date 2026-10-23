@@ -87,10 +87,32 @@ class PaneProofTest < Minitest::Test
     request = build_message(to: 'orq@athena', from: 'impl@athena', kind: 'request').tap { store.deliver('orq', it) }
     notes = [keryx('send', 'impl', 'hello', env: orq).out, keryx('ask', 'impl', 'Review it', env: orq).out,
              keryx('reply', request.id, 'Done', env: orq).out, keryx('status').out, keryx('courier', '--once').out]
-    reason = 'the session that joined pane w1:p3 recorded no process, as one that joined under an older keryx; ' \
-             'a keryx command it runs from that pane, such as keryx whoami, records it'
+    reason = 'the session that joined pane w1:p3 recorded no process to tell it by; a keryx command run in that ' \
+             'session, such as keryx whoami, can record it'
 
     assert_equal([1, 1, 1, 3, 1], notes.map { it.scan(reason).size }, 'status lists the three messages not rung')
+  end
+
+  def test_a_join_that_recorded_no_process_is_not_told_a_command_will
+    show('w1:p3', 'codex', 'idle')
+    herdr.foregrounds[[SOCKET, 'w1:p3']] = 500
+    lineage.replace([601, 600])
+    env = codex_in('w1:p3', 'thread-1')
+    keryx('join', 'impl', env:)
+    2.times { keryx('whoami', env:) }
+    note = keryx('send', 'impl', 'hello').out
+
+    assert_nil store.occupant('impl').pid
+    assert_includes note, '(the session that joined pane w1:p3 recorded no process to tell it by)'
+    refute_match(/older keryx|whoami/, note)
+  end
+
+  def test_an_older_record_a_command_could_not_complete_stops_offering_whoami
+    show('w1:p3', 'codex', 'idle')
+    bind_impl(older: true)
+    keryx('whoami', env: { 'CODEX_THREAD_ID' => 'thread-1' })
+
+    refute_match(/whoami/, keryx('send', 'impl', 'hello').out)
   end
 
   def test_a_session_whose_process_keryx_can_check_is_never_told_to_run_whoami

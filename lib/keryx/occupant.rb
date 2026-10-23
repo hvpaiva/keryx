@@ -3,8 +3,11 @@
 require 'time'
 
 module Keryx
+  # refreshable is not written: a record without a start field predates keeping processes, and a command can add one.
   Occupant = Data.define(:harness, :session_id, :pid, :started, :claude_socket, :herdr_socket, :herdr_pane, :cwd,
-                         :joined_at)
+                         :joined_at, :refreshable) do
+    def initialize(refreshable: false, **) = super
+  end
 
   class Occupant
     FIELDS = %w[harness session_id pid started claude_socket herdr_socket herdr_pane cwd joined_at].freeze
@@ -12,7 +15,8 @@ module Keryx
     FRACTION_DIGITS = 9
 
     def self.from_record(data)
-      new(**FIELDS.to_h { [it.to_sym, data[it]] }, joined_at: Time.iso8601(data.fetch('joined_at')))
+      fields = FIELDS.to_h { [it.to_sym, data[it]] }
+      new(**fields, joined_at: Time.iso8601(data.fetch('joined_at')), refreshable: !data.key?('started'))
     end
 
     def record = FIELDS.to_h { [it, public_send(it)] }.merge('joined_at' => joined_at.utc.iso8601(FRACTION_DIGITS))

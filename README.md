@@ -48,8 +48,8 @@ gem install keryx
 ```
 
 To upgrade, run `gem update keryx` and restart the courier service if the machine runs one. A
-session that joined under an older keryx records what the new one needs with its next keryx
-command, such as `keryx whoami`, and until then a Codex session whose pane shows no session id
+session that joined under an older keryx can record what the new one needs with its next keryx
+command, such as `keryx whoami`, and until it does, a Codex session whose pane shows no session id
 gets no bell.
 
 Each agent needs the keryx skill, the instructions that tell it how to join, read, answer and

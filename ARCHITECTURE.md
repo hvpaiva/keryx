@@ -76,7 +76,8 @@ records the pane the harness's variables name, with the harness as the process, 
 the harness as that pane's foreground group. A Codex that another Codex started without herdr's
 variables, or a shared server that inherited some pane's, places nothing, since the harness found
 holds no variables or is not the foreground of their pane, and elsewhere such a session records no
-pane. A command that proves no pane keeps the one recorded.
+pane. A command that proves no pane keeps the one recorded, and a record without a start field,
+written before keryx kept processes, gets one from the session's next command when it can.
 Later commands find their address by matching the caller against the occupants (`Identity`),
 which means the same Claude Code process or session, the same Codex thread or Cursor
 conversation, or the same harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
