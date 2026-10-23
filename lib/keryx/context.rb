@@ -23,6 +23,17 @@ module Keryx
 
     def label = window ? "#{Tokens.short(used)}/#{Tokens.short(window)} #{share}%" : Tokens.short(used)
 
+    def share_of(ceiling) = (used * 100r / ceiling).round
+
+    def against(ceiling) = "#{Tokens.short(used)} #{share_of(ceiling)}% of #{Tokens.short(ceiling)}"
+
+    # Whole numbers only, so where 80% of a ceiling falls never depends on rounding.
+    def stage(ceiling)
+      if used >= ceiling then :ceiling
+      elsif used * 5 >= ceiling * 4 then :near
+      end
+    end
+
     def record = { 'used' => used, 'window' => window }
   end
 end

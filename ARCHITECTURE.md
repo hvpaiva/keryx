@@ -11,10 +11,11 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 ```text
 addresses/NAME/address.json    the address: its role and when it was created
 addresses/NAME/occupant.json   the session holding it, while one does
+addresses/NAME/spawned.json    the director spawn recorded for the session it started, until a session joins
 addresses/NAME/tmp/            messages being written
 addresses/NAME/mail/           every message, under its id, never moved
 addresses/NAME/read/           a hard link for each message read
-addresses/NAME/receipts/       bell results and hook reminders, one file per message
+addresses/NAME/receipts/       bell results and hook reminders, one file per message, and context notice marks
 occupants.lock                 locked while a command changes which session holds an address
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
@@ -182,8 +183,8 @@ The outbox counts with the mailboxes when keryx decides what is answered or with
 machine that answers closes a request as soon as the reply is written, and the sender's machine
 once the reply arrives; a withdrawal closes it on the sender's machine at once and on the
 recipient's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
-schedule, rings again for bells that did not reach a session, and sends the deadline notices from
-`keryx@HOST`.
+schedule, rings again for bells that did not reach a session, and sends the deadline and context notices
+from `keryx@HOST`.
 
 ## Starting a session
 
@@ -255,6 +256,32 @@ leads to another session's file. A transcript or rollout is read from its end, a
 costs only its last lines. The meter parses only the lines that can carry the figure (a Claude Code assistant line
 with usage, a Codex token count event, and a rollout's first line), keeps only their numbers, and takes a count
 above a billion tokens, more than any window holds, for no figure.
+
+A session may have a ceiling in tokens, given to `keryx join --ceiling`, and kept on its occupant with its
+director, the address that spawned it. spawn puts its `--ceiling` in the join line of the first prompt, so a session
+that joins after spawn gave up still has it. The director never goes on the join line, where any session could name
+any address. Before the harness starts, spawn writes `spawned.json` in the address's folder with the address it runs
+as, the harness, and the herdr socket and pane it starts it in. The first join of the address reads it under the
+occupants lock and removes it, and takes the director only when the joining session runs that harness in that pane,
+so the session spawn started takes it however late it joins, and no later session can. spawn writes it without the
+lock, which would hold spawn past its timeout; only another session's join, which spawn reports as a conflict, can
+come between the write and the join. A spawn with no address to run as removes what an earlier spawn left. A command
+that records the session's process again keeps the ceiling and the director, and a new join starts without them.
+
+In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
+of the ceiling, and again once it reaches the ceiling, it tells the session and its director, or the sender of the
+oldest request the session has not answered when no director was recorded, from `keryx@HOST`. Each notice goes once
+to each recipient for a join and a ceiling, marked in the session's `receipts/`, so a session that joins again or
+gets another ceiling can be told again; a recipient the post failed for is tried again alone in the next round. A
+session first seen at or past the ceiling is told only that it reached it, and the comparison uses whole numbers.
+
+Before it posts a notice, the courier claims the notice's id in `receipts/`: the first courier writes an id with the
+current time, so a recipient reads the notices in order, and every other courier or later round reads that id back.
+A second post of the notice is then a duplicate the mailbox or the outbox keeps once, and rings no bell, whether two
+couriers passed the mark's check together or the mark failed to be written after the post. Only the courier that
+writes the mark reports the notice. The courier also reads the occupant again just before each post and drops the
+figure when the session's harness, id, join or ceiling changed while it was measured, since another session that
+took the address with `join --force` would otherwise get the figure of the one before.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not

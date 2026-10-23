@@ -73,6 +73,14 @@ class PostmanTest < Minitest::Test
     assert_equal request.thread, reply.thread
   end
 
+  def test_a_message_posted_again_under_its_id_is_stored_and_rung_once
+    id = Keryx::Ulid.generate(NOW)
+    2.times { postman.post(sender: 'orq', recipient: address('rev-1'), kind: 'message', body: 'once', id:) }
+
+    assert_equal [id], store.unread('rev-1').map(&:id)
+    assert_equal [['rev-1', [id]]], bell.rung
+  end
+
   def test_a_message_to_oneself_is_stored_without_a_bell
     posted = postman.post(sender: 'orq', recipient: address('orq'), kind: 'message', body: 'note')
 

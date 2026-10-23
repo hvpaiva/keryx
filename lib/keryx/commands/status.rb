@@ -85,7 +85,8 @@ module Keryx
 
       def address_record(entry, waiting)
         { 'address' => app.full(entry.name), 'role' => entry.role, 'session' => entry.session,
-          'context' => CLI::ContextView.record(app, entry), 'unread' => entry.unread,
+          'context' => CLI::ContextView.record(app, entry), 'ceiling' => entry.occupant&.ceiling,
+          'unread' => entry.unread,
           'waiting' => waiting.fetch(entry.name, 0) }
       end
 

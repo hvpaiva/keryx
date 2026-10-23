@@ -73,7 +73,8 @@ module Keryx
 
     def courier
       @courier ||= Courier.new(store:, forwarder:, bell:, postman:, host:, clock:,
-                               roster: -> { Roster.new(store:, herdr:, lookout:) })
+                               roster: -> { Roster.new(store:, herdr:, lookout:) },
+                               meter: -> { Meter.new(env:, herdr:, lookout:) })
     end
 
     def roster = @roster ||= Roster.new(store:, herdr:, lookout:)
@@ -91,6 +92,14 @@ module Keryx
 
     def me
       @me ||= identity.current(as: @as).tap { refresh(it) unless @as }
+    end
+
+    # The address this command acts as when it has one, without creating the person's address as me would.
+    def own_address
+      return me if @as
+
+      person = identity.human_name
+      identity.held || (person if !caller.agent? && store.address?(person))
     end
 
     # The occupant this session records, with the harness process it runs in so that the bell can tell it apart.
@@ -131,7 +140,7 @@ module Keryx
     end
 
     def renewed(occupant)
-      session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd, transcript: occupant.transcript)
+      session_occupant(occupant.joined_at, previous: occupant).with(**occupant.to_h.slice(*Occupant::KEPT))
     end
 
     def harness_process(previous, &) = (previous&.pid && kept(previous)) || current_process(&)

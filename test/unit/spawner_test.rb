@@ -3,6 +3,9 @@
 require 'test_helper'
 
 class SpawnerTest < Minitest::Test
+  include TempDir
+  include Factory
+
   def test_a_tab_herdr_lists_without_panes_is_an_error
     herdr = FakeHerdr.new(panes: [Keryx::Herdr::Pane.new(id: 'w1:p1', tab: 'w1:t1', workspace: 'w1')],
                           tabs: { 'w1' => [Keryx::Herdr::Tab.new(id: 'w1:t2', label: 'agents')] })
@@ -26,5 +29,28 @@ class SpawnerTest < Minitest::Test
     end
 
     assert_equal 'herdr: not found', error.message
+  end
+
+  def spawner(store, notices = [])
+    Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW }, sleeper: ->(_) {},
+                       notice: ->(text) { notices << text })
+  end
+
+  def test_the_director_is_recorded_for_the_harness_spawn_starts_in_its_pane
+    store = Keryx::Store.new(tmp('state'))
+    store.create_address('impl')
+    spawner(store).direct('impl', 'w1:p2', 'codex', 'orq')
+
+    assert_equal Keryx::Spawned.new(director: 'orq', harness: 'codex', herdr_socket: '/h.sock', herdr_pane: 'w1:p2'),
+                 store.spawned('impl')
+  end
+
+  def test_a_director_spawn_cannot_record_is_a_notice
+    store = Keryx::Store.new(tmp('state'))
+    store.define_singleton_method(:record_spawned) { |*| raise Errno::ENOSPC, 'spawned' }
+    notices = []
+    spawner(store, notices).direct('impl', 'w1:p2', 'codex', 'orq')
+
+    assert_equal ['spawn could not record orq as the director of impl: No space left on device - spawned.'], notices
   end
 end

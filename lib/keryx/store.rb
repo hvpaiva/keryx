@@ -9,6 +9,7 @@ require_relative 'files'
 require_relative 'message'
 require_relative 'occupant'
 require_relative 'outbox'
+require_relative 'spawned'
 
 module Keryx
   AddressRecord = Data.define(:name, :role, :created_at)
@@ -85,6 +86,21 @@ module Keryx
     end
 
     def unbind(name) = FileUtils.rm_f(occupant_file(name))
+
+    # What spawn recorded about the session it started, until a session joins the address. A damaged record is none,
+    # since the join that reads it removes it.
+    def spawned(name)
+      Spawned.from_record(read_json(spawned_file(name)))
+    rescue Error
+      nil
+    end
+
+    def record_spawned(name, spawned)
+      require_address(name)
+      write_atomic(spawned_file(name), JSON.generate(spawned.record))
+    end
+
+    def forget_spawned(name) = FileUtils.rm_f(spawned_file(name))
 
     # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
     def with_occupants_lock(within: LOCK_SECONDS)
@@ -163,6 +179,14 @@ module Keryx
       false
     end
 
+    # The first value claimed stays, so every process that claims the same id gets the value the first one wrote.
+    def claim(name, id, kind, value)
+      path = receipt_file(name, id, kind)
+      return value if write_once(path, value) == :delivered
+
+      read_regular(path) or raise Error, "#{path} is not a regular file"
+    end
+
     # Preparing writes and renames in the receipts as keeping does, so a mark that could not be kept fails here.
     def prepare_mark(name, id, kind) = write_atomic(pending_mark(name, id, kind), '')
 
@@ -192,6 +216,8 @@ module Keryx
     def address_file(name) = File.join(box(name), 'address.json')
 
     def occupant_file(name) = File.join(box(name), 'occupant.json')
+
+    def spawned_file(name) = File.join(box(name), 'spawned.json')
 
     def receipt_file(name, id, kind) = File.join(box(name), 'receipts', "#{id}.#{kind}")
 

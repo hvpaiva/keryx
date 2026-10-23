@@ -30,6 +30,9 @@ All notable changes to this project are documented here. The format follows
 - The context each session uses in `who` and `status`, and the sender's on each message it sends,
   shown by `read`, all read from the usage its harness records: the Claude Code transcript, the
   Codex rollout or the footer of a Cursor pane in herdr.
+- A context ceiling per session, given to `join` or `spawn` with `--ceiling`, which `who` and
+  `status` show the context against, and notices from `keryx courier` to the session and its
+  director when its context reaches 80% of the ceiling and when it reaches the ceiling.
 - `keryx skill`, the instructions agents follow to use keryx.
 - `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane labelled with
   its address, gives it that address and hands it a first request that is in its mailbox before the

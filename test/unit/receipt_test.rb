@@ -61,4 +61,15 @@ class ReceiptTest < Minitest::Test
 
     assert_equal({ 'status' => 'rung' }, store.receipt('rev-1', id, 'bell'))
   end
+
+  def test_the_first_claim_stays_and_one_that_is_not_a_regular_file_is_an_error
+    id = Keryx::Ulid.generate
+    claims = %w[first second].map { store.claim('rev-1', id, 'claim', it) }
+
+    assert_equal %w[first first], claims
+    FileUtils.mkdir(tmp('state', 'addresses', 'rev-1', 'receipts', "#{id}.folder"))
+    error = assert_raises(Keryx::Error) { store.claim('rev-1', id, 'folder', 'first') }
+
+    assert_match(/#{id}\.folder is not a regular file/, error.message)
+  end
 end

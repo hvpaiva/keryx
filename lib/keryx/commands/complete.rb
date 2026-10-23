@@ -6,7 +6,7 @@ module Keryx
   module Commands
     class Complete < CLI::Command
       VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
-                         --effort --prompt].freeze
+                         --effort --prompt --ceiling].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/

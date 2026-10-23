@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require 'json'
+require 'shellwords'
 require_relative 'error'
+require_relative 'text'
 
 module Keryx
   module Harness
@@ -39,5 +41,15 @@ module Keryx
     end
 
     def option(flag, value) = value ? [flag, value] : []
+
+    def first_prompt(address, name:, role: nil, ceiling: nil, extra: nil)
+      join = Shellwords.join(['keryx', 'join', name, *option('--role', role), *option('--ceiling', ceiling)])
+      extra = Text.plain(extra.to_s.gsub(/\s+/, ' ').strip)
+      [
+        "You are #{[address, role && "the #{role}"].compact.join(', ')}, started by keryx spawn.",
+        "Run '#{join}', then run 'keryx skill' and follow it, then run 'keryx inbox'.",
+        (extra unless extra.empty?)
+      ].compact.join(' ')
+    end
   end
 end

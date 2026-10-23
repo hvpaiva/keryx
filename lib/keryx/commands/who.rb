@@ -11,8 +11,10 @@ module Keryx
       CONTEXT = 'CONTEXT is the tokens in the context of the session, read from its harness as the command runs: the ' \
                 'transcript Claude Code writes, the rollout Codex writes, or the footer Cursor shows in its herdr ' \
                 'pane. When the harness reports the window, the window and the share of it in use follow, as in ' \
-                "137k/258k 53%; Claude Code's transcript does not say the window, so it shows tokens only. It is " \
-                'unknown when keryx could not read it, and - when no session runs.'
+                "137k/258k 53%; Claude Code's transcript does not say the window, so it shows tokens only. With a " \
+                'context ceiling (keryx join --help) it shows the tokens, their share of the ceiling and the ' \
+                'ceiling, as in 101k 81% of 125k, in yellow from 80% and red at the ceiling. It is unknown when ' \
+                'keryx could not read it, and - when no session runs.'
 
       define 'who', section: 'Session Commands',
                     summary: 'List the addresses on this machine',
@@ -45,7 +47,8 @@ module Keryx
 
       def record(entry)
         { 'address' => app.full(entry.name), 'role' => entry.role, 'harness' => entry.occupant&.harness,
-          'session' => entry.session, 'context' => CLI::ContextView.record(app, entry), 'unread' => entry.unread }
+          'session' => entry.session, 'context' => CLI::ContextView.record(app, entry),
+          'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread }
       end
     end
   end

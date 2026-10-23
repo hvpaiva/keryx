@@ -5,33 +5,7 @@ require 'test_helper'
 class CourierTest < Minitest::Test
   include TempDir
   include Factory
-
-  LATER = NOW + 3600
-
-  class QuietBell
-    def ring(*) = Keryx::Bell::Result.new(status: 'rung', channel: 'test', detail: nil, at: Factory::NOW)
-  end
-
-  def store = @store ||= Keryx::Store.new(tmp('state')).tap { |box| %w[orq rev-1].each { box.create_address(it) } }
-
-  def postman
-    @postman ||= Keryx::Postman.new(store:, bell: QuietBell.new, forwarder: nil, host: 'athena', clock: -> { LATER },
-                                    person: 'person')
-  end
-
-  def rosters = @rosters ||= []
-
-  def courier
-    @courier ||= Keryx::Courier.new(
-      store:, bell: QuietBell.new, postman:, host: 'athena', clock: -> { LATER },
-      forwarder: Keryx::Forwarder.new(store:, remote: nil, clock: -> { LATER }),
-      roster: lambda do
-        herdr = FakeHerdr.new
-        lookout = Keryx::Lookout.new(herdr:, processes: CLIHelpers::FakeProcesses.new([]))
-        Keryx::Roster.new(store:, herdr:, lookout:).tap { rosters << it }
-      end
-    )
-  end
+  include CourierHelpers
 
   def overdue_request
     build_message(to: 'rev-1@athena', from: 'orq@athena', kind: 'request', due_at: NOW + 60)
@@ -84,6 +58,6 @@ class CourierTest < Minitest::Test
   def test_each_round_reads_the_sessions_afresh
     2.times { courier.round }
 
-    assert_equal 2, rosters.uniq.size
+    assert_equal [2, 2], [rosters.uniq.size, meters.size]
   end
 end

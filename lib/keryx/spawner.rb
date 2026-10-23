@@ -2,6 +2,7 @@
 
 require_relative 'bell'
 require_relative 'error'
+require_relative 'spawned'
 
 module Keryx
   class Spawner
@@ -41,6 +42,15 @@ module Keryx
       end
     ensure
       starting&.stop
+    end
+
+    # Recorded before the harness starts, for the join to apply whenever it comes, and removed by the first join of the
+    # address, so it goes to the session spawn starts in this pane or to none. It takes no lock, which would hold spawn
+    # past its timeout: only a join spawn reports as a conflict can come between the write and the session's join.
+    def direct(name, pane, kind, director)
+      @store.record_spawned(name, Spawned.new(director:, harness: kind, herdr_socket: @socket, herdr_pane: pane))
+    rescue Error, SystemCallError => e
+      @notice.call("spawn could not record #{director} as the director of #{name}: #{e.message}.")
     end
 
     private

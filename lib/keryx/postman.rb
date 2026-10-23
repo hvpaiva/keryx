@@ -38,8 +38,9 @@ module Keryx
       return forward(message, recipient.host) unless recipient.local?(@host)
 
       @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
-      @store.deliver(recipient.name, message)
-      bell = announce(recipient.name, message) if ring && recipient.name != sender
+      # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
+      delivered = @store.deliver(recipient.name, message) == :delivered
+      bell = announce(recipient.name, message) if ring && delivered && recipient.name != sender
       Posted.new(message:, bell:, forward: nil)
     end
 

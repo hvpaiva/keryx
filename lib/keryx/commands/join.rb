@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../tokens'
 
 module Keryx
   module Commands
@@ -9,6 +10,12 @@ module Keryx
                      'Cursor session, or from an agent running in a herdr pane'
       SESSION_LABEL = { 'codex' => 'thread', 'cursor' => 'conversation' }.freeze
       ROLE = /\A[[:alnum:]][[:alnum:] ._-]{0,39}\z/
+      CEILING = 'A ceiling is a number of tokens, such as 125k, kept with the session. Once its context reaches ' \
+                '80% of the ceiling, and again once it reaches the ceiling, keryx courier tells the session and its ' \
+                'director: the address that spawned it, or else the sender of its oldest open request. Windows ' \
+                'differ by harness and model (Claude Code runs 200K or 1M, Codex and Cursor show theirs in keryx ' \
+                'who), so no one share fits them all. Choose the ceiling below the window, at the point where the ' \
+                'session should reach a stopping point and hand over. There is no ceiling unless one is given.'
 
       define 'join', section: 'Session Commands', arguments: 'NAME', min: 1, max: 1,
                      summary: 'Claim an address for this agent session',
@@ -16,8 +23,9 @@ module Keryx
                                   'The address is created if it does not exist and outlives the session: when ' \
                                   'the session ends, its mailbox keeps receiving, and the next session to join ' \
                                   'the name finds the messages waiting. A session holds one address at a time, ' \
-                                  'so joining another releases the first.',
+                                  "so joining another releases the first.\n\n#{CEILING}",
                      examples: [['Join as the first reviewer', 'join rev-1 --role reviewer'],
+                                ['Join with a context ceiling of 125k tokens', 'join impl --ceiling 125k'],
                                 ['Take an address over from a session that is still running', 'join rev-1 --force']]
 
       def self.where(session)
@@ -47,6 +55,13 @@ module Keryx
           options[:role] = role
         end
         parser.on('--force', 'Take the address even when another live session holds it') { options[:force] = true }
+        Join.ceiling_option(parser, options)
+      end
+
+      def self.ceiling_option(parser, options)
+        parser.on('--ceiling TOKENS', 'Be told when the context nears TOKENS, such as 125k') do |ceiling|
+          options[:ceiling] = ceiling
+        end
       end
 
       def call(arguments)
@@ -55,7 +70,7 @@ module Keryx
         caller = app.caller
         raise Error, NOT_AN_AGENT unless caller.agent?
 
-        occupant = app.session_occupant(app.now)
+        occupant = app.session_occupant(app.now).with(ceiling: options[:ceiling] && Tokens.parse(options[:ceiling]))
         app.store.with_occupants_lock { claim(name, caller, occupant) }
         report(name, occupant)
       end
@@ -66,7 +81,14 @@ module Keryx
         refuse_taken(name, caller)
         release_others(name, caller)
         app.store.create_address(name, role: options[:role])
-        app.store.bind(name, occupant)
+        app.store.bind(name, directed(name, occupant))
+        app.store.forget_spawned(name)
+      end
+
+      # The director spawn recorded goes to the session spawn started, and only on the first join after it.
+      def directed(name, occupant)
+        spawned = app.store.spawned(name)
+        spawned&.started?(occupant) ? occupant.with(director: spawned.director) : occupant
       end
 
       def refuse_taken(name, caller)
@@ -80,9 +102,11 @@ module Keryx
         end
       end
 
+      def ceiling(occupant) = occupant.ceiling ? " Its context ceiling is #{Tokens.short(occupant.ceiling)}." : ''
+
       def report(name, occupant)
         terminal.puts("Joined #{terminal.paint(:address, app.full(name))} as a #{Text.plain(occupant.harness)} " \
-                      "session (#{Text.plain(Join.where(occupant))}).")
+                      "session (#{Text.plain(Join.where(occupant))}).#{ceiling(occupant)}")
         unread = app.store.unread(name).size
         terminal.puts("#{unread} unread message(s) waiting; run 'keryx inbox'.") if unread.positive?
         nil
