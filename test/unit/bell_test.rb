@@ -118,7 +118,11 @@ class BellTest < Minitest::Test
   end
 
   def test_an_ordinary_screen_is_no_dialog
-    refute Keryx::Bell.dialog?("\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n")
+    code = "Updated the configuration:\nconst allowOnce = false;\nonEnterConfirm(form);\nTests passed.\n\n> "
+
+    ["\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n", code].each do |screen|
+      refute Keryx::Bell.dialog?(screen), screen
+    end
   end
 
   def test_herdr_defers_when_the_screen_cannot_be_read

@@ -23,14 +23,15 @@ module Keryx
       /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter (to )?(select|confirm)/i, /press enter/i,
       /allow (this|once|always)/i, /trust all and continue/i, /continue without trusting/i
     )
-    SQUEEZED_DIALOG = Regexp.new(DIALOG.source.delete(' '))
+    # The footer a dialog ends with, such as Codex's "enter confirm" and "esc skip", unlike code on the screen.
+    SQUEEZED_FOOTER = /enter(to)?(select|confirm)\W{1,3}esc(to)?(skip|cancel|exit)/i
     BOX_DRAWING = /[\u2500-\u257f]/
 
     # A narrow pane wraps a dialog over several lines, often inside a box, and one narrower than a word breaks the
-    # word too, so the screen is matched as one line and again with no spaces at all.
+    # word too, so the screen is matched as one line, and its footer again with no spaces at all.
     def self.dialog?(screen)
       text = screen.to_s.gsub(BOX_DRAWING, ' ')
-      DIALOG.match?(text.split.join(' ')) || SQUEEZED_DIALOG.match?(text.gsub(/\s+/, ''))
+      DIALOG.match?(text.split.join(' ')) || SQUEEZED_FOOTER.match?(text.gsub(/\s+/, ''))
     end
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)
