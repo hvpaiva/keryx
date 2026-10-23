@@ -66,9 +66,9 @@ WantedBy=default.target
 does not reach herdr or codex when they are installed under your home directory, as mise and most
 installers do. Every bell but one through a Claude Code session's socket runs herdr, to look at
 the session's pane or type into it, and a bell for a Codex thread runs codex to queue it, so a
-service that finds neither leaves those bells deferred. Set `Environment=PATH=` to the directories
-`command -v herdr codex` prints, followed by `/usr/local/bin:/usr/bin:/bin` so that ssh, ps and
-ruby are still found, since systemd does not expand `$PATH` there. Add the same `KERYX_*`
+service that finds neither leaves those bells deferred. Set `Environment=PATH=` to the directory of
+each path `command -v herdr codex` prints, followed by `/usr/local/bin:/usr/bin:/bin` so that ssh,
+ps and ruby are still found, since systemd does not expand `$PATH` there. Add the same `KERYX_*`
 variables your shell sets, `XDG_CONFIG_HOME` when you set it, and `SSH_AUTH_SOCK` when the key
 lives in an agent. Then start it.
 
