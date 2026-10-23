@@ -137,16 +137,19 @@ module Keryx
 
     # The footer sits above the directory Cursor shows under it, which may wrap, and the conversation never reaches
     # these last lines. A footer that shows no share is no figure; no other line stands in for it.
+    # Once the footer gives a figure the pane is looked at again, as another conversation may have taken it meanwhile.
     def cursor(occupant)
       return unless @lookout.in_pane(occupant).there?
 
       footer = @herdr.footer(occupant.herdr_socket, occupant.herdr_pane) or return
       lines = String.new(footer, encoding: Encoding::UTF_8).scrub.lines.last(Herdr::FOOTER_LINES).map(&:strip)
-      match = lines.lazy.filter_map { CURSOR_FOOTER.match(it) }.first
-      footer_context(match) if match&.[](:share)
+      figure = footer_context(lines.lazy.filter_map { CURSOR_FOOTER.match(it) }.first)
+      figure if figure && @lookout.in_pane(occupant).there?
     end
 
     def footer_context(match)
+      return unless match&.[](:share)
+
       window = Integer(match[:window], 10) * UNITS.fetch(match[:unit])
       used = (match[:share].to_r * window / 100).round
       Context.new(used:, window:) if Context.count?(used)
