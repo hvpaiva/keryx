@@ -26,6 +26,7 @@ module Keryx
     include Files
 
     class Busy < Error; end
+    class Damaged < Error; end
 
     ADDRESSES = 'addresses'
     MAIL = 'mail'
@@ -205,22 +206,28 @@ module Keryx
     end
 
     # The first value claimed stays, so every process that claims the same id gets the value the first one wrote.
-    def claim(name, id, kind, value)
+    def claim(name, id, kind, value, &)
       return value if write_once(receipt_file(name, id, kind), value) == :delivered
 
-      claimed(name, id, kind)
+      claimed(name, id, kind, &)
     end
 
-    # The value claimed for ID, or nil while nothing claimed it. Nothing writes a claim again, so one whose value the
-    # block rejects stays damaged until someone removes it.
+    # The value claimed for ID, or nil while nothing claimed it. A value the block rejects is damaged.
     def claimed(name, id, kind)
       path = receipt_file(name, id, kind)
       value = read_regular(path) or raise Error, "#{path} is not a regular file"
       return value if !block_given? || yield(value)
 
-      raise Error, "#{path} is damaged"
+      raise Damaged, "#{path} is damaged"
     rescue Errno::ENOENT
       nil
+    end
+
+    # VALUE in place of what was claimed for ID, and what every later claim reads back. Only a caller that holds the
+    # lock every claim of ID is made under may write over one.
+    def reclaim(name, id, kind, value)
+      write_atomic(receipt_file(name, id, kind), value)
+      value
     end
 
     # Each claim of KIND in the mailbox of NAME that claimed refuses is reported as a problem.

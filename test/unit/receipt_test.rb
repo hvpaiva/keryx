@@ -81,7 +81,16 @@ class ReceiptTest < Minitest::Test
 
     assert_equal 'first', store.claimed('rev-1', id, 'claim') { it == 'first' }
     assert_equal "#{receipts}/#{id}.claim is damaged",
-                 assert_raises(Keryx::Error) { store.claimed('rev-1', id, 'claim') { it == 'second' } }.message
+                 assert_raises(Keryx::Store::Damaged) { store.claimed('rev-1', id, 'claim') { it == 'second' } }.message
+    assert_raises(Keryx::Store::Damaged) { store.claim('rev-1', id, 'claim', 'third') { it == 'third' } }
+  end
+
+  def test_a_claim_written_over_is_what_the_next_claim_reads_back
+    id = Keryx::Ulid.generate
+    store.claim('rev-1', id, 'claim', 'damaged')
+
+    assert_equal 'fresh', store.reclaim('rev-1', id, 'claim', 'fresh')
+    assert_equal 'fresh', store.claim('rev-1', id, 'claim', 'later')
   end
 
   def test_each_damaged_claim_of_a_kind_is_a_problem_and_a_mailbox_without_receipts_has_none

@@ -144,11 +144,20 @@ module Keryx
 
       id = Ulid.generate(@clock.call)
       id = [id, after_near(name, recipient, occupant)].compact.max if stage == :ceiling
-      mark = context_mark(occupant, stage, recipient)
-      id = @store.claim(name, mark, CONTEXT_CLAIM, id)
-      return id if Ulid.valid?(id)
+      claim(name, recipient, occupant, stage, id)
+    end
 
-      raise Error, "the id claimed for the notice #{mark} is damaged"
+    # Every courier claims in the hold, so the fresh id written over a damaged claim is the one the next courier reads
+    # back, and the store keeps one copy. A notice posted under the damaged id and never marked goes out again, which
+    # costs less than a notice held back for good. The damage is a problem and an error of the round.
+    def claim(name, recipient, occupant, stage, id)
+      mark = context_mark(occupant, stage, recipient)
+      @store.claim(name, mark, CONTEXT_CLAIM, id) { Ulid.valid?(it) }
+    rescue Store::Damaged => e
+      @store.problems << e.message
+      @errors << "the #{stage} notice of #{name}@#{@host} to #{recipient} writes a fresh id over its damaged claim; " \
+                 "#{e.message}"
+      @store.reclaim(name, mark, CONTEXT_CLAIM, id)
     end
 
     # A damaged claim can no longer place the ceiling after the notice near it. Losing the ceiling costs more than that

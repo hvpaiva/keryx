@@ -59,7 +59,7 @@ module Keryx
         end
       end
 
-      # Nothing writes a claim again, so a damaged one is shown on every look until someone removes it.
+      # A damaged claim is shown on every look until a courier writes over it or someone removes it.
       def report_damaged_claims
         app.store.address_names.each do |name|
           app.store.report_damaged_claims(name, Keryx::Courier::CONTEXT_CLAIM) { Ulid.valid?(it) }

@@ -333,9 +333,12 @@ near the ceiling it checks the ceiling notice's claim and drops the notice once 
 notice's id sorts after the id the notice near it claimed for the same join and recipient, even within the same
 millisecond or after the clock steps back, so whichever hold comes first, no recipient reads the notice near the
 ceiling after the ceiling's. When the claim of the notice near the ceiling is damaged, that order can no longer be
-proved, and the ceiling notice goes out with a fresh id all the same, since losing it costs more than the order. The
-damage is an error of the round and a problem, and since nothing writes a claim again, `keryx status` reports each
-damaged claim until someone removes it. The bell and the forward happen after the hold.
+proved, and the ceiling notice goes out with a fresh id all the same, since losing it costs more than the order. When
+a notice's own claim is damaged, the courier writes the fresh id over it in the same hold and posts under it, so the
+next courier reads that id back and the store keeps one copy. A notice posted under the damaged id and never marked
+then goes out twice, which costs less than a notice held back for good. Each damage is an error of the round and a
+problem, and `keryx status` reports a damaged claim until a courier writes over it or someone removes it. The bell
+and the forward happen after the hold.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not

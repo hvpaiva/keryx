@@ -29,10 +29,10 @@ class CourierContextOrderTest < Minitest::Test
   # that round ends or waits for the occupants lock.
   def alongside_the_claim(other, waits, threads = [])
     original = store.method(:claim)
-    store.define_singleton_method(:claim) do |*args|
+    store.define_singleton_method(:claim) do |*args, &valid|
       threads << Thread.new { other.round } if threads.empty?
       sleep(0.01) while threads.first.alive? && waits.empty?
-      original.call(*args)
+      original.call(*args, &valid)
     end
     threads
   end
@@ -97,5 +97,60 @@ class CourierContextOrderTest < Minitest::Test
 
   def test_a_claim_of_the_notice_near_the_ceiling_that_is_no_id_holds_no_ceiling_notice_back
     assert_the_ceiling_notice_goes_out_with_a_fresh_id { 'not-json' }
+  end
+
+  # The first post of the notice at FIGURE fails once its id is claimed, so the claim stays and no mark follows, and
+  # what the block makes of that id is written over it.
+  def claimed_unmarked_and_damaged(figure)
+    impl
+    meter.figures['session-impl'] = figure
+    original = store.method(:deliver)
+    failures = [Errno::ENOSPC.new('mail')]
+    store.define_singleton_method(:deliver) { |*args| failures.empty? ? original.call(*args) : raise(failures.shift) }
+    courier.round
+    claims = Dir[tmp('state', 'addresses', 'impl', 'receipts', '*.context-id')]
+    File.write(claims.first, yield(File.read(claims.first)))
+    claims
+  end
+
+  # Another courier claims while this one writes over the damaged claim, and this one runs a round after both.
+  def assert_the_claim_is_written_over_once(figure, stage, &)
+    claims = claimed_unmarked_and_damaged(figure, &)
+    waits = []
+    threads = alongside_the_claim(other_courier(figure, -> { LATER }, waits), waits)
+    round = courier.round
+    other = threads.first.value
+
+    refute_empty waits
+    assert_equal [1, [['impl@athena', stage]], []], [claims.size, told.call(round) + told.call(other), other.errors]
+    assert_equal([File.read(claims.first)], store.mailbox('impl').map { it.message.id })
+    assert_equal ["#{claims.first} is damaged"], store.problems
+    assert_equal ["the #{stage} notice of impl@athena to impl@athena writes a fresh id over its damaged claim; " \
+                  "#{claims.first} is damaged"], round.errors
+    assert_equal([[], []], courier.round.then { [it.context, it.errors] })
+  end
+
+  def test_an_empty_claim_of_the_ceiling_notice_is_written_over_once
+    assert_the_claim_is_written_over_once(126_000, :ceiling) { '' }
+  end
+
+  def test_a_truncated_claim_of_the_ceiling_notice_is_written_over_once
+    assert_the_claim_is_written_over_once(126_000, :ceiling) { it[0, 13] }
+  end
+
+  def test_a_claim_of_the_ceiling_notice_that_is_no_id_is_written_over_once
+    assert_the_claim_is_written_over_once(126_000, :ceiling) { 'not-json' }
+  end
+
+  def test_an_empty_claim_of_the_notice_near_the_ceiling_is_written_over_once
+    assert_the_claim_is_written_over_once(100_000, :near) { '' }
+  end
+
+  def test_a_truncated_claim_of_the_notice_near_the_ceiling_is_written_over_once
+    assert_the_claim_is_written_over_once(100_000, :near) { it[0, 13] }
+  end
+
+  def test_a_claim_of_the_notice_near_the_ceiling_that_is_no_id_is_written_over_once
+    assert_the_claim_is_written_over_once(100_000, :near) { 'not-json' }
   end
 end
