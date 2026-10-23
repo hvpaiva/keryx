@@ -119,17 +119,26 @@ module Keryx
       due(late)
       direct(name, pane, kind, director) if director
       due(late)
+      kept = @kept && keeps?(name)
       @vacant.call(name, "it joined after spawn checked the address, and spawn started no #{kind} session in pane " \
                          "#{pane}; #{shell(pane)}")
-      free_name(name) if @kept
+      free_name(name, late) if kept
       due(late)
       @herdr.start(@socket, pane, name:, kind:, arguments:, timeout: @deadline - @clock.call)
     end
 
-    # herdr clears whatever name the pane holds when the rename runs, so the pane can still change names between this
-    # look and the clear.
-    def free_name(name)
-      @herdr.clear_name(@socket, @kept) if @herdr.agent(@socket, name)&.pane == @kept
+    # The lookup can take long, so the address check and the timeout's come after it, and only they stand between it
+    # and the clear. herdr clears whatever name the pane holds when the rename runs, so the pane can still change names
+    # in that window.
+    def keeps?(name) = herdr_name(name) { @herdr.agent(@socket, name)&.pane == @kept }
+
+    def free_name(name, late)
+      due(late)
+      herdr_name(name) { @herdr.clear_name(@socket, @kept) }
+    end
+
+    def herdr_name(name)
+      yield
     rescue Error => e
       raise Error, "spawn could not free the herdr name #{name} in pane #{Text.plain(@kept)}: #{e.message}"
     end

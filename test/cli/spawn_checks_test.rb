@@ -36,6 +36,16 @@ class SpawnChecksTest < Minitest::Test
     herdr.on_call = ->(call) { yield if call == :split }
   end
 
+  # Runs while spawn looks the herdr name NAME up again just before it frees it, after the lookup of its first check.
+  def looking_up(name)
+    held = herdr.agent(SOCKET, name)
+    lookups = 0
+    herdr.put(SOCKET, name, lambda do
+      yield if (lookups += 1) == 2
+      held
+    end)
+  end
+
   def joins(name, env)
     result = keryx('join', name, env:)
     raise "join failed: #{result.err}" unless result.status.zero?
@@ -128,6 +138,29 @@ class SpawnChecksTest < Minitest::Test
     assert_equal 'error: orq@athena is held by another live claude session (pid 111, pane w1:p1); it joined after ' \
                  'spawn checked the address, and spawn started no codex session in pane w1:p2; the pane holds only a ' \
                  "shell, which 'herdr pane close w1:p2' closes\n", result.err
+    assert_equal [[], []], [herdr.cleared, herdr.starts]
+  end
+
+  def test_an_address_joined_again_while_spawn_looks_up_the_herdr_name_stops_it_before_it_frees_the_name
+    caller = left('orq')
+    looking_up('orq') { joins('orq', caller) }
+    result = spawn('orq', '--harness', 'codex', env: caller)
+
+    assert_equal 1, result.status
+    assert_equal 'error: orq@athena is held by another live claude session (pid 111, pane w1:p1); it joined after ' \
+                 'spawn checked the address, and spawn started no codex session in pane w1:p2; the pane holds only a ' \
+                 "shell, which 'herdr pane close w1:p2' closes\n", result.err
+    assert_equal [[], [], 111], [herdr.cleared, herdr.starts, store.occupant('orq').pid]
+  end
+
+  def test_a_herdr_name_lookup_that_ends_at_the_timeout_frees_no_name_and_starts_no_harness
+    caller = left('orq')
+    looking_up('orq') { clock.advance(3) }
+    result = spawn('orq', '--harness', 'codex', '--timeout', '3s', env: caller)
+
+    assert_equal 3, result.status
+    assert_equal 'error: the timeout passed after spawn opened pane w1:p2, and it started no codex session there; ' \
+                 "the pane holds only a shell, which 'herdr pane close w1:p2' closes\n", result.err
     assert_equal [[], []], [herdr.cleared, herdr.starts]
   end
 
