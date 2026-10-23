@@ -35,10 +35,12 @@ keryx knows a Codex session by the thread Codex runs it in, and rings it only wh
 it in the session's herdr pane. When herdr's Codex integration has reported the thread's id for the
 pane, keryx queues the bell with `codex queue`. When herdr shows Codex in the pane without an id,
 which is how a session looks when its hooks are not trusted, keryx types the bell into the pane,
-but only while the pane's foreground process is the Codex process that joined. A Codex session
-outside a herdr pane, or one herdr no longer shows, gets no bell, and its mail waits in the
-mailbox. The reason is Codex's shared server, which keeps a thread loaded for 30 minutes after its
-TUI quits and runs whatever is queued for it with no pane and no one watching.
+but only while the pane's foreground process is the Codex process that joined. A Codex started by
+hand in a herdr pane drops herdr's variables from its commands, and on Linux keryx finds its pane
+from the Codex process itself. A Codex session outside a herdr pane, one keryx cannot place in its
+pane, or one herdr no longer shows, gets no bell, and its mail waits in the mailbox. The reason is
+Codex's shared server, which keeps a thread loaded for 30 minutes after its TUI quits and runs
+whatever is queued for it with no pane and no one watching.
 
 For the stop hook, add it to `~/.codex/hooks.json`, or to a project's `.codex/hooks.json`.
 

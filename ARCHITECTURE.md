@@ -61,7 +61,13 @@ started: on Linux the clock tick since boot from `/proc/PID/stat`, elsewhere `ps
 UTC, so neither the caller's time zone nor a step of the wall clock changes it. Claude Code names
 its process in `CLAUDE_PID`; for Codex and Cursor in a herdr pane, the process is the pane's
 foreground group, recorded only when it is an ancestor of the join, which leaves out a Codex
-session that runs its commands under Codex's shared server. Later commands find their address by
+session that runs its commands under Codex's shared server. Codex drops herdr's variables from the
+commands it runs but keeps them itself, so a Codex started by hand in a pane is placed by the
+nearest ancestor that holds both. On Linux keryx reads only those two from `/proc/PID/environ` and
+records the pane they name, with its foreground group as the process, when that group is the
+ancestor or runs above it; a server that inherited the variables of some pane runs below its
+foreground group and places nothing, and elsewhere such a session records no pane. A command that
+proves no pane keeps the one recorded. Later commands find their address by
 matching the caller against the occupants (`Identity`), which means the same Claude Code process
 or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
 pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then

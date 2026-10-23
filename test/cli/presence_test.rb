@@ -34,6 +34,71 @@ class PresenceTest < Minitest::Test
     assert_equal 'started 111', store.occupant('rev-1').started
   end
 
+  # A Codex started by hand in a herdr pane keeps herdr's variables, and drops them from the commands it runs.
+  def codex_by_hand(pane, pid, holder: pid, secret: 's3cret')
+    runs_in(pane, pid)
+    processes.environments[holder] = { 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => pane, 'TOKEN' => secret }
+    show(pane, 'codex', 'idle')
+    { 'CODEX_THREAD_ID' => 'thread-1' }
+  end
+
+  def session(name) = JSON.parse(keryx('who', '-o', 'json').out).find { it['address'] == "#{name}@athena" }['session']
+
+  def test_a_codex_started_by_hand_in_a_pane_is_placed_by_the_variables_it_kept
+    env = codex_by_hand('w1:p3', 500)
+    joined = keryx('join', 'impl', env:)
+
+    assert_equal "Joined impl@athena as a codex session (pid 500, thread thread-1, pane w1:p3).\n", joined.out
+    assert_equal([SOCKET, 'w1:p3', 500], store.occupant('impl').then { [it.herdr_socket, it.herdr_pane, it.pid] })
+    assert_equal 'idle', session('impl')
+    assert_match(/The bell rang through herdr\./, keryx('send', 'impl', 'hello').out)
+    refute_includes File.read(tmp('state', 'addresses', 'impl', 'occupant.json')), 's3cret'
+  end
+
+  def test_the_pane_an_older_join_recorded_gets_its_process_from_the_next_command
+    env = codex_by_hand('w1:p3', 500, holder: 499)
+    lineage.replace([501, 500, 499])
+    store.create_address('impl')
+    store.bind('impl', build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET,
+                                      herdr_pane: 'w1:p3'))
+    keryx('whoami', env:)
+
+    assert_equal([SOCKET, 'w1:p3', 500], store.occupant('impl').then { [it.herdr_socket, it.herdr_pane, it.pid] })
+    assert_match(/The bell rang through herdr\./, keryx('send', 'impl', 'hello').out)
+  end
+
+  def test_a_command_that_proves_no_pane_keeps_the_one_recorded
+    store.create_address('impl')
+    recorded = build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET, herdr_pane: 'w1:p3')
+    store.bind('impl', recorded)
+    keryx('whoami', env: { 'CODEX_THREAD_ID' => 'thread-1' })
+
+    assert_equal recorded, store.occupant('impl')
+  end
+
+  UNPROVEN = {
+    'another pane runs in the foreground' => ->(test) { test.herdr.foregrounds[[SOCKET, 'w1:p3']] = 900 },
+    'a server under the pane carries its variables' => lambda { |test|
+      test.lineage.replace([501, 600, 500])
+      test.processes.environments[600] = test.processes.environments.delete(500)
+    },
+    'a process the command does not run under has them' => lambda { |test|
+      test.processes.environments[700] = test.processes.environments.delete(500)
+    }
+  }.freeze
+
+  def test_variables_a_session_cannot_prove_it_runs_under_place_nothing
+    UNPROVEN.each do |label, change|
+      FileUtils.rm_rf(tmp('state'))
+      env = codex_by_hand('w1:p3', 500)
+      change.call(self)
+      keryx('join', 'impl', env:)
+      occupant = store.occupant('impl')
+
+      assert_equal [nil, nil, 'unknown'], [occupant.herdr_pane, occupant.pid, session('impl')], label
+    end
+  end
+
   def test_a_new_session_in_the_pane_records_its_own_process
     runs_in('w1:p3', 500)
     keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))

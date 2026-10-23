@@ -37,13 +37,14 @@ module CLIHelpers
   end
 
   class FakeProcesses
-    attr_reader :alive, :starts
+    attr_reader :alive, :starts, :environments
 
     # lineage holds the processes this keryx command runs under, nearest first.
     def initialize(alive, lineage = [])
       @alive = alive
       @lineage = lineage
       @starts = {}
+      @environments = {}
     end
 
     def alive?(pid) = @alive.include?(pid)
@@ -51,6 +52,8 @@ module CLIHelpers
     def started(pid) = @alive.include?(pid) ? @starts.fetch(pid, "started #{pid}") : nil
 
     def ancestors(_pid) = @lineage
+
+    def environment(pid, names) = @environments[pid]&.slice(*names)
   end
 
   class FakeCodexQueue

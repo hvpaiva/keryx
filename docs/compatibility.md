@@ -30,7 +30,8 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
   wraps or breaks still counts, and does not type into a pane too narrow to tell, but an unknown
   dialog can still take the typed bell.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
-  recognizes.
+  recognizes. keryx finds the pane of a Codex started by hand, rather than by `keryx spawn`, only
+  on Linux, where it can read the variables herdr gave the Codex process.
 - A Codex session gets a bell only while herdr shows it in its pane, since Codex runs a message
   queued for a closed thread on its own. One outside a herdr pane gets no bell, and its mail waits
   in the mailbox.

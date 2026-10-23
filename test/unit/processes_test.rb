@@ -47,6 +47,21 @@ class ProcessesTest < Minitest::Test
     assert_nil Keryx::Processes.new(runner: FakeRunner.new(%w[ps] => { out: "\n" }), host_os: 'darwin24').started(42)
   end
 
+  def test_on_linux_only_the_variables_asked_for_are_read_from_a_process_environment
+    FileUtils.mkdir_p(tmp('proc', '42'))
+    File.binwrite(tmp('proc', '42', 'environ'), "HERDR_PANE_ID=w1:p3\0TOKEN=s3cret\0HERDR_SOCKET_PATH=/h=1.sock\0" \
+                                                "HERDR_BAD=\xff\0")
+
+    assert_equal({ 'HERDR_PANE_ID' => 'w1:p3', 'HERDR_SOCKET_PATH' => '/h=1.sock' },
+                 linux.environment(42, %w[HERDR_SOCKET_PATH HERDR_PANE_ID HERDR_BAD]))
+    assert_nil linux.environment(43, %w[HERDR_PANE_ID])
+    assert_nil linux.environment('../42', %w[HERDR_PANE_ID])
+  end
+
+  def test_elsewhere_no_process_environment_is_read
+    assert_nil Keryx::Processes.new(runner: FakeRunner.new, host_os: 'darwin24').environment(Process.pid, %w[HOME])
+  end
+
   def test_ancestors_follow_the_parents_up_to_the_first_process
     table = "  1     0\n 10     1\n 20    10\n 30    20\n garbage\n"
     processes = Keryx::Processes.new(runner: FakeRunner.new(%w[ps -A] => { out: table }))

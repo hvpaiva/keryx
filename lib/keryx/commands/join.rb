@@ -57,7 +57,7 @@ module Keryx
 
         occupant = app.session_occupant(app.now)
         app.store.with_occupants_lock { claim(name, caller, occupant) }
-        report(name, caller)
+        report(name, occupant)
       end
 
       private
@@ -80,9 +80,9 @@ module Keryx
         end
       end
 
-      def report(name, caller)
-        terminal.puts("Joined #{terminal.paint(:address, app.full(name))} as a #{Text.plain(caller.harness)} " \
-                      "session (#{Text.plain(Join.where(caller))}).")
+      def report(name, occupant)
+        terminal.puts("Joined #{terminal.paint(:address, app.full(name))} as a #{Text.plain(occupant.harness)} " \
+                      "session (#{Text.plain(Join.where(occupant))}).")
         unread = app.store.unread(name).size
         terminal.puts("#{unread} unread message(s) waiting; run 'keryx inbox'.") if unread.positive?
         nil

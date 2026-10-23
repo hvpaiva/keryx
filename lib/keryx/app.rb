@@ -20,6 +20,8 @@ require_relative 'store'
 
 module Keryx
   class App
+    HERDR_VARIABLES = %w[HERDR_SOCKET_PATH HERDR_PANE_ID].freeze
+
     attr_reader :env, :cwd, :as, :clock, :sleeper, :processes
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
@@ -79,8 +81,9 @@ module Keryx
 
     # The occupant this session records, with the harness process it runs in so that the bell can tell it apart.
     def session_occupant(joined_at, previous: nil)
-      pid, started = harness_process(previous)
-      caller.occupant(joined_at).with(pid:, started:)
+      socket, pane, group = place(previous)
+      pid, started = harness_process(previous) { group || pane_group(socket, pane) }
+      caller.occupant(joined_at).with(pid:, started:, herdr_socket: socket, herdr_pane: pane)
     end
 
     def address(text) = Address.parse(text, local_host: host)
@@ -115,7 +118,7 @@ module Keryx
 
     def renewed(occupant) = session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd)
 
-    def harness_process(previous) = (previous&.pid && kept(previous)) || current_process
+    def harness_process(previous, &) = (previous&.pid && kept(previous)) || current_process(&)
 
     # The recorded process stays until an answer shows that another one runs the session; a failed lookup keeps it.
     def kept(previous)
@@ -127,7 +130,7 @@ module Keryx
     end
 
     def current_process
-      pid = caller.pid || pane_group
+      pid = caller.pid || yield
       [pid, pid && processes.started(pid)]
     end
 
@@ -140,11 +143,33 @@ module Keryx
     end
 
     # A harness that does not name its process runs as the foreground group of its herdr pane, an ancestor of this one.
-    def pane_group
-      return unless caller.herdr_socket && caller.herdr_pane
+    def pane_group(socket, pane)
+      return unless socket && pane
 
-      group = herdr.foreground(caller.herdr_socket, caller.herdr_pane)
+      group = herdr.foreground(socket, pane)
       group if group && processes.ancestors(Process.pid).include?(group)
+    end
+
+    # herdr's variables name the pane; without them, the pane an ancestor proves, and else the one recorded before.
+    def place(previous)
+      return [caller.herdr_socket, caller.herdr_pane] if caller.herdr_socket && caller.herdr_pane
+
+      (inherited_place unless caller.pid) || [previous&.herdr_socket, previous&.herdr_pane]
+    end
+
+    # Codex drops herdr's variables from its commands but keeps them itself. The pane they name counts only while its
+    # foreground group is the ancestor that holds them or runs above it, which a server that inherited them is not.
+    def inherited_place
+      ancestors = processes.ancestors(Process.pid)
+      holder = ancestors.index { herdr_variables(it) } or return
+      socket, pane = herdr_variables(ancestors[holder])
+      group = herdr.foreground(socket, pane)
+      [socket, pane, group] if group && ancestors.first(holder + 1).include?(group)
+    end
+
+    def herdr_variables(pid)
+      found = processes.environment(pid, HERDR_VARIABLES).to_h.values_at(*HERDR_VARIABLES).map { present(it) }
+      found if found.all?
     end
 
     def present(value) = value.to_s.empty? ? nil : value
