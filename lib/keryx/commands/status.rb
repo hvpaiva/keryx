@@ -16,11 +16,13 @@ module Keryx
                        summary: 'Show what is pending on this machine',
                        description: 'Show what is pending on this machine, for a person keeping an eye on the ' \
                                     "sessions.\n\n" \
-                                    'ADDRESSES lists each address with its session, when the session last wrote ' \
-                                    'its record and the context it uses, as keryx who shows them, its unread ' \
-                                    'messages and the requests waiting for its answer, a taken one included. It ' \
-                                    'leaves out the addresses keryx who leaves out and says how many, ' \
-                                    'unless --all is given, and with -o json view and hidden say the same. ' \
+                                    'ADDRESSES lists each address with its session, its ACTIVE time and the context ' \
+                                    'it uses, as keryx who shows them, its unread messages and the requests ' \
+                                    'waiting for its answer, a taken one included. It leaves out the addresses ' \
+                                    'keryx who leaves out and says how many, unless --all is given, and with -o ' \
+                                    'json view and hidden say the same. ACTIVE is how long ago the harness last ' \
+                                    'wrote its own record of the session, the file keryx who names, so a session ' \
+                                    'on a long tool call looks quiet; it is not a liveness check. ' \
                                     'OPEN REQUESTS lists every request its ' \
                                     'recipient has not replied to yet and its sender has not withdrawn, with its ' \
                                     'deadline, including those sent to another machine. Its STATE is unread or ' \

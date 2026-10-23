@@ -371,13 +371,13 @@ The meter also tells when the harness last wrote the file it keeps for the sessi
 ACTIVE. It takes the file's mtime and reads nothing in it. That is the last write and not a liveness check, since a
 session on a long tool call writes nothing until the call ends. For Claude Code the file is the transcript, and for
 Codex the rollout, that the context figure comes from; the meter keeps both paths for its life, one command or one
-courier round, so the column adds one fstat each. For Cursor keryx departs from the footer it reads for context,
-which carries no time: telling when it changed would take a record per address, written from who and status, and
-the footer changes only with its share or its labels. Cursor keeps each conversation in
-`~/.cursor/chats/MD5(cwd)/CONVERSATION_ID/`, a layout of its own that it does not document, where the directory is
-the MD5 of the directory the session runs in and the conversation id is the one Cursor gives the session in
-`CURSOR_CONVERSATION_ID`. The time is the later mtime of `store.db` and `store.db-wal` there, read under the same
-rule of no link on the way, and a session whose files are missing has none.
+courier round, so the column costs one open and stat of a path it already found, with no second glob or listing.
+For Cursor keryx departs from the footer it reads for context, which carries no time: telling when it changed would
+take a record per address, written from who and status, and the footer changes only with its share or its labels.
+Cursor keeps each conversation in `~/.cursor/chats/MD5(cwd)/CONVERSATION_ID/`, a layout of its own that it does not
+document, where the directory is the MD5 of the directory the session runs in and the conversation id is the one
+Cursor gives the session in `CURSOR_CONVERSATION_ID`. The time is the later mtime of `store.db` and `store.db-wal`
+there, read under the same rule of no link on the way, and a session whose files are missing has none.
 
 A session may have a ceiling in tokens, given to `keryx join --ceiling`, and kept on its occupant with its
 director, the address that spawned it. spawn puts its `--ceiling` in the join line of the first prompt, so a session
