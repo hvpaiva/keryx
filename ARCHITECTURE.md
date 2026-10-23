@@ -157,6 +157,14 @@ and the id, never the body. It tries two ways, in order.
    Matching inside the box, not anywhere, keeps a transcript that quotes that footer from holding
    the bell back.
 
+   The rule does not read what the composer holds, and the follow-ups box is the only editor it
+   knows. Codex's shift+← moves the last queued message back into its composer to be edited, which
+   nothing here recognizes, so a bell typed into the pane then is added to that message. A bell to
+   Codex is typed in two cases only. When herdr shows the session in its pane by its process alone,
+   with no thread id, the bell is typed without trying the queue. When herdr shows the thread and
+   `codex queue --thread ID` fails, the bell falls back to the pane, which is looked at and read
+   again first. The queue itself types nothing into the composer.
+
    The detail of a deferral for a dialog or an edited message names what matched, the words keryx's own patterns took or
    a marked option, and the line of the screen it showed on, as in
    `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt reaches the sender,
