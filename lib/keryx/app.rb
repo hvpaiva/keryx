@@ -21,6 +21,7 @@ require_relative 'store'
 module Keryx
   class App
     HERDR_VARIABLES = %w[HERDR_SOCKET_PATH HERDR_PANE_ID].freeze
+    SESSION_VARIABLES = { 'codex' => 'CODEX_THREAD_ID', 'cursor' => 'CURSOR_CONVERSATION_ID' }.freeze
 
     attr_reader :env, :cwd, :as, :clock, :sleeper, :processes
 
@@ -157,14 +158,17 @@ module Keryx
       (inherited_place unless caller.pid) || [previous&.herdr_socket, previous&.herdr_pane]
     end
 
-    # Codex drops herdr's variables from its commands but keeps them itself. The pane they name counts only while its
-    # foreground group is the ancestor that holds them or runs under that ancestor, never above it as over a server.
+    # A harness hands its session id only to the commands it runs, so the first process up from this one without it
+    # is the harness. Codex keeps herdr's variables itself, and its pane counts only while that harness runs in it.
     def inherited_place
-      ancestors = processes.ancestors(Process.pid)
-      holder = ancestors.index { herdr_variables(it) } or return
-      socket, pane = herdr_variables(ancestors[holder])
-      group = herdr.foreground(socket, pane)
-      [socket, pane, group] if group && ancestors.first(holder + 1).include?(group)
+      variable = SESSION_VARIABLES[caller.harness]
+      return unless variable && caller.session_id
+
+      harness = [Process.pid, *processes.ancestors(Process.pid)].find do |pid|
+        processes.environment(pid, [variable]).to_h[variable] != caller.session_id
+      end
+      socket, pane = herdr_variables(harness) unless harness == Process.pid
+      [socket, pane, harness] if socket && herdr.foreground(socket, pane) == harness
     end
 
     def herdr_variables(pid)

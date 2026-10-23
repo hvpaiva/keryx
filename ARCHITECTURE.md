@@ -69,12 +69,14 @@ UTC, so neither the caller's time zone nor a step of the wall clock changes it. 
 its process in `CLAUDE_PID`; for Codex and Cursor in a herdr pane, the process is the pane's
 foreground group, recorded only when it is an ancestor of the join, which leaves out a Codex
 session that runs its commands under Codex's shared server. Codex drops herdr's variables from the
-commands it runs but keeps them itself, so a Codex started by hand in a pane is placed by the
-nearest ancestor that holds both. On Linux keryx reads only those two from `/proc/PID/environ` and
-records the pane they name, with its foreground group as the process, when that group is that
-ancestor or runs under it, between it and the command. A server that inherited the variables of
-some pane runs under that pane's foreground group, not above it, so it places nothing, and
-elsewhere such a session records no pane. A command that proves no pane keeps the one recorded.
+commands it runs but keeps them itself, and hands its thread id only to those commands, so the
+harness that runs a command is the first process up from it whose environment lacks the caller's
+thread. On Linux keryx reads only that variable and herdr's two from `/proc/PID/environ`, and
+records the pane the harness's variables name, with the harness as the process, when herdr shows
+the harness as that pane's foreground group. A Codex that another Codex started without herdr's
+variables, or a shared server that inherited some pane's, places nothing, since the harness found
+holds no variables or is not the foreground of their pane, and elsewhere such a session records no
+pane. A command that proves no pane keeps the one recorded.
 Later commands find their address by matching the caller against the occupants (`Identity`),
 which means the same Claude Code process or session, the same Codex thread or Cursor
 conversation, or the same harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
