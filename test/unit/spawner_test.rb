@@ -3,6 +3,9 @@
 require 'test_helper'
 
 class SpawnerTest < Minitest::Test
+  include TempDir
+  include Factory
+
   def test_a_tab_herdr_lists_without_panes_is_an_error
     herdr = FakeHerdr.new(panes: [Keryx::Herdr::Pane.new(id: 'w1:p1', tab: 'w1:t1', workspace: 'w1')],
                           tabs: { 'w1' => [Keryx::Herdr::Tab.new(id: 'w1:t2', label: 'agents')] })
@@ -26,5 +29,34 @@ class SpawnerTest < Minitest::Test
     end
 
     assert_equal 'herdr: not found', error.message
+  end
+
+  def test_the_director_goes_only_on_the_session_that_spawn_saw_join
+    store = Keryx::Store.new(tmp('state'))
+    store.create_address('impl')
+    seen = build_occupant(harness: 'codex', herdr_pane: 'w1:p2')
+    notices = []
+    spawner = Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW },
+                                 sleeper: ->(_) {}, notice: ->(text) { notices << text })
+    store.bind('impl', seen.with(joined_at: NOW + 1))
+    spawner.direct('impl', seen, 'orq')
+
+    assert_nil store.occupant('impl').director
+    store.bind('impl', seen)
+    spawner.direct('impl', seen, 'orq')
+
+    assert_equal 'orq', store.occupant('impl').director
+    assert_empty notices
+  end
+
+  def test_a_director_spawn_cannot_record_is_a_notice
+    store = Keryx::Store.new(tmp('state'))
+    store.define_singleton_method(:with_occupants_lock) { |*| raise Keryx::Store::Busy, 'locked' }
+    notices = []
+    spawner = Keryx::Spawner.new(herdr: FakeHerdr.new, store:, socket: '/h.sock', clock: -> { NOW },
+                                 sleeper: ->(_) {}, notice: ->(text) { notices << text })
+    spawner.direct('impl', build_occupant, 'orq')
+
+    assert_equal ['impl joined, but spawn could not record orq as its director: locked.'], notices
   end
 end

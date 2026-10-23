@@ -43,7 +43,22 @@ module Keryx
       starting&.stop
     end
 
+    # Only on the occupant spawn saw join, since another session may hold the address by the time the lock is free.
+    def direct(name, occupant, director)
+      @store.with_occupants_lock do
+        current = @store.occupant(name)
+        @store.bind(name, current.with(director:)) if current && same_join?(current, occupant)
+      end
+    rescue Error => e
+      @notice.call("#{name} joined, but spawn could not record #{director} as its director: #{e.message}.")
+    end
+
     private
+
+    def same_join?(current, occupant)
+      current.harness == occupant.harness && current.herdr_pane == occupant.herdr_pane &&
+        current.joined_at == occupant.joined_at
+    end
 
     def placed(from, split:, tab:, cwd:, env:)
       return @herdr.split(@socket, from, direction: split, cwd:, env:) unless tab

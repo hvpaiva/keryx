@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'shellwords'
 require_relative '../cli/command'
 require_relative '../duration'
 require_relative '../harness'
@@ -8,6 +7,7 @@ require_relative '../paths'
 require_relative '../postman'
 require_relative '../spawner'
 require_relative '../text'
+require_relative '../tokens'
 require_relative 'ask'
 require_relative 'join'
 
@@ -45,7 +45,10 @@ module Keryx
                                    'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
                                    'gave up. --timeout counts from the moment spawn starts, and spawn exits with ' \
-                                   'status 3 when it passes before the join.',
+                                   "status 3 when it passes before the join.\n\n" \
+                                   '--ceiling goes into the join line of the first prompt, and spawn records the ' \
+                                   "address it runs as as the session's director once it joins; 'keryx join " \
+                                   "--help' explains both.",
                       examples: [['Start a reviewer in Claude Code with its first request',
                                   'spawn rev-1 --harness claude --role reviewer "Review PR #448"'],
                                  ['Start Codex in the agents tab with a brief from a file and a deadline',
@@ -75,10 +78,12 @@ module Keryx
         text = request_text(arguments[1])
         check(name, text)
         sender = app.me if text
+        director = sender || app.own_address
         claim(name)
         before = app.store.occupant(name)
         request = text && post(sender, name, text)
         waiting(request) { launch(name, before) }
+        spawner.direct(name, @occupant, director) if director
         report(name, request)
       end
 
@@ -105,6 +110,7 @@ module Keryx
         parser.on('--model MODEL', 'Ask the harness for MODEL') { options[:model] = it }
         parser.on('--effort LEVEL', 'Ask claude or codex for this reasoning effort') { options[:effort] = it }
         parser.on('--prompt TEXT', 'Add TEXT to the first prompt the session gets') { options[:prompt] = it }
+        Join.ceiling_option(parser, options)
       end
 
       def request_text(text)
@@ -189,22 +195,10 @@ module Keryx
       end
 
       def first_prompt(name)
-        @first_prompt ||= compose_prompt(name)
-      end
-
-      def compose_prompt(name)
-        role = options[:role]
-        join = Shellwords.join(['keryx', 'join', name, *(['--role', role] if role)])
-        [
-          "You are #{[app.full(name), role && "the #{role}"].compact.join(', ')}, started by keryx spawn.",
-          "Run '#{join}', then run 'keryx skill' and follow it, then run 'keryx inbox'.",
-          extra_prompt
-        ].compact.join(' ')
-      end
-
-      def extra_prompt
-        text = Text.plain(options[:prompt].to_s.gsub(/\s+/, ' ').strip)
-        text.empty? ? nil : text
+        @first_prompt ||= begin
+          Tokens.parse(options[:ceiling]) if options[:ceiling]
+          Harness.first_prompt(app.full(name), name:, **options.slice(:role, :ceiling), extra: options[:prompt])
+        end
       end
 
       def claim(name)

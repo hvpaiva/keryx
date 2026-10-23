@@ -41,4 +41,15 @@ class HarnessTest < Minitest::Test
 
     assert_match(/cursor takes no --effort/, error.message)
   end
+
+  def test_the_first_prompt_joins_with_the_role_and_the_ceiling_and_ends_with_the_extra_text
+    prompt = Keryx::Harness.first_prompt('impl@athena', name: 'impl', role: 'lead dev', ceiling: '125k',
+                                                        extra: " Keep\nit short \e[2J")
+
+    assert_equal "You are impl@athena, the lead dev, started by keryx spawn. Run 'keryx join impl --role lead\\ dev " \
+                 "--ceiling 125k', then run 'keryx skill' and follow it, then run 'keryx inbox'. Keep it short ^[[2J",
+                 prompt
+    assert_equal "You are impl@athena, started by keryx spawn. Run 'keryx join impl', then run 'keryx skill' and " \
+                 "follow it, then run 'keryx inbox'.", Keryx::Harness.first_prompt('impl@athena', name: 'impl')
+  end
 end

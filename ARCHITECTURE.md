@@ -251,6 +251,11 @@ so measuring never fails the command that asked.
 A transcript or rollout is read from its end, at most 8 MiB back, so a long one costs only its last lines, and
 only the lines that carry usage are parsed.
 
+A session may have a ceiling in tokens, given to `keryx join --ceiling`, and kept on its occupant with its
+director, the address that spawned it. spawn puts its `--ceiling` in the join line of the first prompt, so a session
+that joins after spawn gave up still has it, and records the director itself once it sees the join, on that
+occupant only. A command that records the session's process again keeps both, and a new join starts without them.
+
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not
 know the field ignores it, and one that cannot read a stamp delivers the message without it.
