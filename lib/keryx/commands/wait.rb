@@ -12,7 +12,8 @@ module Keryx
       define 'wait', section: 'Mail Commands', arguments: 'ID', min: 1, max: 1,
                      summary: 'Block until a request you sent is answered',
                      description: 'Block until the request ID, which you sent, is answered, then show the reply ' \
-                                  "and mark it as read.\n\n" \
+                                  'and mark it as read. When the request is withdrawn before a reply comes, it ' \
+                                  "shows the withdrawal instead.\n\n" \
                                   'An agent rarely needs this: the reply rings its session when it arrives. It is ' \
                                   'for scripts, and for work that cannot go on without the answer. It exits with ' \
                                   'status 3 when --timeout passes first.',
@@ -25,20 +26,10 @@ module Keryx
         output_option(parser)
       end
 
-      def call(arguments)
-        name = app.me
-        reply = poll(name, sent_request(name, arguments.first), deadline)
-        app.store.mark_read(name, reply.id)
-        show_message(reply)
-      end
-
-      private
-
-      def deadline = options[:timeout] && (app.now + Duration.parse(options[:timeout]))
-
-      def sent_request(name, reference)
+      # The mailbox or outbox that holds the request NAME sent, and the request.
+      def self.sent_request(app, name, reference)
         reference = Store.reference(reference)
-        mine = requests_from(app.full(name)).select { it.id.start_with?(reference) }
+        mine = app.store.sent_requests(name).select { it.last.id.start_with?(reference) }
         return mine.first if mine.one?
 
         raise Error, "#{reference} matches #{mine.size} requests you sent; type more of the id" if mine.size > 1
@@ -46,18 +37,37 @@ module Keryx
         raise Error, "no request #{reference} sent by #{app.full(name)}"
       end
 
-      def requests_from(address)
-        app.store.all_messages.map { it.last.message }.select { it.from == address && it.request? }
+      def call(arguments)
+        name = app.me
+        settled = poll(name, *Wait.sent_request(app, name, arguments.first), deadline)
+        app.store.mark_read(name, settled.id) if settled.reply?
+        show_message(settled)
       end
 
-      def poll(name, request, deadline)
+      private
+
+      def deadline = options[:timeout] && (app.now + Duration.parse(options[:timeout]))
+
+      def poll(name, holder, request, deadline)
         loop do
-          reply = app.store.mailbox(name).map(&:message).find { it.answers?(request) }
-          return reply if reply
+          settled = reply(name, request) || withdrawal(holder, request)
+          return settled if settled
           raise WaitTimeout, "no reply to #{request.id} from #{request.to} yet" if deadline && app.now >= deadline
 
           app.sleeper.call(POLL_SECONDS)
         end
+      end
+
+      def reply(name, request) = app.store.mailbox(name).map(&:message).find { it.answers?(request) }
+
+      # A withdrawal is written where its request is, in a mailbox or in the outbox for the recipient's host.
+      def withdrawal(holder, request)
+        held = if holder
+                 app.store.mailbox(holder).map(&:message)
+               else
+                 app.store.outbox.outgoing(request.to.split('@').last).reject { it.state == :refused }.map(&:message)
+               end
+        held.find { it.withdraws?(request) }
       end
     end
   end

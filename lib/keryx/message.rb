@@ -10,7 +10,7 @@ module Keryx
   Message = Data.define(:id, :kind, :from, :to, :thread, :in_reply_to, :created_at, :due_at, :body)
 
   class Message
-    KINDS = %w[message request reply].freeze
+    KINDS = %w[message request reply withdrawal].freeze
     FORMAT_VERSION = 1
     MAX_BODY_BYTES = 64 * 1024
     FIELDS = %w[id kind from to thread in_reply_to created_at due_at body].freeze
@@ -74,11 +74,18 @@ module Keryx
 
     def reply? = kind == 'reply'
 
+    def withdrawal? = kind == 'withdrawal'
+
     def overdue?(now) = request? && !due_at.nil? && now > due_at
 
     def answers?(request)
       reply? && request.request? && in_reply_to == request.id && thread == request.thread &&
         from == request.to && to == request.from
+    end
+
+    def withdraws?(request)
+      withdrawal? && request.request? && in_reply_to == request.id && thread == request.thread &&
+        from == request.from && to == request.to
     end
 
     def summary(width = 60)

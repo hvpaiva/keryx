@@ -26,7 +26,8 @@ example `keryx join rev-1 --role reviewer`. Until you join, keryx refuses to sen
 
 A request expects an answer. Reply with `keryx reply ID TEXT`, or `keryx reply ID --file PATH` for
 long answers. Reply even when you cannot do what was asked, and say why. A request without a reply
-stays open in `keryx status`, and the stop hook reminds you before your turn ends.
+stays open in `keryx status`, and the stop hook reminds you before your turn ends. A request its
+sender withdrew needs no reply; stop working on it.
 
 ## Ask and send
 
@@ -34,8 +35,11 @@ stays open in `keryx status`, and the stop hook reminds you before your turn end
   the reply rings this session when it arrives. Use `keryx wait ID` only when you cannot go on
   without the answer.
 - `keryx send ADDRESS TEXT` for updates that need no answer.
-- An address on another machine is `NAME@HOST`, such as `port@zeus`. Mail to it goes over SSH,
-  and when that machine is unreachable it waits and goes out later; `keryx status` shows it.
+- `keryx withdraw ID` when you no longer need the answer to a request you sent.
+- An address on another machine is `NAME@HOST`, such as `port@zeus`. HOST is that machine's keryx
+  name (`KERYX_HOST` when set there, else `host` in its `~/.config/keryx/config`, else its short
+  hostname), and it must be the name ssh reaches that machine by from here. Mail to it goes over
+  SSH, and when that machine is unreachable it waits and goes out later; `keryx status` shows it.
 - `keryx who` lists the addresses on this machine and whether a session holds each one.
 
 ## Write messages that stand on their own

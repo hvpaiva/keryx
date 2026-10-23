@@ -15,7 +15,7 @@ module Keryx
         return '-' unless message.request? && message.due_at
 
         left = message.due_at - now
-        left.negative? ? "overdue #{Duration.short(-left)}" : "in #{Duration.short(left)}"
+        left.negative? ? "overdue #{Duration.short(-left)}" : "in #{Duration.ahead(left)}"
       end
 
       def render(terminal, message, now)
@@ -29,7 +29,7 @@ module Keryx
         kind = message.request? && message.due_at ? "request, due #{due(message, now)}" : message.kind
         rows = [['id', message.id], ['kind', kind], ['from', message.from], ['to', message.to]]
         rows << ['thread', message.thread] unless message.thread == message.id
-        rows << ['reply to', message.in_reply_to] if message.in_reply_to
+        rows << [message.withdrawal? ? 'withdraws' : 'reply to', message.in_reply_to] if message.in_reply_to
         sent = message.created_at
         rows << ['sent', "#{sent.utc.strftime(TIME_FORMAT)} (#{Duration.short(now - sent)} ago)"]
       end

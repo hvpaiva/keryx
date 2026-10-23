@@ -20,6 +20,9 @@ require_relative 'store'
 
 module Keryx
   class App
+    HERDR_VARIABLES = %w[HERDR_SOCKET_PATH HERDR_PANE_ID].freeze
+    SESSION_VARIABLES = { 'codex' => 'CODEX_THREAD_ID', 'cursor' => 'CURSOR_CONVERSATION_ID' }.freeze
+
     attr_reader :env, :cwd, :as, :clock, :sleeper, :processes
 
     def initialize(env:, cwd: Dir.pwd, as: nil, clock: -> { Time.now.utc }, herdr: nil,
@@ -79,16 +82,20 @@ module Keryx
 
     # The occupant this session records, with the harness process it runs in so that the bell can tell it apart.
     def session_occupant(joined_at, previous: nil)
-      pid, started = harness_process(previous)
-      caller.occupant(joined_at).with(pid:, started:)
+      socket, pane, group = place(previous)
+      pid, started = harness_process(previous) { group || pane_group(socket, pane) }
+      caller.occupant(joined_at).with(pid:, started:, herdr_socket: socket, herdr_pane: pane)
     end
 
     def address(text) = Address.parse(text, local_host: host)
 
     def full(name) = "#{name}@#{host}"
 
+    # Each problem is taken once for the life of the process, and the lists are emptied since the courier never ends.
     def take_problems
-      fresh = [*@config&.problems, *@store&.problems].uniq - @reported
+      lists = [@config&.problems, @store&.problems].compact
+      fresh = lists.flatten.uniq - @reported
+      lists.each(&:clear)
       @reported.concat(fresh)
       fresh
     end
@@ -112,7 +119,7 @@ module Keryx
 
     def renewed(occupant) = session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd)
 
-    def harness_process(previous) = (previous&.pid && kept(previous)) || current_process
+    def harness_process(previous, &) = (previous&.pid && kept(previous)) || current_process(&)
 
     # The recorded process stays until an answer shows that another one runs the session; a failed lookup keeps it.
     def kept(previous)
@@ -124,7 +131,7 @@ module Keryx
     end
 
     def current_process
-      pid = caller.pid || pane_group
+      pid = caller.pid || yield
       [pid, pid && processes.started(pid)]
     end
 
@@ -137,11 +144,36 @@ module Keryx
     end
 
     # A harness that does not name its process runs as the foreground group of its herdr pane, an ancestor of this one.
-    def pane_group
-      return unless caller.herdr_socket && caller.herdr_pane
+    def pane_group(socket, pane)
+      return unless socket && pane
 
-      group = herdr.foreground(caller.herdr_socket, caller.herdr_pane)
+      group = herdr.foreground(socket, pane)
       group if group && processes.ancestors(Process.pid).include?(group)
+    end
+
+    # herdr's variables name the pane; without them, the pane an ancestor proves, and else the one recorded before.
+    def place(previous)
+      return [caller.herdr_socket, caller.herdr_pane] if caller.herdr_socket && caller.herdr_pane
+
+      (inherited_place unless caller.pid) || [previous&.herdr_socket, previous&.herdr_pane]
+    end
+
+    # A harness hands its session id only to the commands it runs, so the first process up from this one without it
+    # is the harness. Codex keeps herdr's variables itself, and its pane counts only while that harness runs in it.
+    def inherited_place
+      variable = SESSION_VARIABLES[caller.harness]
+      return unless variable && caller.session_id
+
+      harness = [Process.pid, *processes.ancestors(Process.pid)].find do |pid|
+        processes.environment(pid, [variable]).to_h[variable] != caller.session_id
+      end
+      socket, pane = herdr_variables(harness) unless harness == Process.pid
+      [socket, pane, harness] if socket && herdr.foreground(socket, pane) == harness
+    end
+
+    def herdr_variables(pid)
+      found = processes.environment(pid, HERDR_VARIABLES).to_h.values_at(*HERDR_VARIABLES).map { present(it) }
+      found if found.all?
     end
 
     def present(value) = value.to_s.empty? ? nil : value

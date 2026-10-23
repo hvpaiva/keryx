@@ -42,6 +42,19 @@ module Keryx
       Posted.new(message:, bell:, forward: nil)
     end
 
+    # The withdrawal goes where the request is, since the request may name this machine by a name it no longer has.
+    def withdraw(request, holder:, body:)
+      now = @clock.call
+      message = Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
+                            thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil,
+                            body: Postman.check_body(body))
+      return forward(message, request.to.split('@').last) unless holder
+
+      @store.deliver(holder, message)
+      bell = announce(holder, message) unless holder == request.from.split('@').first
+      Posted.new(message:, bell:, forward: nil)
+    end
+
     private
 
     def announce(name, message)

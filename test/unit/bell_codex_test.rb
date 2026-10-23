@@ -60,7 +60,7 @@ class BellCodexTest < Minitest::Test
 
   def test_a_codex_pane_without_a_session_id_is_absent_when_nothing_shows_the_process_that_joined
     {
-      'nothing shows that pane w1:p2 still runs the session that joined' => ->(_herdr) { {} },
+      format(Keryx::Lookout::NO_PROCESS, pane: 'w1:p2') => ->(_herdr) { {} },
       'pane w1:p2 runs process 501, not 500' => ->(herdr) { joined_process(herdr, pid: 501).merge(pid: 500) },
       'process 500 in pane w1:p2 is not the one that joined' => lambda do |herdr|
         joined_process(herdr).tap { processes.starts[500] = 'started again' }

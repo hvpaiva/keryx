@@ -6,21 +6,7 @@ class PresenceTest < Minitest::Test
   include TempDir
   include Factory
   include CLIHelpers
-
-  SOCKET = '/h.sock'
-
-  def codex_in(pane, thread) = { 'CODEX_THREAD_ID' => thread, 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => pane }
-
-  def show(pane, kind, status, session = nil)
-    herdr.put(SOCKET, pane, Keryx::Herdr::Agent.new(pane:, kind:, status:, session:))
-  end
-
-  # The harness runs as the foreground group of its pane, and keryx runs under it.
-  def runs_in(pane, pid)
-    herdr.foregrounds[[SOCKET, pane]] = pid
-    lineage.replace([pid + 1, pid])
-    alive << pid
-  end
+  include PresenceHelpers
 
   def test_join_records_the_process_that_runs_in_the_foreground_of_its_pane
     runs_in('w1:p3', 500)

@@ -32,6 +32,19 @@ module Keryx
     # derives its start time from the wall clock, but macOS's prints the time stored when the process started.
     def started(pid) = @linux ? tick_started(pid) : ps_started(pid)
 
+    # Only the variables asked for, since another process's environment may hold secrets. Linux alone shows it.
+    def environment(pid, names)
+      return unless @linux && pid.is_a?(Integer)
+
+      entries = File.binread(File.join(@proc_root, pid.to_s, 'environ')).split("\0").map { it.split('=', 2) }
+      entries.filter_map do |name, value|
+        text = String.new(value.to_s, encoding: Encoding::UTF_8)
+        [name, text] if names.include?(name) && text.valid_encoding?
+      end.to_h
+    rescue SystemCallError
+      nil
+    end
+
     def ancestors(pid)
       result = @runner.call(%w[ps -A -o pid= -o ppid=], env: C_LOCALE)
       return [] unless result.success

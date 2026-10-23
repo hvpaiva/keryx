@@ -29,8 +29,15 @@ after it was read. Reading a message links it into `read/`, and the unread messa
 `mail/` missing from `read/`, found without opening the files that were read.
 
 Nothing else records state. A request is answered when some mailbox holds a reply from its
-recipient, in its thread, whose `in_reply_to` is the request's id; it is read when its name is in
-`read/`. Because no mail operation has to change two files together, mail takes no locks and a
+recipient, in its thread, whose `in_reply_to` is the request's id; it is withdrawn when one holds
+a withdrawal from its sender to its recipient the same way; it is open until either; and it is
+read when its name is in `read/`. `keryx withdraw` writes the withdrawal where the request is, in
+the mailbox that holds it or in the outbox for its host, with the request's own sender and
+recipient, since those may carry a name the machine had before. The sender is the address of the
+same name on the machine that sent the request, which the store shows without a list of former
+names: only this machine writes its outbox, and a message from another machine never has its
+recipient's host, so a request in a mailbox whose sender and recipient share a host was sent from
+here. Because no mail operation has to change two files together, mail takes no locks and a
 crash leaves nothing half done. Only a change of occupants takes a lock, as the next section
 explains.
 
@@ -61,10 +68,19 @@ started: on Linux the clock tick since boot from `/proc/PID/stat`, elsewhere `ps
 UTC, so neither the caller's time zone nor a step of the wall clock changes it. Claude Code names
 its process in `CLAUDE_PID`; for Codex and Cursor in a herdr pane, the process is the pane's
 foreground group, recorded only when it is an ancestor of the join, which leaves out a Codex
-session that runs its commands under Codex's shared server. Later commands find their address by
-matching the caller against the occupants (`Identity`), which means the same Claude Code process
-or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
-pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
+session that runs its commands under Codex's shared server. Codex drops herdr's variables from the
+commands it runs but keeps them itself, and hands its thread id only to those commands, so the
+harness that runs a command is the first process up from it whose environment lacks the caller's
+thread. On Linux keryx reads only that variable and herdr's two from `/proc/PID/environ`, and
+records the pane the harness's variables name, with the harness as the process, when herdr shows
+the harness as that pane's foreground group. A Codex that another Codex started without herdr's
+variables, or a shared server that inherited some pane's, places nothing, since the harness found
+holds no variables or is not the foreground of their pane, and elsewhere such a session records no
+pane. A command that proves no pane keeps the one recorded, and a record without a start field,
+written before keryx kept processes, gets one from the session's next command when it can.
+Later commands find their address by matching the caller against the occupants (`Identity`),
+which means the same Claude Code process or session, the same Codex thread or Cursor
+conversation, or the same harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
 records the new process and socket. It keeps the recorded process until `ps` shows that the
 command no longer runs under it or that another process now has its pid, so a lookup that fails
 erases nothing.
@@ -162,9 +178,10 @@ written before the move and only once, so an attempt that fails after another on
 message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
 Without a receipt the message stays in `new/`, and another file in `receipts/` counts the attempts.
 
-The outbox counts with the mailboxes when keryx decides what is answered, so the machine that
-answers closes a request as soon as the reply is written, and the sender's machine once the reply
-arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
+The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the
+machine that answers closes a request as soon as the reply is written, and the sender's machine
+once the reply arrives; a withdrawal closes it on the sender's machine at once and on the
+recipient's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
 schedule, rings again for bells that did not reach a session, and sends the deadline notices from
 `keryx@HOST`.
 

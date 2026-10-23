@@ -163,4 +163,10 @@ class HookTest < Minitest::Test
     assert_match(/\A---\nname: keryx\ndescription: .+\n---\n/, output)
     assert_includes output, 'keryx reply ID TEXT'
   end
+
+  def test_the_skill_says_where_the_host_of_an_address_comes_from
+    host = keryx('skill').out.lines.drop_while { !it.include?('NAME@HOST') }.slice_before(/\A- /).first.join
+
+    %w[KERYX_HOST ~/.config/keryx/config hostname ssh].each { assert_includes host, it }
+  end
 end

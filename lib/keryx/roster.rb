@@ -38,12 +38,16 @@ module Keryx
 
     def open_requests
       all = @store.all_messages
-      replies = all.map { it.last.message }.select(&:reply?).group_by(&:in_reply_to)
+      replies = all.map { it.last.message }.select(&:in_reply_to).group_by(&:in_reply_to)
       all.select do |_name, stored|
         request = stored.message
-        request.request? && replies.fetch(request.id, []).none? { it.answers?(request) }
+        request.request? && replies.fetch(request.id, []).none? { Roster.settles?(it, request) }
       end
     end
+
+    def settlement(request) = @store.all_messages.map { it.last.message }.find { Roster.settles?(it, request) }
+
+    def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
 
     private
 

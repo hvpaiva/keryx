@@ -15,6 +15,8 @@ All notable changes to this project are documented here. The format follows
   message stored once however often it arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents
   can write to the person at the keyboard before that person has used keryx.
+- `keryx withdraw`, which closes a request its sender no longer needs answered, including one sent
+  before the machine was renamed.
 - Bells through the Claude Code peer socket, `codex queue` for a Codex thread herdr shows open in
   its pane, or typing into a herdr pane when no dialog shows, which is how Cursor is rung.
 - `keryx hook stop`, the stop hook of Claude Code, Codex and Cursor, which reminds a session of

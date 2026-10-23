@@ -12,6 +12,7 @@ module Keryx
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
                       'read' => :my_messages, 'reply' => :my_messages, 'wait' => :my_open_requests,
+                      'withdraw' => :my_open_requests,
                       'completion' => :shells, 'hook' => :events, 'help' => :command_names }.freeze
 
       define '__complete', section: 'Other Commands', arguments: 'WORDS...', max: nil, hidden: true,
@@ -114,7 +115,7 @@ module Keryx
       end
 
       def my_open_requests
-        app.roster.open_requests.map { it.last.message }.select { it.from == app.full(me) }.map(&:id)
+        app.store.sent_requests(me).map { it.last.id } & app.roster.open_requests.map { it.last.message.id }
       end
 
       def shells = Completion::SHELLS
