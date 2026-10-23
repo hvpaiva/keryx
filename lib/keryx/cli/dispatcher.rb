@@ -29,6 +29,8 @@ module Keryx
         ['KERYX_AS', 'Act as this address, like --as'],
         ['KERYX_SSH', 'The ssh command that reaches other machines, instead of ssh'],
         ['KERYX_REMOTE_COMMAND', 'How to run keryx on the other machine, instead of keryx'],
+        ['CLAUDE_CONFIG_DIR', "Where Claude Code keeps its sessions' transcripts, instead of ~/.claude"],
+        ['CODEX_HOME', "Where Codex keeps its threads' rollouts, instead of ~/.codex"],
         [COLOR_VARIABLE, 'auto, always or never, like --color'],
         ['NO_COLOR, FORCE_COLOR', 'The usual color switches, honored in auto mode'],
         [DEBUG_VARIABLE, 'Print a backtrace for unexpected errors']

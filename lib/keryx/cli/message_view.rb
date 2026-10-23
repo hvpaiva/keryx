@@ -30,8 +30,13 @@ module Keryx
         rows = [['id', message.id], ['kind', kind], ['from', message.from], ['to', message.to]]
         rows << ['thread', message.thread] unless message.thread == message.id
         rows << [message.withdrawal? ? 'withdraws' : 'reply to', message.in_reply_to] if message.in_reply_to
-        sent = message.created_at
-        rows << ['sent', "#{sent.utc.strftime(TIME_FORMAT)} (#{Duration.short(now - sent)} ago)"]
+        [*rows, *sent(message, now)]
+      end
+
+      def sent(message, now)
+        time = message.created_at
+        rows = [['sent', "#{time.utc.strftime(TIME_FORMAT)} (#{Duration.short(now - time)} ago)"]]
+        message.context ? [*rows, ['context', "#{message.context.label} when sent"]] : rows
       end
 
       def hint(terminal, message)

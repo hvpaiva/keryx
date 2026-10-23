@@ -68,7 +68,7 @@ class FakeHerdr
     def stop = @stopped = true
   end
 
-  attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered
+  attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered, :footers
   attr_accessor :start_outcome, :start_polls, :on_start, :rename_error
 
   def initialize(agents = {}, screens: {}, prompt_outcome: OK, panes: [], tabs: {})
@@ -84,6 +84,7 @@ class FakeHerdr
     @renames = []
     @foregrounds = {}
     @unanswered = []
+    @footers = {}
     @start_outcome = OK
     @start_polls = 0
   end
@@ -101,6 +102,8 @@ class FakeHerdr
   def show(socket, pane, screen) = @screens[[socket, pane]] = screen
 
   def screen(socket, pane) = @screens.fetch([socket, pane], '> ')
+
+  def footer(socket, pane) = footers[[socket, pane]]
 
   def prompt(socket, pane, text)
     @prompts << [socket, pane, text]

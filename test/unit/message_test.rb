@@ -83,4 +83,24 @@ class MessageTest < Minitest::Test
     assert_equal 'red ^[[31m', build_message(body: "\n  red \e[31m\n").summary
     assert_equal 'abcdefg...', build_message(body: 'abcdefghijklmnop').summary(10)
   end
+
+  def test_a_context_stamp_round_trips_and_an_unstamped_message_writes_none
+    stamped = build_message(context: Keryx::Context.new(used: 137_000, window: 258_400))
+
+    assert_equal stamped, Keryx::Message.from_json(stamped.to_json)
+    assert_equal({ 'used' => 137_000, 'window' => 258_400 }, JSON.parse(stamped.to_json)['context'])
+    refute JSON.parse(build_message.to_json).key?('context')
+  end
+
+  def test_a_stamp_or_a_field_this_build_does_not_know_never_refuses_the_message
+    data = JSON.parse(build_message.to_json)
+
+    [{ 'context' => 'big' }, { 'context' => { 'used' => '5' } }, { 'context' => { 'used' => 5, 'window' => -1 } },
+     { 'context' => nil }, { 'ceiling' => 5, 'mood' => 'calm' }].each do |extra|
+      assert_equal build_message, Keryx::Message.from_json(JSON.generate(data.merge(extra))), extra.inspect
+    end
+    stamped = Keryx::Message.from_json(JSON.generate(data.merge('context' => { 'used' => 9, 'share' => 1 })))
+
+    assert_equal Keryx::Context.new(used: 9, window: nil), stamped.context
+  end
 end

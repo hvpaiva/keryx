@@ -45,4 +45,13 @@ class OccupantTest < Minitest::Test
     refute build_occupant.refreshable
     refute_includes Keryx::Occupant.from_record(record.except('started')).record, 'refreshable'
   end
+
+  def test_a_transcript_round_trips_and_reads_as_none_unless_it_is_an_absolute_path_named_after_the_session
+    occupant = build_occupant(transcript: '/home/u/.claude/projects/-work/session-1.jsonl')
+
+    assert_equal occupant, Keryx::Occupant.from_record(JSON.parse(JSON.generate(occupant.record)))
+    ['relative.jsonl', 5, ['/x'], nil, '/home/u/.claude/projects/-work/session-2.jsonl'].each do |value|
+      assert_nil Keryx::Occupant.from_record(build_occupant.record.merge('transcript' => value)).transcript
+    end
+  end
 end

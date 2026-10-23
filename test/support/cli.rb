@@ -103,7 +103,8 @@ module CLIHelpers
   def processes = @processes ||= FakeProcesses.new(alive, lineage)
 
   def base_env
-    { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person' }
+    { 'KERYX_HOME' => tmp('state'), 'KERYX_HOST' => 'athena', 'XDG_CONFIG_HOME' => tmp('config'), 'USER' => 'person',
+      'HOME' => tmp('home') }
   end
 
   def claude(pid)

@@ -42,7 +42,8 @@ module Keryx
         payload = input.strip.empty? ? {} : JSON.parse(input)
         raise Error, 'the payload is not a JSON object' unless payload.is_a?(Hash)
 
-        StopHook.new(store: app.store, herdr: app.herdr, caller: app.caller).decide(payload) { emit(it) }
+        StopHook.new(store: app.store, herdr: app.herdr, caller: app.caller, meter: app.meter)
+                .decide(payload) { emit(it) }
         nil
       rescue Keryx::Error, JSON::ParserError, SystemCallError => e
         terminal.warn("keryx hook stop: #{e.message}")

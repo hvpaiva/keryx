@@ -27,6 +27,9 @@ All notable changes to this project are documented here. The format follows
 - `~/.config/keryx/config`, whose `host` line names the machine unless `KERYX_HOST` is set.
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
+- The context each session uses in `who` and `status`, and the sender's on each message it sends,
+  shown by `read`, all read from the usage its harness records: the Claude Code transcript, the
+  Codex rollout or the footer of a Cursor pane in herdr.
 - `keryx skill`, the instructions agents follow to use keryx.
 - `keryx spawn`, which starts a Claude Code, Codex or Cursor session in a herdr pane labelled with
   its address, gives it that address and hands it a first request that is in its mailbox before the

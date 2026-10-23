@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../cli/context_view'
 require_relative '../cli/message_view'
 require_relative '../cli/table'
 
@@ -13,8 +14,9 @@ module Keryx
                        summary: 'Show what is pending on this machine',
                        description: 'Show what is pending on this machine, for a person keeping an eye on the ' \
                                     "sessions.\n\n" \
-                                    'ADDRESSES lists each address with its session, its unread messages and the ' \
-                                    'requests waiting for its answer. OPEN REQUESTS lists every request its ' \
+                                    'ADDRESSES lists each address with its session, the context the session uses ' \
+                                    'as keryx who shows it, its unread messages and the requests waiting for its ' \
+                                    'answer. OPEN REQUESTS lists every request its ' \
                                     'recipient has not replied to yet and its sender has not withdrawn, with its ' \
                                     'deadline, including those sent to another machine. ' \
                                     'NOT RUNG lists unread messages whose bell did not reach a session, and why; ' \
@@ -41,7 +43,7 @@ module Keryx
 
       def print_sections(entries, requests, unrung, outgoing)
         waiting = requests.map(&:first).tally
-        section('ADDRESSES', %w[ADDRESS ROLE SESSION UNREAD WAITING], entries.map { address_row(it, waiting) })
+        section('ADDRESSES', %w[ADDRESS ROLE SESSION CONTEXT UNREAD WAITING], entries.map { address_row(it, waiting) })
         section('OPEN REQUESTS', %w[ID FROM TO AGE DUE STATE SUMMARY], requests.map { request_row(it.last) })
         section('NOT RUNG', %w[ID TO FROM BELL DETAIL], unrung.map { unrung_row(it) })
         section('NOT FORWARDED', %w[ID TO FROM STATE ATTEMPTS DETAIL], outgoing.map { forward_row(*it) })
@@ -83,7 +85,8 @@ module Keryx
 
       def address_record(entry, waiting)
         { 'address' => app.full(entry.name), 'role' => entry.role, 'session' => entry.session,
-          'unread' => entry.unread, 'waiting' => waiting.fetch(entry.name, 0) }
+          'context' => CLI::ContextView.record(app, entry), 'unread' => entry.unread,
+          'waiting' => waiting.fetch(entry.name, 0) }
       end
 
       def request_record(stored)
@@ -103,7 +106,7 @@ module Keryx
 
       def address_row(entry, waiting)
         count = waiting.fetch(entry.name, 0)
-        [[:address, app.full(entry.name)], entry.role || '-', entry.session,
+        [[:address, app.full(entry.name)], entry.role || '-', entry.session, CLI::ContextView.cell(app, entry),
          entry.unread.positive? ? [:unread, entry.unread.to_s] : '0', count.positive? ? [:request, count.to_s] : '0']
       end
 

@@ -11,13 +11,14 @@ module Keryx
   class Postman
     Posted = Data.define(:message, :bell, :forward)
 
-    def initialize(store:, bell:, forwarder:, host:, clock:, person:)
+    def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {})
       @store = store
       @bell = bell
       @forwarder = forwarder
       @host = host
       @clock = clock
       @person = person
+      @measure = measure
     end
 
     def self.check_body(body)
@@ -47,7 +48,7 @@ module Keryx
       now = @clock.call
       message = Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
                             thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil,
-                            body: Postman.check_body(body))
+                            body: Postman.check_body(body), context: @measure.call(request.from.split('@').first))
       return forward(message, request.to.split('@').last) unless holder
 
       @store.deliver(holder, message)
@@ -80,7 +81,7 @@ module Keryx
       now = @clock.call
       id ||= Ulid.generate(now)
       Message.new(id:, kind:, from: "#{sender}@#{@host}", to: recipient.to_s, thread: reply_to&.thread || id,
-                  in_reply_to: reply_to&.id, created_at: now, due_at:, body:)
+                  in_reply_to: reply_to&.id, created_at: now, due_at:, body:, context: @measure.call(sender))
     end
 
     def check_recipient(recipient)

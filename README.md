@@ -24,11 +24,11 @@ on another machine goes over SSH, and waits while that machine is unreachable.
 ```console
 $ keryx status
 ADDRESSES
-ADDRESS          ROLE           SESSION   UNREAD   WAITING
-hvpaiva@athena   human          none      0        0
-impl@athena      implementer    unknown   0        1
-orq@athena       orchestrator   idle      0        0
-rev-1@athena     reviewer       working   0        1
+ADDRESS          ROLE           SESSION   CONTEXT         UNREAD   WAITING
+hvpaiva@athena   human          none      -               0        0
+impl@athena      implementer    unknown   unknown         0        1
+orq@athena       orchestrator   idle      303k            0        0
+rev-1@athena     reviewer       working   137k/258k 53%   0        1
 
 OPEN REQUESTS
 ID                           FROM         TO             AGE   DUE     STATE   SUMMARY
@@ -97,7 +97,8 @@ From a plain terminal you act as an address named after `$USER`, so `keryx send 
 ## See what is pending
 
 `keryx status` lists the addresses, the requests still open and the messages whose bell did not
-ring, with the reason. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
+ring, with the reason. Its CONTEXT column, which `keryx who` shows too, is how many tokens each
+session's context holds, read from what its harness records. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
 request is answered.
 
 ## More

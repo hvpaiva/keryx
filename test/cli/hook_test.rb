@@ -70,7 +70,8 @@ class HookTest < Minitest::Test
     keryx('send', 'rev-1', 'hello', env: @orq)
     full = store
     full.define_singleton_method(:prepare_mark) { |*| raise Errno::ENOSPC, 'receipts' }
-    hook = Keryx::StopHook.new(store: full, herdr:, caller: Keryx::Caller.from_env(@rev, cwd: '/work', herdr:))
+    hook = Keryx::StopHook.new(store: full, herdr:, caller: Keryx::Caller.from_env(@rev, cwd: '/work', herdr:),
+                               meter: nil)
     given = []
 
     assert_raises(Errno::ENOSPC) { hook.decide('session_id' => 'session-222') { given << it } }
@@ -168,5 +169,76 @@ class HookTest < Minitest::Test
     host = keryx('skill').out.lines.drop_while { !it.include?('NAME@HOST') }.slice_before(/\A- /).first.join
 
     %w[KERYX_HOST ~/.config/keryx/config hostname ssh].each { assert_includes host, it }
+  end
+
+  def transcript_at(*parts)
+    path = tmp('home', '.claude', 'projects', *parts)
+    FileUtils.mkdir_p(File.dirname(path))
+    File.write(path, '')
+    path
+  end
+
+  def stop_with_transcript(path, env: @rev)
+    keryx('hook', 'stop', env:, input: JSON.generate('session_id' => env['CLAUDE_CODE_SESSION_ID'],
+                                                     'transcript_path' => path, 'hook_event_name' => 'Stop'))
+  end
+
+  def recorded(name) = store.occupant(name).transcript
+
+  def test_the_hook_records_the_transcript_claude_code_names_and_keeps_it_through_a_refresh
+    path = transcript_at('-work', 'session-222.jsonl')
+
+    assert_equal [0, ''], stop_with_transcript(path).to_h.values_at(:status, :out)
+    assert_equal path, recorded('rev-1')
+    keryx('whoami', env: @rev.merge('CLAUDE_CODE_MESSAGING_SOCKET' => '/tmp/cc-222-new.sock'))
+
+    occupant = store.occupant('rev-1')
+
+    assert_equal ['/tmp/cc-222-new.sock', path], [occupant.claude_socket, occupant.transcript]
+  end
+
+  def test_the_hook_records_no_transcript_outside_where_claude_code_keeps_that_session
+    outside = tmp('outside', 'session-222.jsonl')
+    FileUtils.mkdir_p(File.dirname(outside))
+    File.write(outside, '')
+    linked = tmp('home', '.claude', 'projects', '-linked', 'session-222.jsonl')
+    FileUtils.mkdir_p(File.dirname(linked))
+    File.symlink(outside, linked)
+    [outside, linked, transcript_at('-work', 'session-111.jsonl'), 'session-222.jsonl', 42].each do |path|
+      assert_equal 0, stop_with_transcript(path).status
+      assert_nil recorded('rev-1'), path
+    end
+  end
+
+  def test_the_hook_records_no_transcript_of_another_session_run_by_the_same_process
+    path = transcript_at('-work', 'session-333.jsonl')
+    result = stop_with_transcript(path, env: @rev.merge('CLAUDE_CODE_SESSION_ID' => 'session-333'))
+
+    assert_equal 0, result.status
+    assert_nil recorded('rev-1')
+  end
+
+  def test_the_hook_leaves_the_transcript_to_a_later_turn_while_another_command_holds_the_lock
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    path = transcript_at('-work', 'session-222.jsonl')
+    result = store.with_occupants_lock { stop_with_transcript(path) }
+
+    assert_equal ['block', ''], [JSON.parse(result.out)['decision'], result.err]
+    assert_nil recorded('rev-1')
+    stop_with_transcript(path)
+
+    assert_equal path, recorded('rev-1')
+  end
+
+  def test_a_transcript_path_the_hook_cannot_use_never_changes_its_decision
+    keryx('send', 'rev-1', 'hello', env: @orq)
+    elsewhere = tmp('other', 'projects', '-work', 'session-222.jsonl')
+    FileUtils.mkdir_p(File.dirname(elsewhere))
+    File.write(elsewhere, '')
+    runs = ["#{transcript_at('-work', 'session-222.jsonl')}\0", elsewhere].map { stop_with_transcript(it) }
+
+    assert_equal([[0, ''], [0, '']], runs.map { [it.status, it.err] })
+    assert_equal 'block', JSON.parse(runs.first.out)['decision']
+    assert_nil recorded('rev-1')
   end
 end

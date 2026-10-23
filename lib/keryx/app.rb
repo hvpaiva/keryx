@@ -9,6 +9,7 @@ require_relative 'forwarder'
 require_relative 'herdr'
 require_relative 'identity'
 require_relative 'lookout'
+require_relative 'meter'
 require_relative 'paths'
 require_relative 'postman'
 require_relative 'processes'
@@ -64,7 +65,8 @@ module Keryx
     def forwarder = @forwarder ||= Forwarder.new(store:, remote:, clock:)
 
     def postman
-      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name)
+      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name,
+                               measure: ->(name) { context_of(name) })
     end
 
     def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name)
@@ -75,6 +77,17 @@ module Keryx
     end
 
     def roster = @roster ||= Roster.new(store:, herdr:, lookout:)
+
+    def meter = @meter ||= Meter.new(env:, herdr:, lookout:)
+
+    # Only the session that holds the address is measured, and a command that names its address with --as stamps
+    # nothing, since the pane or process it shares may have held that address for another session.
+    def context_of(name)
+      return if @as
+
+      occupant = store.occupant(name)
+      meter.read(occupant) if occupant && caller.holds?(occupant)
+    end
 
     def me
       @me ||= identity.current(as: @as).tap { refresh(it) unless @as }
@@ -117,7 +130,9 @@ module Keryx
       store.bind(name, current == occupant ? fresh : renewed(current)) if current && caller.holds?(current)
     end
 
-    def renewed(occupant) = session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd)
+    def renewed(occupant)
+      session_occupant(occupant.joined_at, previous: occupant).with(cwd: occupant.cwd, transcript: occupant.transcript)
+    end
 
     def harness_process(previous, &) = (previous&.pid && kept(previous)) || current_process(&)
 

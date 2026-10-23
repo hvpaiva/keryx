@@ -75,6 +75,8 @@ turn with it, and a busy one queues it as a follow-up for after the turn. Add th
 
 Cursor submits the reminder as the next message of the conversation. A Cursor session outside
 herdr gets no bell, and the stop hook is what tells it about new mail when its turn ends. Cursor
+writes down no usage either, so `keryx who` reads the context a Cursor session uses from the
+footer of its herdr pane, and outside herdr the figure is unknown. Cursor
 reads hooks only from these files, so the sessions `keryx spawn` starts have the hook only when one
 of them sets it.
 

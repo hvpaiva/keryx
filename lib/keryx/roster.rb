@@ -5,7 +5,9 @@ require_relative 'processes'
 
 module Keryx
   class Roster
-    Entry = Data.define(:name, :role, :occupant, :session, :unread)
+    Entry = Data.define(:name, :role, :occupant, :session, :unread) do
+      def ended? = %w[none gone].include?(session)
+    end
     ACTIVITY = %w[idle working blocked done].freeze
 
     def initialize(store:, herdr:, lookout: Lookout.new(herdr:, processes: Processes.new))
