@@ -19,4 +19,11 @@ class SkillTest < Minitest::Test
 
     %w[KERYX_HOST ~/.config/keryx/config hostname ssh].each { assert_includes host, it }
   end
+
+  def test_the_skill_says_how_to_take_a_request_whose_work_goes_on
+    answer = keryx('skill').out[/^## Answer every request\n.*?(?=^## )/m]
+
+    assert_includes answer, 'keryx send --re ID TEXT'
+    assert_includes answer, 'taken'
+  end
 end

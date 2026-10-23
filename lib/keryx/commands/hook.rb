@@ -18,7 +18,8 @@ module Keryx
                                   "Codex and Cursor run when a session is about to end its turn.\n\n" \
                                   'When the session has unread mail, or a request it read and never answered, the ' \
                                   'hook keeps the turn going once and names what is pending, leaving out a request ' \
-                                  'its sender withdrew. Each message is ' \
+                                  'its sender withdrew and one the session took with keryx send --re, whose work ' \
+                                  'goes on. Each message is ' \
                                   'reminded about once, and again only when the hook was cut off before it ' \
                                   'answered. Sessions that hold no address are left alone. Claude ' \
                                   "Code's settings.json and Codex's hooks.json enable it with\n\n  " \

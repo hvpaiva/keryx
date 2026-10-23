@@ -17,6 +17,11 @@ module Keryx
                 'context ceiling (keryx join --help) it shows the tokens, their share of the ceiling and the ' \
                 'ceiling, as in 101k 81% of 125k, in yellow from 80% and red at the ceiling. It is unknown when ' \
                 'keryx could not read it, and - when no session runs.'
+      ACTIVE = 'ACTIVE is how long ago the harness last wrote the file it keeps for the session: the transcript ' \
+               'Claude Code writes, the rollout Codex writes, or the store Cursor keeps for the conversation under ' \
+               '~/.cursor/chats. It is the time of the last write and nothing in the file, so a session on a long ' \
+               'tool call looks quiet; it is not a liveness check. It is unknown when keryx could not tell, and - ' \
+               'when no session runs. With -o json, last_activity is that time in ISO 8601 UTC, or null.'
 
       define 'who', section: 'Session Commands',
                     summary: 'List the addresses on this machine',
@@ -27,7 +32,7 @@ module Keryx
                                  'SESSION is none when no session holds the address, gone when the session ended, ' \
                                  "live when its process runs, or herdr's view of the agent (idle, working, " \
                                  "blocked, done) when herdr sees it in its pane.\n\n" \
-                                 "#{CONTEXT}",
+                                 "#{CONTEXT}\n\n#{ACTIVE}",
                     examples: [['See who can receive messages', 'who'],
                                ['List every address, those nobody holds included', 'who --all'],
                                ['List addresses for a script', 'who -o json']]

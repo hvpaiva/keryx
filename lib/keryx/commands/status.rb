@@ -16,13 +16,17 @@ module Keryx
                        summary: 'Show what is pending on this machine',
                        description: 'Show what is pending on this machine, for a person keeping an eye on the ' \
                                     "sessions.\n\n" \
-                                    'ADDRESSES lists each address with its session, the context the session uses ' \
-                                    'as keryx who shows it, its unread messages and the requests waiting for its ' \
-                                    'answer. It leaves out the addresses keryx who leaves out and says how many, ' \
+                                    'ADDRESSES lists each address with its session, when the session last wrote ' \
+                                    'its record and the context it uses, as keryx who shows them, its unread ' \
+                                    'messages and the requests waiting for its answer, a taken one included. It ' \
+                                    'leaves out the addresses keryx who leaves out and says how many, ' \
                                     'unless --all is given, and with -o json view and hidden say the same. ' \
                                     'OPEN REQUESTS lists every request its ' \
                                     'recipient has not replied to yet and its sender has not withdrawn, with its ' \
-                                    'deadline, including those sent to another machine. ' \
+                                    'deadline, including those sent to another machine. Its STATE is unread or ' \
+                                    'read, queued or forwarded for one sent to another machine, and taken once its ' \
+                                    'recipient wrote in its thread with keryx send --re, which keeps it open until ' \
+                                    'the reply. ' \
                                     'NOT RUNG lists unread messages whose bell did not reach a session, and why; ' \
                                     'keryx ring tries those again. NOT FORWARDED lists messages for another ' \
                                     'machine that are still queued or that it refused; keryx courier forwards the ' \

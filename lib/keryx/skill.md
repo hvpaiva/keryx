@@ -25,9 +25,13 @@ example `keryx join rev-1 --role reviewer`. Until you join, keryx refuses to sen
 ## Answer every request
 
 A request expects an answer. Reply with `keryx reply ID TEXT`, or `keryx reply ID --file PATH` for
-long answers. Reply even when you cannot do what was asked, and say why. A request without a reply
-stays open in `keryx status`, and the stop hook reminds you before your turn ends. A request its
-sender withdrew needs no reply; stop working on it.
+long answers, once its work is done. Reply even when you cannot do what was asked, and say why. A
+reply closes the request, so when you take one whose work goes on past this turn, say so with
+`keryx send --re ID TEXT` instead, and reply when the work is done. That message goes to the
+sender in the request's thread, and the request stays open, shown as taken in `keryx status`. A
+request without a reply stays open in `keryx status`, and the stop hook reminds you of it before
+your turn ends unless you took it that way. A request its sender withdrew needs no reply; stop
+working on it.
 
 ## Ask and send
 
