@@ -109,12 +109,16 @@ and the id, never the body. It tries two ways, in order.
    `codex queue --thread ID`;
 2. when that fails or does not exist, typing into the herdr pane, if herdr shows an agent of the
    session's harness there, reports it idle, done or working, and no dialog shows on the bottom of
-   its screen. The screen is checked with its lines joined and box borders dropped, since a narrow
-   pane wraps a dialog over several lines, and again with no spaces, since a pane narrower than a
-   word breaks the word too. With no spaces, a screen whose lines all fit in 12 columns is matched
-   against every pattern, and any other only against a dialog's footer, so code such as `allowOnce`
-   does not count. A pane that is empty or runs another harness no longer holds the session, so the
-   bell is absent there rather than typed into whoever took the pane.
+   its screen. A dialog is told by its phrases, matched with the lines joined and box borders
+   dropped since a narrow pane wraps it; by its options, a selection marker (`›`, `❯` or `▶`) on a
+   number, a key such as `[a]`, or a Yes or No, with another option at the same column below it; or
+   by its footer, such as "enter confirm · esc skip", matched with no spaces at all since a pane
+   narrower than a word breaks the words. The phrases are never matched without spaces, so code such
+   as `allowOnce` does not count. A screen of at least four lines with no more than three
+   characters on any of them, as a pane of a few columns shows, cannot show either, so the bell
+   defers there too, saying the pane is too narrow to tell. A pane that is empty or runs another
+   harness no longer holds the session, so the bell is absent there rather than typed into whoever
+   took the pane.
 
 Cursor has no channel of its own, so it is always rung by typing.
 
@@ -190,9 +194,10 @@ herdr socket and pane, as `-c shell_environment_policy.set` values.
 spawn then polls the store until the address has an occupant of the harness it started, in the herdr
 socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,
 reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
-`agent_not_ready`, a `blocked` agent or a screen that matches the bell's dialog patterns count as a
-dialog, which spawn reports once while it keeps waiting. It stops when the pane has no agent of that
-harness left or `--timeout`, counted from the moment spawn starts, passes. A join recorded after
+`agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog count as a dialog, and
+a screen the bell finds too narrow to tell is reported as such; spawn reports either once while it
+keeps waiting. It stops when the pane has no agent of that harness left or `--timeout`, counted
+from the moment spawn starts, passes. A join recorded after
 that moment counts as too late, however soon spawn notices it.
 
 ## The stop hook

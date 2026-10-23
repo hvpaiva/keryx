@@ -118,7 +118,7 @@ class BellTest < Minitest::Test
   def test_herdr_defers_when_the_screen_shows_a_dialog
     ['Hooks need review', '[a] Trust this workspace', 'Held message from another session',
      'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::TINY_CODEX_HOOKS, Screens::NARROW_BOX,
-     Screens::TINY_QUESTION]
+     Screens::WRAPPED_OPTIONS]
       .each do |screen|
         message = deliver
         store.bind('rev-1', pane_occupant)
@@ -129,12 +129,31 @@ class BellTest < Minitest::Test
       end
   end
 
+  def test_a_pane_too_narrow_to_show_a_dialog_defers
+    [Screens::TINY_QUESTION, Screens.captured.fetch('cursor-9')].each do |screen|
+      message = deliver
+      store.bind('rev-1', pane_occupant)
+      herdr = herdr_with('idle', screen:)
+
+      assert_equal 'the pane is too narrow to tell whether it shows a dialog',
+                   bell(herdr:).ring('rev-1', [message]).detail, screen
+      assert_empty herdr.prompts
+    end
+  end
+
+  def test_every_dialog_captured_from_herdr_counts_at_any_width
+    assert_equal 36, Screens.captured.size
+    assert_empty(Screens.captured.reject { |_name, screen| Keryx::Bell.obstacle(screen) }.keys)
+  end
+
   def test_an_ordinary_screen_is_no_dialog
     code = "Updated the configuration:\nconst allowOnce = false;\nonEnterConfirm(form);\nTests passed.\n\n> "
+    answered = "\u203a yes\n\n\u2022 No problem, I will go on.\n  No other file changes.\n"
+    list = "\u203a 1.5 seconds faster\n  2.1 seconds before\n"
 
-    ["\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n", code].each do |screen|
-      refute Keryx::Bell.dialog?(screen), screen
-    end
+    idle = "\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n"
+
+    [idle, code, "allowOnce()\nfalse\n> ", answered, list, '> '].each { assert_nil Keryx::Bell.obstacle(it), it }
   end
 
   def test_herdr_defers_when_the_screen_cannot_be_read

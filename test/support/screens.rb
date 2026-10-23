@@ -16,4 +16,15 @@ module Screens
   TINY_QUESTION = "  Do\n  you\n  tru\n  st\n  thi\n  s\n  fol\n  der\n  ?\n"
   # A question wrapped inside a box border, one word or two per line.
   NARROW_BOX = "\u2502 Do          \u2502\n\u2502 you trust   \u2502\n\u2502 this folder?\u2502\n"
+  # A question hard wrapped at 14 columns with no footer, so only its options show it is one.
+  WRAPPED_OPTIONS = "Trust this wor\nkspace?\n\u203a Yes\n  No\n"
+  CAPTURES = File.expand_path('../fixtures/screens', __dir__)
+
+  # Claude Code's folder trust, Codex's hooks screen and Cursor's workspace trust as the bell reads them from herdr,
+  # at 120 columns and at every width from 4 to 14, named HARNESS-WIDTH. The files escape what is not ASCII.
+  def self.captured
+    @captured ||= Dir[File.join(CAPTURES, '*.txt')].to_h do |path|
+      [File.basename(path, '.txt'), File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }]
+    end
+  end
 end

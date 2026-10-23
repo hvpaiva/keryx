@@ -26,8 +26,9 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
   `--as`. keryx coordinates sessions you run and is not a security boundary, as the
   [security policy](../SECURITY.md) explains.
 - Typing into a herdr pane depends on herdr recognizing the agent's dialogs. keryx also checks the
-  screen for the common ones, with its lines joined so that a dialog a narrow pane wraps still
-  counts, but an unknown dialog can still take the typed bell.
+  screen for the common ones by their phrases, options and footer, so that a dialog a narrow pane
+  wraps or breaks still counts, and does not type into a pane too narrow to tell, but an unknown
+  dialog can still take the typed bell.
 - `who` cannot tell whether a Codex session is alive unless it runs in a herdr pane that herdr
   recognizes.
 - A Codex session gets a bell only while herdr shows it in its pane, since Codex runs a message

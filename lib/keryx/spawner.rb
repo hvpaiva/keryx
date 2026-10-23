@@ -105,24 +105,31 @@ module Keryx
 
     def shown(pane, agent)
       @seen = true
-      @dialog = agent.status == BLOCKED || Bell.dialog?(@herdr.screen(@socket, pane))
-      dialog(pane) if @dialog
+      @dialog = agent.status == BLOCKED ? :dialog : Bell.obstacle(@herdr.screen(@socket, pane))
+      dialog(pane, @dialog) if @dialog
     end
 
-    def dialog(pane)
-      @dialog = true
+    def dialog(pane, obstacle = :dialog)
+      @dialog = obstacle
       return if @noticed
 
       @noticed = true
-      @notice.call("Pane #{pane} shows a dialog, such as a folder trust or permission question. Answer it there; " \
-                   'keryx never answers one. The session joins once it is answered.')
+      @notice.call("Pane #{pane} #{shows(obstacle)}, such as a folder trust or permission question. " \
+                   "#{obstacle == :cramped ? 'Look at it' : 'Answer it'} there; keryx never answers one. The session " \
+                   "joins once #{obstacle == :cramped ? 'any dialog' : 'it'} is answered.")
     end
 
     def late(address, pane)
       return "#{address} has not joined yet; look at pane #{pane}" unless @dialog
+      if @dialog == :cramped
+        return "#{address} has not joined yet: pane #{pane} #{shows(:cramped)}; look at it, and the session joins by " \
+               'itself once any dialog is answered'
+      end
 
       "#{address} has not joined yet: pane #{pane} shows a dialog for you to answer, and the session joins by itself " \
         'once it is answered'
     end
+
+    def shows(obstacle) = obstacle == :cramped ? 'is too narrow to tell whether it shows a dialog' : 'shows a dialog'
   end
 end

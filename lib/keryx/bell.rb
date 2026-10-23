@@ -26,22 +26,54 @@ module Keryx
       /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter (to )?(select|confirm)/i, /press enter/i,
       /allow (this|once|always)/i, /trust all and continue/i, /continue without trusting/i
     )
-    SQUEEZED_DIALOG = Regexp.new(DIALOG.source.delete(' '))
+    # The marker before the selected option: Codex's, Claude Code's and Cursor's. An ASCII ">" is a prompt.
+    MARKER = /\A\s*[\u203a\u276f\u25b6]\s*/
+    # A number with its dot, a key in brackets, or a Yes or No that ends the line or comes before a comma.
+    LABEL = /\G(\d+\.(?!\d)|\[\w\]|(Yes|No)(?=,|\s*\z))/
     # The footer a dialog ends with, such as Codex's "enter confirm" and "esc skip", unlike code on the screen.
-    SQUEEZED_FOOTER = /enter(to)?(select|confirm)\W{1,3}esc(to)?(skip|cancel|exit)/i
-    # The longest words of a dialog, such as "permission", break only in a pane this narrow.
-    NARROW_COLUMNS = 12
+    SQUEEZED_FOOTER = Regexp.union(/enter(to)?(select|confirm)\W{1,3}esc(to)?(skip|cancel|exit)/i,
+                                   /\u00b7esc(to)?(skip|cancel|exit)/i, /entertoselect,orpress/i)
+    # Words do not fit on lines this short, so such a screen cannot show a dialog's options or its footer.
+    CRAMPED_CHARACTERS = 3
+    CRAMPED_LINES = 4
     BOX_DRAWING = /[\u2500-\u257f]/
+    OBSTACLES = { dialog: 'the screen shows a dialog',
+                  cramped: 'the pane is too narrow to tell whether it shows a dialog' }.freeze
 
-    # A narrow pane wraps a dialog over several lines, often inside a box, so the screen is matched as one line. With
-    # no spaces at all, a screen too narrow for words is matched against every pattern and any other only its footer.
+    # A narrow pane wraps a dialog over several lines, often inside a box, so its phrases are matched on the lines
+    # joined, its options line by line, and its footer with no spaces at all, whatever the width.
     def self.dialog?(screen)
-      text = screen.to_s.gsub(BOX_DRAWING, ' ')
-      return true if DIALOG.match?(text.split.join(' '))
-
-      squeezed = text.lines.all? { it.strip.size <= NARROW_COLUMNS } ? SQUEEZED_DIALOG : SQUEEZED_FOOTER
-      squeezed.match?(text.gsub(/\s+/, ''))
+      lines = lines(screen)
+      DIALOG.match?(lines.join(' ').split.join(' ')) || options?(lines) ||
+        SQUEEZED_FOOTER.match?(lines.join.gsub(/\s+/, ''))
     end
+
+    def self.cramped?(screen)
+      text = lines(screen).map { it.gsub(/\s+/, '') }.reject(&:empty?)
+      text.size >= CRAMPED_LINES && text.all? { it.size <= CRAMPED_CHARACTERS }
+    end
+
+    # What keeps a bell from typing into a screen, as a key of OBSTACLES, or nil.
+    def self.obstacle(screen)
+      return :dialog if dialog?(screen)
+
+      :cramped if cramped?(screen)
+    end
+
+    # A marked option and, before a blank line, another option at the same column.
+    def self.options?(lines)
+      lines.each_with_index.any? do |line, index|
+        column = MARKER.match(line)&.end(0)
+        next false unless column && LABEL.match?(line, column)
+
+        lines[(index + 1)..].take_while { !it.strip.empty? }.any? do |other|
+          other[0, column].strip.empty? && LABEL.match?(other, column)
+        end
+      end
+    end
+
+    def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
+    private_class_method :options?, :lines
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
                    lookout: Lookout.new(herdr:, processes: Processes.new))
@@ -122,7 +154,9 @@ module Keryx
 
       screen = @herdr.screen(socket, pane)
       return outcome(DEFERRED, 'herdr', 'the screen could not be read') if screen.nil?
-      return outcome(DEFERRED, 'herdr', 'the screen shows a dialog') if Bell.dialog?(screen)
+
+      obstacle = Bell.obstacle(screen)
+      return outcome(DEFERRED, 'herdr', OBSTACLES.fetch(obstacle)) if obstacle
 
       typed(@herdr.prompt(socket, pane, text))
     end
