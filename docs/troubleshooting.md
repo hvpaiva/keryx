@@ -46,6 +46,9 @@ reason.
   `keryx ring`. The dialog note names in parentheses what keryx matched, a dialog's words or a
   marked option, and the line of the screen it showed on, counted from the top of the lines keryx
   read, as in `the screen shows a dialog ("Hooks need review", line 2 of 11)`.
+- `the screen shows a queued message being edited` means a message in Cursor's follow-ups box is
+  open for editing, so what keryx typed would land in it, and keryx did not type. Press enter or esc
+  in the box to close it, then run `keryx ring`.
 - `the screen could not be read` means herdr did not return the pane's screen, so keryx could not
   rule out a dialog and did not type. The courier tries again.
 - `the pane is too narrow to tell whether it shows a dialog` means the pane is only a few columns

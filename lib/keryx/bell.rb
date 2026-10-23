@@ -43,9 +43,11 @@ module Keryx
     # The box above Cursor's composer that lists the follow-ups it queued, from its title to its bottom border.
     FOLLOW_UPS = /\A\s*\u250c\u2500*\s*follow-ups/
     BOTTOM_BORDER = /\A\s*\u2514\u2500*\u2518/
+    # The footer of that box, with no spaces, while one of its messages is open for editing and holds the focus.
+    EDITING = /editing\u00b7enterdone\u00b7escclose/i
     # The longest evidence a deferral quotes, since a bell's receipt reaches the sender, on any machine.
     EVIDENCE_CHARACTERS = 60
-    OBSTACLES = { dialog: 'the screen shows a dialog',
+    OBSTACLES = { dialog: 'the screen shows a dialog', editor: 'the screen shows a queued message being edited',
                   cramped: 'the pane is too narrow to tell whether it shows a dialog' }.freeze
 
     # An obstacle, as a key of OBSTACLES or nil, and what on the screen showed it: only the words keryx's own patterns
@@ -58,10 +60,15 @@ module Keryx
     # A narrow pane wraps a dialog over several lines, often inside a box, so its phrases are matched on the lines
     # joined, its options line by line, and its footer with no spaces at all, whatever the width. A dialog takes the
     # place of the harness's composer, so what shows above a composer is its transcript, and only the lines below the
-    # last composer are read. Cursor's follow-ups box ends with a footer like a dialog's, so it is never read.
+    # last composer are read. Cursor's follow-ups box ends with a footer like a dialog's, so it is never read, unless
+    # one of its messages is being edited, which takes the focus from the composer drawn below it.
     def self.reading(screen)
+      lines = lines(screen)
       box = follow_ups(screen.to_s.lines.map(&:chomp))
-      evidence = sighting(lines(screen).each_with_index.map { |line, row| box&.cover?(row) ? '' : line })
+      editing = footer(lines, box, EDITING)
+      return Reading.new(obstacle: :editor, evidence: editing) if editing
+
+      evidence = sighting(lines.each_with_index.map { |line, row| box.cover?(row) ? '' : line })
       return Reading.new(obstacle: :dialog, evidence:) if evidence
 
       Reading.new(obstacle: (:cramped if cramped?(screen)), evidence: nil)
@@ -85,10 +92,10 @@ module Keryx
       end
     end
 
-    # The rows of the last follow-ups box, through its bottom border or the last line when the border is below the
-    # screen, found on the screen as herdr gave it since the lines the rules read drop the box drawing of its frame.
+    # The rows of the last follow-ups box, if any, through its bottom border or the last line when the border is below
+    # the screen, found on the screen as herdr gave it since the lines the rules read drop the box drawing of its frame.
     def self.follow_ups(raw)
-      top = raw.rindex { FOLLOW_UPS.match?(it) } or return
+      top = raw.rindex { FOLLOW_UPS.match?(it) } or return 0...0
       bottom = ((top + 1)...raw.size).find { BOTTOM_BORDER.match?(raw[it]) }
       top..(bottom || (raw.size - 1))
     end
@@ -105,9 +112,9 @@ module Keryx
       quote(lines, words, ' ', match)
     end
 
-    def self.footer(lines, rows)
+    def self.footer(lines, rows, pattern = SQUEEZED_FOOTER)
       words = words(lines, rows)
-      match = SQUEEZED_FOOTER.match(words.map(&:text).join) or return
+      match = pattern.match(words.map(&:text).join) or return
       quote(lines, words, '', match)
     end
 

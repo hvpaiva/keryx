@@ -147,9 +147,15 @@ and the id, never the body. It tries two ways, in order.
    Cursor's follow-ups box, which lists the messages Cursor queued for the end of its turn above its
    composer, ends with "enter steer · ↑ select/edit · esc cancel", a footer like a dialog's, so it
    is never read, from its `┌─ follow-ups` title through its `└─┘` bottom border, or through the
-   last line when that border is below the screen.
+   last line when that border is below the screen. Unless one of its messages is open for editing:
+   then its footer reads "editing · enter done · esc close", the focus is in the box while the
+   composer stays drawn below it, and a typed bell would land in the queued message. That footer is
+   looked for first, on every line of the box and with no spaces so that a narrow box that wraps it
+   still counts, and the bell defers, saying the screen shows a queued message being edited.
+   Matching inside the box, not anywhere, keeps a transcript that quotes that footer from holding
+   the bell back.
 
-   The detail of a deferral for a dialog names what matched, the words keryx's own patterns took or
+   The detail of a deferral for a dialog or an edited message names what matched, the words keryx's own patterns took or
    a marked option, and the line of the screen it showed on, as in
    `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt reaches the sender,
    on whatever machine, so it never holds the rest of that line, and its control characters are
@@ -235,8 +241,8 @@ spawn then polls the store until the address has an occupant of the harness it s
 socket and pane it started it in. Any other session that joins the address meanwhile is a conflict,
 reported as an error and never taken for the new session. spawn never answers a dialog. herdr's
 `agent_not_ready`, a `blocked` agent or a screen the bell takes for a dialog count as a dialog, and
-a screen the bell finds too narrow to tell is reported as such; spawn reports either once while it
-keeps waiting. It stops when the pane has no agent of that harness left or `--timeout`, counted
+a screen the bell finds too narrow to tell, or one where a queued message is being edited, is
+reported as such; spawn reports the first of them once while it keeps waiting. It stops when the pane has no agent of that harness left or `--timeout`, counted
 from the moment spawn starts, passes. A join recorded after
 that moment counts as too late, however soon spawn notices it.
 

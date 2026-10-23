@@ -125,6 +125,18 @@ class BellTest < Minitest::Test
     assert_equal 1, herdr.prompts.size
   end
 
+  def test_herdr_never_types_into_cursor_s_follow_up_editor
+    message = deliver
+    store.bind('rev-1', pane_occupant)
+    herdr = herdr_with('working', screen: Screens.session('cursor-follow-up-editor'))
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal 'deferred', result.status
+    assert_equal "the screen shows a queued message being edited (\"editing \u00b7 enter done \u00b7 esc close\", " \
+                 'line 9 of 19)', result.detail
+    assert_empty herdr.prompts
+  end
+
   def test_herdr_defers_while_the_agent_is_blocked_or_unknown
     %w[blocked unknown].each do |status|
       message = deliver

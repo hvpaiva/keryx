@@ -71,6 +71,24 @@ class BellScreenTest < Minitest::Test
     assert_equal :dialog, obstacle("#{box}  Do you trust the contents of this directory?\n")
   end
 
+  def test_cursor_s_follow_up_editor_is_an_obstacle_above_its_composer
+    editor = Keryx::Bell.reading(Screens.session('cursor-follow-up-editor'))
+
+    assert_equal [:editor, "\"editing \u00b7 enter done \u00b7 esc close\", line 9 of 19"],
+                 [editor.obstacle, editor.evidence]
+    assert_equal :editor, obstacle(Screens::NARROW_EDITOR)
+    assert_equal :editor, obstacle(Screens::NARROW_EDITOR.lines.first(6).join)
+  end
+
+  def test_the_editor_s_footer_outside_its_box_is_no_obstacle
+    quoted = "  Cursor shows editing \u00b7 enter done \u00b7 esc close while a follow-up is edited.\n"
+    box = Screens.session('cursor-follow-ups')
+
+    assert_nil obstacle("#{quoted}\n\u203a Ask Codex to do anything\n")
+    assert_nil obstacle(quoted + box)
+    assert_nil obstacle(box.sub(/^(.*Running.*)$/) { "#{it}\n#{quoted.chomp}" })
+  end
+
   def test_the_evidence_names_the_words_and_the_line_and_not_the_rest_of_the_line
     phrase = "  ok\n  private words, then Continue without trusting, then more private words\n"
     option = "  Pick one\n\n\u203a 1. private option\n  2. another private option\n"

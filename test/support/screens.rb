@@ -24,6 +24,12 @@ module Screens
     '  cancel".', '', "\u2500" * 80, "\u276f ", "\u2500" * 80,
     "  \u23f5\u23f5 bypass permissions on (shift+tab to cycle)"
   ].join("\n")
+  # Cursor's follow-ups box in a pane 22 columns wide, a message being edited in it and its footer wrapped.
+  NARROW_EDITOR = [
+    " \u250c\u2500 follow-ups \u2500\u2500\u2500\u2500\u2500\u2510", " \u2502 \u203a Also say which \u2502",
+    " \u2502   folder you are \u2502", " \u2502 +2 more lines \u00b7  \u2502", " \u2502 editing \u00b7 enter  \u2502",
+    " \u2502 done \u00b7 esc close \u2502", " \u2514#{"\u2500" * 18}\u2518", '', "  \u2192 Add a follow-up"
+  ].join("\n")
   CAPTURES = File.expand_path('../fixtures/screens', __dir__)
   SESSIONS = File.join(CAPTURES, 'sessions')
 
@@ -34,8 +40,9 @@ module Screens
   end
 
   # Sessions at work or idle as the bell reads them from herdr, their paths made neutral: Codex 0.163.0 working
-  # under a transcript that quotes dialogs (codex-working-transcript), Cursor idle (cursor-idle) and Cursor working
-  # with a message queued in its follow-ups box (cursor-follow-ups).
+  # under a transcript that quotes dialogs (codex-working-transcript), Cursor idle (cursor-idle), and Cursor working
+  # with a message queued in its follow-ups box (cursor-follow-ups) and with that message being edited there
+  # (cursor-follow-up-editor).
   def self.session(name) = read(File.join(SESSIONS, "#{name}.txt"))
 
   def self.read(path) = File.read(path).gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }
