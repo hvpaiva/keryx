@@ -28,21 +28,19 @@ module Keryx
                       description: 'Start an agent session in a new herdr pane, give it the address NAME and hand it ' \
                                    "its first request.\n\n" \
                                    'spawn runs in a herdr pane and splits it, or uses the tab --tab names, and ' \
-                                   'labels the new pane NAME. It ' \
-                                   'creates NAME and, when TEXT or --file gives one, posts the request from this ' \
-                                   'session before the new session exists, without a bell, since nothing holds NAME ' \
-                                   'yet but a session that may have ended. The harness then starts with a first ' \
-                                   'prompt that tells the session to join NAME, follow the keryx skill and open its ' \
-                                   'inbox. spawn waits for the join and prints the address, harness, pane and ' \
-                                   "request id.\n\n" \
+                                   'labels the new pane NAME. It creates NAME and, when TEXT or --file gives one, ' \
+                                   'posts the request from this session before the new session exists, without a ' \
+                                   'bell, since nothing holds NAME yet but a session that may have ended. The ' \
+                                   'harness then starts with a first prompt that tells the session to join NAME, ' \
+                                   'follow the keryx skill and open its inbox. spawn waits for the join and prints ' \
+                                   "the address, harness, pane and request id.\n\n" \
                                    'The session starts in this directory, or in --cwd, with KERYX_HOME set to this ' \
                                    'store, XDG_CONFIG_HOME to the directory this keryx reads its config from, and ' \
-                                   'KERYX_HOST passed on when it is set. Claude Code also gets the ' \
-                                   'settings that let the bells in and run the stop ' \
-                                   'hook, for that session only. Codex runs a new hook only after you trust it and ' \
-                                   'Cursor reads hooks only from its hooks.json, so spawn installs no hook for them; ' \
-                                   "'keryx hook --help' shows how to add it. Arguments after -- go to the harness " \
-                                   "unchanged.\n\n" \
+                                   'KERYX_HOST passed on when it is set. Claude Code also gets the settings that let ' \
+                                   'the bells in and run the stop hook, for that session only. Codex runs a new hook ' \
+                                   'only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
+                                   "spawn installs no hook for them; 'keryx hook --help' shows how to add it. " \
+                                   "Arguments after -- go to the harness unchanged.\n\n" \
                                    'A dialog in the new pane, such as a folder trust or permission question, is ' \
                                    'yours to answer. spawn says so once and keeps waiting. The session holds its ' \
                                    'first prompt behind the dialog and joins once it is answered, even after spawn ' \
@@ -217,7 +215,6 @@ module Keryx
         app.store.create_address(name, role: options[:role])
       end
 
-      # The address may still name a session that ended, and the new session opens its inbox from its first prompt.
       def post(sender, name, text)
         app.postman.post(sender:, recipient: Address.new(name:, host: app.host), kind: 'request', body: text,
                          due_at:, ring: false).message
