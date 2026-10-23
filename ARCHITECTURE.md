@@ -96,9 +96,11 @@ and the id, never the body. It tries two ways, in order.
 2. when that fails or does not exist, typing into the herdr pane, if herdr shows an agent of the
    session's harness there, reports it idle, done or working, and no dialog shows on the bottom of
    its screen. The screen is checked with its lines joined and box borders dropped, since a narrow
-   pane wraps a dialog over several lines, and its footer again with no spaces, since a pane
-   narrower than a word breaks the word too. A pane that is empty or runs another harness no longer
-   holds the session, so the bell is absent there rather than typed into whoever took the pane.
+   pane wraps a dialog over several lines, and again with no spaces, since a pane narrower than a
+   word breaks the word too. With no spaces, a screen whose lines all fit in 12 columns is matched
+   against every pattern, and any other only against a dialog's footer, so code such as `allowOnce`
+   does not count. A pane that is empty or runs another harness no longer holds the session, so the
+   bell is absent there rather than typed into whoever took the pane.
 
 Cursor has no channel of its own, so it is always rung by typing.
 

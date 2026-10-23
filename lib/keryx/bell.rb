@@ -23,15 +23,21 @@ module Keryx
       /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter (to )?(select|confirm)/i, /press enter/i,
       /allow (this|once|always)/i, /trust all and continue/i, /continue without trusting/i
     )
+    SQUEEZED_DIALOG = Regexp.new(DIALOG.source.delete(' '))
     # The footer a dialog ends with, such as Codex's "enter confirm" and "esc skip", unlike code on the screen.
     SQUEEZED_FOOTER = /enter(to)?(select|confirm)\W{1,3}esc(to)?(skip|cancel|exit)/i
+    # The longest words of a dialog, such as "permission", break only in a pane this narrow.
+    NARROW_COLUMNS = 12
     BOX_DRAWING = /[\u2500-\u257f]/
 
-    # A narrow pane wraps a dialog over several lines, often inside a box, and one narrower than a word breaks the
-    # word too, so the screen is matched as one line, and its footer again with no spaces at all.
+    # A narrow pane wraps a dialog over several lines, often inside a box, so the screen is matched as one line. With
+    # no spaces at all, a screen too narrow for words is matched against every pattern and any other only its footer.
     def self.dialog?(screen)
       text = screen.to_s.gsub(BOX_DRAWING, ' ')
-      DIALOG.match?(text.split.join(' ')) || SQUEEZED_FOOTER.match?(text.gsub(/\s+/, ''))
+      return true if DIALOG.match?(text.split.join(' '))
+
+      squeezed = text.lines.all? { it.strip.size <= NARROW_COLUMNS } ? SQUEEZED_DIALOG : SQUEEZED_FOOTER
+      squeezed.match?(text.gsub(/\s+/, ''))
     end
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)

@@ -12,6 +12,8 @@ module Screens
     '  ru', '  n', '  ou', '  ts', '  id', '  e', '  th', '  e', '  sa', "  [\u2026", "\u203a 1.", '     R', '     e',
     '  ente', '  r', '  conf', '  irm', "  \u00b7", '  esc', '  skip'
   ].join("\n")
+  # A question with no footer in a pane 5 columns wide, its words broken.
+  TINY_QUESTION = "  Do\n  you\n  tru\n  st\n  thi\n  s\n  fol\n  der\n  ?\n"
   # A question wrapped inside a box border, one word or two per line.
   NARROW_BOX = "\u2502 Do          \u2502\n\u2502 you trust   \u2502\n\u2502 this folder?\u2502\n"
 end

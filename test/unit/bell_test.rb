@@ -106,7 +106,8 @@ class BellTest < Minitest::Test
 
   def test_herdr_defers_when_the_screen_shows_a_dialog
     ['Hooks need review', '[a] Trust this workspace', 'Held message from another session',
-     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::TINY_CODEX_HOOKS, Screens::NARROW_BOX]
+     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::TINY_CODEX_HOOKS, Screens::NARROW_BOX,
+     Screens::TINY_QUESTION]
       .each do |screen|
         message = deliver
         store.bind('rev-1', pane_occupant)
