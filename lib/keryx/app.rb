@@ -158,7 +158,7 @@ module Keryx
     end
 
     # Codex drops herdr's variables from its commands but keeps them itself. The pane they name counts only while its
-    # foreground group is the ancestor that holds them or runs above it, which a server that inherited them is not.
+    # foreground group is the ancestor that holds them or runs under it; a server that inherited them runs under it.
     def inherited_place
       ancestors = processes.ancestors(Process.pid)
       holder = ancestors.index { herdr_variables(it) } or return

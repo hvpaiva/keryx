@@ -64,13 +64,13 @@ foreground group, recorded only when it is an ancestor of the join, which leaves
 session that runs its commands under Codex's shared server. Codex drops herdr's variables from the
 commands it runs but keeps them itself, so a Codex started by hand in a pane is placed by the
 nearest ancestor that holds both. On Linux keryx reads only those two from `/proc/PID/environ` and
-records the pane they name, with its foreground group as the process, when that group is the
-ancestor or runs above it; a server that inherited the variables of some pane runs below its
-foreground group and places nothing, and elsewhere such a session records no pane. A command that
-proves no pane keeps the one recorded. Later commands find their address by
-matching the caller against the occupants (`Identity`), which means the same Claude Code process
-or session, the same Codex thread or Cursor conversation, or the same harness in the same herdr
-pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
+records the pane they name, with its foreground group as the process, when that group is that
+ancestor or runs under it, between it and the command. A server that inherited the variables of
+some pane runs under that pane's foreground group, not above it, so it places nothing, and
+elsewhere such a session records no pane. A command that proves no pane keeps the one recorded.
+Later commands find their address by matching the caller against the occupants (`Identity`),
+which means the same Claude Code process or session, the same Codex thread or Cursor
+conversation, or the same harness in the same herdr pane. The pane rule lets a session restarted in its pane keep its address, and `App#me` then
 records the new process and socket. It keeps the recorded process until `ps` shows that the
 command no longer runs under it or that another process now has its pid, so a lookup that fails
 erases nothing.
