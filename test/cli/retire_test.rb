@@ -53,6 +53,9 @@ class RetireTest < Minitest::Test
                  "it); #{sent} it sent to orq@athena waits for a reply ('keryx withdraw #{sent} --as rev-1')\n",
                  result.err
     keryx('reply', received, 'Done', '--as', 'rev-1')
+
+    assert_match(/rev-1@athena has 1 open request and retires once none is left: #{sent} it sent/,
+                 keryx('retire', 'rev-1').err)
     keryx('withdraw', sent, '--as', 'rev-1')
 
     assert_equal 0, keryx('retire', 'rev-1').status
