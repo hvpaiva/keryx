@@ -69,4 +69,18 @@ class BellCodexTest < Minitest::Test
     assert_equal %w[rung herdr], [result.status, result.channel]
     assert_equal 1, herdr.prompts.size
   end
+
+  def test_a_failed_queue_types_only_into_what_the_pane_runs_after_it
+    message = deliver
+    store.bind('rev-1', pane_occupant(session_id: 'thread-1'))
+    herdr = herdr_with('idle', session: 'thread-1')
+    queue.gone << 'thread-1'
+    queue.on_queue = lambda do |_thread|
+      herdr.put(HERDR_SOCKET, 'w1:p2', Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'claude', status: 'idle'))
+    end
+    result = bell(herdr:).ring('rev-1', [message])
+
+    assert_equal ['absent', 'pane w1:p2 runs claude, not codex'], [result.status, result.detail]
+    assert_empty herdr.prompts
+  end
 end

@@ -75,7 +75,8 @@ module Keryx
       end
 
       queued = through_codex(thread, text)
-      queued.status == FAILED ? through_herdr(occupant, text, agent) : queued
+      # The queue can take seconds to fail, so the pane is read again before anything is typed into it.
+      queued.status == FAILED ? through_herdr(occupant, text) : queued
     end
 
     def through_claude(path, text)

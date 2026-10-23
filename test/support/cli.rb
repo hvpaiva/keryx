@@ -48,6 +48,7 @@ module CLIHelpers
 
   class FakeCodexQueue
     attr_reader :queued, :gone
+    attr_accessor :on_queue
 
     def initialize
       @queued = []
@@ -55,6 +56,7 @@ module CLIHelpers
     end
 
     def queue(thread, text)
+      @on_queue&.call(thread)
       return Keryx::Runner::Result.new(out: '', err: "no thread #{thread}\n", success: false) if @gone.include?(thread)
 
       @queued << [thread, text]
