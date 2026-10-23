@@ -23,10 +23,15 @@ module Keryx
       /do you (trust|want)/i, %r{\((y|yes)/(n|no)\)}i, %r{\[y/n\]}i, /enter (to )?(select|confirm)/i, /press enter/i,
       /allow (this|once|always)/i, /trust all and continue/i, /continue without trusting/i
     )
+    SQUEEZED_DIALOG = Regexp.new(DIALOG.source.delete(' '))
     BOX_DRAWING = /[\u2500-\u257f]/
 
-    # A narrow pane wraps a dialog over several lines, often inside a box, so its words are matched on one line.
-    def self.dialog?(screen) = DIALOG.match?(screen.to_s.gsub(BOX_DRAWING, ' ').split.join(' '))
+    # A narrow pane wraps a dialog over several lines, often inside a box, and one narrower than a word breaks the
+    # word too, so the screen is matched as one line and again with no spaces at all.
+    def self.dialog?(screen)
+      text = screen.to_s.gsub(BOX_DRAWING, ' ')
+      DIALOG.match?(text.split.join(' ')) || SQUEEZED_DIALOG.match?(text.gsub(/\s+/, ''))
+    end
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new)
       @store = store

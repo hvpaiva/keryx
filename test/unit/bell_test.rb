@@ -194,7 +194,7 @@ class BellTest < Minitest::Test
 
   def test_herdr_defers_when_the_screen_shows_a_dialog
     ['Hooks need review', '[a] Trust this workspace', 'Held message from another session',
-     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::NARROW_BOX, "Hooks need\n review"]
+     'Do you want to proceed? (y/n)', Screens::NARROW_CODEX_HOOKS, Screens::TINY_CODEX_HOOKS, Screens::NARROW_BOX]
       .each do |screen|
         message = deliver
         store.bind('rev-1', pane_occupant)
@@ -203,6 +203,10 @@ class BellTest < Minitest::Test
         assert_equal 'the screen shows a dialog', bell(herdr:).ring('rev-1', [message]).detail, screen
         assert_empty herdr.prompts
       end
+  end
+
+  def test_an_ordinary_screen_is_no_dialog
+    refute Keryx::Bell.dialog?("\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n")
   end
 
   def test_herdr_defers_when_the_screen_cannot_be_read
