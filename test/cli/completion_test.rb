@@ -33,6 +33,18 @@ class CompletionTest < Minitest::Test
     assert_equal %w[orq.dev rev-1.dev], complete('ring', 'orq.dev', '')
   end
 
+  def test_bare_members_complete_from_the_team_of_the_address_as_names
+    caller = join_claude('orq.alpha', 111)
+    join_claude('orq.beta', 222)
+    join_claude('impl.alpha', 333)
+    join_claude('rev.beta', 444)
+
+    assert_equal %w[impl orq impl.alpha orq.alpha orq.beta rev.beta], complete('send', '', env: caller)
+    assert_equal %w[orq rev impl.alpha orq.alpha orq.beta rev.beta],
+                 complete('--as', 'orq.beta', 'send', '', env: caller)
+    assert_equal %w[rev rev.beta], complete('ask', '--as=orq.beta', 'r', env: caller)
+  end
+
   def test_a_retired_address_does_not_complete
     join_claude('orq.dev', 111)
     join_claude('rev-1.dev', 222)

@@ -76,13 +76,14 @@ module Keryx
         last.end_with?('=') && OPTION_NAME.match?(last.chomp('='))
       end
 
+      # The value of the last --as before the word being completed, or nil while that value is the word.
       def acting_as(words)
         name = nil
         words.each_with_index do |word, index|
           name = words[index + 1] if word == '--as'
           name = word.delete_prefix('--as=') if word.start_with?('--as=')
         end
-        name
+        name unless name.to_s.empty?
       end
 
       # The incarnation the command acts as, with --as on the line resolved as the command resolves it, so a session
@@ -113,7 +114,7 @@ module Keryx
         source && (index.zero? || name == 'ring') ? send(source) : []
       end
 
-      # Every address with a team, and the bare members of the caller's own team, which resolve to it.
+      # Every address with a team, and the bare members of the team the command acts in, which resolve to it.
       def addresses
         named = app.store.current_names.map { Address.from_key(it, host: app.host) }.reject(&:flat?)
         team = own_team
@@ -121,7 +122,7 @@ module Keryx
       end
 
       def own_team
-        own = app.own_address&.then { Address.from_name(it, host: app.host) }
+        own = (@as ? me : app.own_address)&.then { Address.from_name(it, host: app.host) }
         own.team unless own.nil? || own.reserved?
       end
 
