@@ -28,6 +28,16 @@ class ForwarderTest < Minitest::Test
     assert_equal [:forwarded], store.outbox.outgoing.map(&:state)
   end
 
+  # The id starts with the millisecond it was written in, so the queue goes in the order its messages were written.
+  def test_a_host_s_queue_goes_in_id_order_whatever_order_its_files_were_written_in
+    first, second, third = (1..3).map { build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + it)) }
+    [third, first, second].each { store.outbox.queue('zeus', it) }
+    remote = answering('delivered')
+    forwarding(remote).forward('zeus')
+
+    assert_equal [['zeus', [first.id, second.id, third.id]]], remote.sent
+  end
+
   def test_the_receipt_is_on_disk_before_the_message_leaves_new
     message = build_message(to: 'port.dev@zeus')
     store.outbox.queue('zeus', message)

@@ -22,6 +22,14 @@ class ReceiverTest < Minitest::Test
 
   def incoming = @incoming ||= build_message(to: 'port.dev@zeus', from: 'orq.dev@athena')
 
+  # The receipts a receiver on STORE gives for MESSAGES sent to it in one batch, as keryx __receive takes them.
+  def batch(store, *messages)
+    receipts = []
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local')
+    receiver.receive_all(StringIO.new(messages.map { "#{it.to_json}\n" }.join)) { receipts << it }
+    receipts
+  end
+
   def test_a_bell_that_fails_after_the_message_is_stored_still_reports_it_delivered
     receipt = receive(incoming, bell: FailingBell.new)
 
@@ -85,6 +93,24 @@ class ReceiverTest < Minitest::Test
     store.define_singleton_method(:deliver) { |*| raise Errno::ENOSPC, 'mail' }
 
     assert_equal 'failed', receive(incoming)['status']
+  end
+
+  def test_a_message_that_fails_holds_back_the_later_ones_of_its_thread_in_that_batch_only
+    first = build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW))
+    other = build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + 1))
+    later = build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + 2), thread: first.thread,
+                          in_reply_to: first.id)
+    store.define_singleton_method(:deliver) do |name, message|
+      raise Errno::ENOSPC, 'mail' if message.id == first.id
+
+      super(name, message)
+    end
+    held_back = batch(store, first, other, later)
+
+    assert_equal([[first.id, 'failed'], [other.id, 'delivered'], [later.id, 'failed']],
+                 held_back.map { it.values_at('id', 'status') })
+    assert_equal "it waits for #{first.id}, written before it in its thread", held_back.last['detail']
+    assert_equal(%w[delivered delivered], batch(Keryx::Store.new(tmp('zeus')), first, later).map { it['status'] })
   end
 
   # The session leaves right after the first check saw it running, as a leave on this machine can.

@@ -16,6 +16,8 @@ module Keryx
   class Receiver
     FRAME_LIMIT = (6 * Message::MAX_BODY_BYTES) + 4096
     CLAIMED_ID = /"id":"(?<id>[0-9A-HJKMNP-TV-Z]{26})"/
+    FAILED = 'failed'
+    BEHIND = 'it waits for %<id>s, written before it in its thread'
 
     def initialize(store:, bell:, host:, person:, live: ->(_name) {})
       @store = store
@@ -27,29 +29,47 @@ module Keryx
 
     def receive_all(input, &)
       @oversized = nil
+      stalled = {}
       input.each_line(FRAME_LIMIT) do |chunk|
         next skip(chunk, &) if @oversized || truncated?(chunk)
 
-        yield receive(chunk) unless chunk.strip.empty?
+        yield receive(chunk, stalled) unless chunk.strip.empty?
       end
       yield too_large(@oversized[:id]) if @oversized
     end
 
-    def receive(line)
+    # The forwarder sends a batch in id order, which is the order its messages were written in to the millisecond.
+    # Once a message of a thread fails, each later one of that thread fails too without being written, so none
+    # overtakes it and the sender sends them all again in that order. STALLED holds, by thread, the first that failed.
+    def receive(line, stalled = {})
       message = Message.from_json(line)
+      earlier = stalled[message.thread]
+      return receipt(message.id, FAILED, detail: format(BEHIND, id: earlier)) if earlier
+
+      take(message).tap { stalled[message.thread] = message.id if it['status'] == FAILED }
+    rescue StandardError => e
+      failure(claimed_id(line), e)
+    end
+
+    private
+
+    def take(message)
       to = Address.parse(message.to)
       refusal = refusal(message, to)
       return receipt(message.id, 'refused', detail: refusal) if refusal
 
       status = deliver(to, message)
       receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
-    rescue Error => e
-      receipt(claimed_id(line), e.is_a?(Store::Busy) ? 'failed' : 'refused', detail: e.message)
     rescue StandardError => e
-      receipt(claimed_id(line), 'failed', detail: e.message)
+      failure(message.id, e)
     end
 
-    private
+    # keryx's own errors refuse the message, but a lock another command keeps fails it, as any other error does, so the
+    # sender sends it again.
+    def failure(id, error)
+      refused = error.is_a?(Error) && !error.is_a?(Store::Busy)
+      receipt(id, refused ? 'refused' : FAILED, detail: error.message)
+    end
 
     def truncated?(chunk) = chunk.bytesize >= FRAME_LIMIT && !chunk.end_with?("\n")
 
