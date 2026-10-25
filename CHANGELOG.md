@@ -9,8 +9,19 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, or
-  with `keryx leave --as NAME` once the session holding one ended without leaving, for Claude Code,
-  Codex and Cursor sessions and any agent in a herdr pane.
+  with `keryx leave --as ADDRESS` once the session holding one ended without leaving, for Claude
+  Code, Codex and Cursor sessions and any agent in a herdr pane.
+- Team addresses, `MEMBER.TEAM@HOST`. A bare `MEMBER` names one of the sender's team and
+  `MEMBER.TEAM` one on this machine; a sender with no team names a bare member only when one team
+  here has it, and is told the matches otherwise. Two scopes are reserved: `NAME.local` is a person
+  at a terminal and `keryx.system` is keryx's own notices.
+- Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
+  session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
+  opens by id and answers the requests it took before. `who`, `status` and `whoami` show both, and
+  their JSON gives `member`, `team`, `host` and `session_address`.
+- Message format 2, for team and session addresses. Addresses from before team names finish their
+  open threads in format 1 and start no new work, and a machine that runs an older keryx refuses
+  format 2 for good, with the reason in the sender's error and in `keryx status`.
 - Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks, and each
   message stored once however often it arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents

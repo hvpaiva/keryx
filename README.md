@@ -24,16 +24,16 @@ on another machine goes over SSH, and waits while that machine is unreachable.
 ```console
 $ keryx status
 ADDRESSES
-ADDRESS        ROLE           SESSION   CONTEXT         UNREAD   WAITING
-impl@athena    implementer    unknown   unknown         0        1
-orq@athena     orchestrator   idle      303k            0        0
-rev-1@athena   reviewer       working   137k/258k 53%   0        1
+ADDRESS            ROLE           SESSION   CONTEXT         UNREAD   WAITING
+impl.dev@athena    implementer    unknown   unknown         0        1
+orq.dev@athena     orchestrator   idle      303k            0        0
+rev-1.dev@athena   reviewer       working   137k/258k 53%   0        1
 1 address with no session and no mail is hidden; 'keryx status --all' lists it.
 
 OPEN REQUESTS
-ID                           FROM         TO             AGE   DUE     STATE   SUMMARY
-01M5JCXQ0G4H2M7JCEB3ZADT96   orq@athena   impl@athena    10s   in 9m   read    Write a corrected copy of retry.py as retry_fixed.py
-01M5JCXPYB2BSZ7JYG1S4EBA51   orq@athena   rev-1@athena   10s   in 9m   read    Review retry.py for bugs
+ID                           FROM             TO                 AGE   DUE     STATE   SUMMARY
+01M5JCXQ0G4H2M7JCEB3ZADT96   orq.dev@athena   impl.dev@athena    10s   in 9m   read    Write a corrected copy of retry.py as retry_fixed.py
+01M5JCXPYB2BSZ7JYG1S4EBA51   orq.dev@athena   rev-1.dev@athena   10s   in 9m   read    Review retry.py for bugs
 
 NOT RUNG
 none
@@ -72,18 +72,19 @@ which retries bells and mail for other machines and reports missed deadlines and
 
 ## Ask and answer
 
-Each session joins an address, which stays when the session ends.
+Each session joins an address, `MEMBER.TEAM@HOST`, which stays when the session ends. Within a team
+a bare member such as `rev-1` is enough, and `MEMBER.TEAM` names one on this machine.
 
 ```console
-$ keryx join orq --role orchestrator
-Joined orq@athena as a claude session (pid 4157).
+$ keryx join orq.dev --role orchestrator
+Joined orq.dev@athena as a claude session (pid 4157).
 ```
 
 The orchestrator asks the reviewer for a review, with a deadline.
 
 ```console
 $ keryx ask rev-1 "Review PR #448: focus on the retry path" --within 30m
-Asked rev-1@athena (01M5JBZ1J79RX38D7NH2M76ZDD). The bell rang through claude.
+Asked rev-1.dev@athena (01M5JBZ1J79RX38D7NH2M76ZDD). The bell rang through claude.
 The reply will ring this session; 'keryx wait 01M5JBZ1J79RX38D7NH2M76ZDD' blocks until it arrives.
 ```
 
@@ -92,11 +93,11 @@ with `keryx read 01M5JBZ1` and answers it.
 
 ```console
 $ keryx reply 01M5JBZ1 "Approved with two nits"
-Replied to orq@athena (01M5JBZ1SSH67Z4YW088H3BRV0). The bell rang through claude.
+Replied to orq.dev@athena (01M5JBZ1SSH67Z4YW088H3BRV0). The bell rang through claude.
 ```
 
-From a plain terminal you act as an address named after `$USER`, so `keryx send rev-1 "..."` and
-`keryx inbox` work without joining anything.
+From a plain terminal you act as `$USER.local`, so `keryx send rev-1.dev "..."` and `keryx inbox`
+work without joining anything.
 
 ## See what is pending
 
