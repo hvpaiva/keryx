@@ -394,7 +394,9 @@ spawn takes off the three columns and two rows herdr 0.9.5's default borders and
 columns), its footer and Codex's hooks screen keep whole lines, which the bell and the context
 reading need, and it holds the 20 lines the bell reads with Cursor's 4 footer lines. When herdr
 gives no layout for one of those panes, spawn opens the new tab too, with a notice, and never splits
-a pane it could not measure. Splitting is the only change spawn makes to a pane it did not create. `Spawner` then labels the new
+a pane it could not measure. Besides splitting, the only change spawn makes to a pane it did not create is to
+clear the herdr name the pane it runs in kept from an address the session there left, as the section on
+identity says. `Spawner` then labels the new
 pane with the address's name, and runs
 `herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
 that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial
