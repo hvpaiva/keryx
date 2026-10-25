@@ -20,7 +20,7 @@ module Keryx
                       'terminal, names MEMBER alone only when exactly one team on this machine has that member.'
       # The same, for the commands that also reach one session of an address.
       ADDRESSING = "#{ADDRESS_FORMS} ADDRESS/SESSION reaches only that session of the address, and is refused once " \
-                   'the session leaves.'
+                   'the session leaves.'.freeze
 
       class << self
         attr_reader :spec
