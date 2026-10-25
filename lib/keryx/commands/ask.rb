@@ -17,7 +17,7 @@ module Keryx
                                  'address it was sent from, this session unless --as names another, so there is ' \
                                  'no need to wait for it; keryx wait blocks until it comes for the cases that ' \
                                  'cannot go on without it. When no session holds that address, no bell rings and ' \
-                                 'the reply waits in its mailbox.',
+                                 "the reply waits in its mailbox.\n\n#{ADDRESSING}",
                     examples: [['Ask for a review with a deadline', 'ask rev-1 "Review PR #448" --within 30m'],
                                ['Ask with a longer brief from a file', 'ask impl --file brief.md']]
 

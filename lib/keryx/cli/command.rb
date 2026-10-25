@@ -14,6 +14,11 @@ module Keryx
       Example = Data.define(:comment, :line)
       FORMATS = %w[table json].freeze
       JSON_ESCAPED = /[\x7F#{Text::INVISIBLE}]/
+      # How the commands that take an address read it.
+      ADDRESSING = 'ADDRESS is MEMBER.TEAM@HOST, MEMBER.TEAM for an address on this machine, or MEMBER alone for ' \
+                   "a member of the sender's own team. A sender with no team, such as a person at a terminal, names " \
+                   'MEMBER alone only when exactly one team on this machine has that member. ADDRESS/SESSION reaches ' \
+                   'only that session of the address, and is refused once the session leaves.'
 
       class << self
         attr_reader :spec

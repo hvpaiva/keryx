@@ -48,7 +48,7 @@ module Keryx
         entries = roster.entries
         view = CLI::ShortView.of(entries, all: options[:all]) { roster.open_requests }
         return print_json(json(view)) if json?
-        return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
+        return terminal.puts('No addresses yet. A session joins one with: keryx join MEMBER.TEAM') if entries.empty?
 
         print_table(view.entries)
         view.note('who')&.then { terminal.puts(terminal.paint(:muted, it)) }

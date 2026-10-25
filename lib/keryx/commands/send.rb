@@ -14,7 +14,7 @@ module Keryx
                      description: "Send a message that needs no reply, such as a status update or a heads-up.\n\n" \
                                   'The text comes from the argument or from a file with --file, and from standard ' \
                                   'input when either is -. ' \
-                                  "Use ask instead when you need an answer.\n\n" \
+                                  "Use ask instead when you need an answer.\n\n#{ADDRESSING}\n\n" \
                                   '--re ID sends the message to the sender of request ID in your mailbox, in its ' \
                                   'thread, and takes no ADDRESS. It marks the request read and says you took it: ' \
                                   'keryx status shows the request as taken, and the stop hook no longer reminds you ' \

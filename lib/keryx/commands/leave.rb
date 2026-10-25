@@ -12,9 +12,11 @@ module Keryx
                       summary: 'Release the address this session holds',
                       description: "Release the address this session holds.\n\n" \
                                    'The address and its mailbox stay: messages keep arriving, and the next ' \
-                                   "session to join the name finds them.\n\n" \
-                                   'With --as NAME, release NAME for a session that ended without leaving, such as ' \
-                                   'one that was closed or killed. keryx refuses while it sees that session ' \
+                                   "session to join the address finds them.\n\n" \
+                                   'With --as ADDRESS, release the address for a session that ended without ' \
+                                   'leaving, such as one that was closed or killed, and with --as ADDRESS/SESSION ' \
+                                   'release a session that join --force displaced and that ended the same way. ' \
+                                   'keryx refuses while it sees that session ' \
                                    'running, and then only the session itself can leave. A Codex session that ' \
                                    'keryx cannot see in a herdr pane counts as ended, so make sure it is closed ' \
                                    'before you release its address.',

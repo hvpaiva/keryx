@@ -10,9 +10,10 @@ module Keryx
                        summary: 'Show the address this session acts as',
                        description: 'Show the address this session acts as and what keryx knows about the ' \
                                     "session.\n\n" \
-                                    'An agent session acts as the address it joined. A person at a terminal acts ' \
-                                    'as an address named after USER, created on first use, unless --as names ' \
-                                    'another.',
+                                    'An agent session acts as the address it joined, and whoami shows the session ' \
+                                    'address that reaches it alone; a session that join --force displaced acts as ' \
+                                    'its session address and shows the address it came from. A person at a ' \
+                                    'terminal acts as USER.local, created on first use, unless --as names another.',
                        examples: [['Check which address replies will go to', 'whoami']]
 
       def define_options(parser) = output_option(parser)

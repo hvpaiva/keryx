@@ -134,7 +134,7 @@ module Keryx
       def global_parser(globals)
         OptionParser.new do |parser|
           parser.require_exact = true
-          parser.on('--as NAME', 'Act as this address instead of the one this session holds') { globals[:as] = it }
+          parser.on('--as ADDRESS', 'Act as this address instead of the one this session holds') { globals[:as] = it }
           color = 'Use color: auto, always or never (bare --color means always)'
           parser.on('--color[=WHEN]', Style::MODES, color) { |mode| globals[:color] = mode || 'always' }
           parser.on('-h', '--help', 'Show help') { globals[:help] = true }

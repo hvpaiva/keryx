@@ -50,7 +50,7 @@ module Keryx
         outgoing = not_forwarded
         report_damaged_claims
         return print_json(json(view, requests, unrung, outgoing)) if json?
-        return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
+        return terminal.puts('No addresses yet. A session joins one with: keryx join MEMBER.TEAM') if entries.empty?
 
         print_sections(view, requests, unrung, outgoing)
       end

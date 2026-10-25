@@ -20,17 +20,27 @@ module Keryx
       define 'join', section: 'Session Commands', arguments: 'ADDRESS', min: 1, max: 1,
                      summary: 'Claim an address for this agent session',
                      description: "Claim an address for the agent session that runs this command.\n\n" \
+                                  'ADDRESS is MEMBER.TEAM. MEMBER alone takes the team of the address this session ' \
+                                  'holds, or else the one team on this machine with that member. The local scope ' \
+                                  'is a person at a terminal and the system scope is keryx itself, so join takes ' \
+                                  'only USER.local, the address a terminal here acts as, for a session that ' \
+                                  "answers for that person.\n\n" \
                                   'The address is created if it does not exist and outlives the session: when ' \
                                   'the session ends, its mailbox keeps receiving, and the next session to join ' \
-                                  'the name finds the messages waiting. A session holds one address at a time, ' \
+                                  'the address finds the messages waiting. A session holds one address at a time, ' \
                                   "so joining another releases the first.\n\n" \
+                                  'Each join gives the session an id of its own, and ADDRESS@HOST/SESSION reaches ' \
+                                  'that session alone. --force takes the address from a session that still runs, ' \
+                                  'and that session stays reachable at its session address, with the work it ' \
+                                  "took before, until it leaves.\n\n" \
                                   'A retired address is refused unless --revive is given, which takes it back with ' \
                                   "its mailbox as it was; 'keryx retire --help' says what retiring does.\n\n" \
                                   "#{CEILING}",
-                     examples: [['Join as the first reviewer', 'join rev-1 --role reviewer'],
-                                ['Join with a context ceiling of 125k tokens', 'join impl --ceiling 125k'],
-                                ['Take an address over from a session that is still running', 'join rev-1 --force'],
-                                ['Take back an address that was retired', 'join rev-1 --revive']]
+                     examples: [['Join team alpha as its first reviewer', 'join rev-1.alpha --role reviewer'],
+                                ['Join with a context ceiling of 125k tokens', 'join impl.alpha --ceiling 125k'],
+                                ['Take an address over from a session that is still running',
+                                 'join rev-1.alpha --force'],
+                                ['Take back an address that was retired', 'join rev-1.alpha --revive']]
 
       def self.where(session)
         label = SESSION_LABEL[session.harness]
