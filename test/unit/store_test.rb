@@ -211,15 +211,6 @@ class StoreTest < Minitest::Test
     assert_raises(Keryx::Error) { store.bind('ghost.dev', occupant) }
   end
 
-  def test_locate_finds_a_message_in_any_mailbox
-    %w[orq.dev rev-1.dev].each { store.create_address(it) }
-    message = build_message(to: 'rev-1.dev@athena')
-    store.deliver('rev-1.dev', message)
-
-    assert_equal ['rev-1.dev', Keryx::StoredMessage.new(message, :unread)], store.locate(message.id)
-    assert_nil store.locate(Keryx::Ulid.generate)
-  end
-
   def test_receipts_and_marks
     store.create_address('rev-1.dev')
     id = Keryx::Ulid.generate

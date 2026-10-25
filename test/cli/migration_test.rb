@@ -142,8 +142,8 @@ class MigrationTest < Minitest::Test
     answer = lambda do |kind|
       build_message(from: asked.to, to: asked.from, kind:, in_reply_to: asked.id, thread: asked.thread)
     end
-    receipts = received_on_zeus(flat_request(from: 'orq@athena', to: 'port@zeus'), answer.call('reply'),
-                                answer.call('message'),
+    receipts = received_on_zeus(flat_request(from: 'orq@athena', to: 'port@zeus'), answer.call('message'),
+                                answer.call('reply'),
                                 build_message(from: 'orq@athena', to: 'port@zeus', kind: 'withdrawal',
                                               in_reply_to: received.id, thread: received.thread),
                                 build_message(from: 'orq.dev@athena', to: 'port@zeus'))
@@ -164,6 +164,24 @@ class MigrationTest < Minitest::Test
 
     assert_equal(([['refused', flat_refusal('orq@athena')]] * 4) + [['refused', flat_refusal('port@zeus')]], receipts)
     assert_equal([received.id], Keryx::Store.new(tmp('zeus')).stored('port').map { it.message.id })
+  end
+
+  # Here a reply from orq@athena closes the request port@zeus asked, and one from port@zeus the request it received.
+  def test_another_machine_gives_a_flat_address_nothing_new_in_a_thread_that_is_over
+    asked, received = flat_threads_on_zeus
+    zeus = Keryx::Store.new(tmp('zeus'))
+    zeus.outbox.queue('athena', build_message(from: received.to, to: received.from, kind: 'reply',
+                                              in_reply_to: received.id, thread: received.thread))
+    answer = lambda do |kind|
+      build_message(from: asked.to, to: asked.from, kind:, in_reply_to: asked.id, thread: asked.thread)
+    end
+    reply = answer.call('reply')
+    receipts = received_on_zeus(reply, reply, answer.call('message'), answer.call('reply'),
+                                build_message(from: received.from, to: received.to, kind: 'withdrawal',
+                                              in_reply_to: received.id, thread: received.thread))
+
+    assert_equal([['delivered', nil], ['duplicate', nil]] + ([['refused', flat_refusal('orq@athena')]] * 3), receipts)
+    assert_equal([received.id, reply.id].sort, zeus.stored('port').map { it.message.id }.sort)
   end
 
   def test_an_old_keryx_elsewhere_refuses_format_2_for_good_and_says_why

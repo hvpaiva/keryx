@@ -204,8 +204,6 @@ module Keryx
       kept + sent
     end
 
-    def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
-
     def write_receipt(name, id, kind, data)
       write_atomic(receipt_file(name, id, kind), JSON.generate(data))
     end

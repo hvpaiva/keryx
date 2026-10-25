@@ -278,9 +278,12 @@ the mail written before it left stays for the holder. A receiver that finds the 
 that it failed, so the sender keeps the message and sends it again. An address from before team
 names finishes its threads and starts no new work, so it sends and receives only replies,
 withdrawals and messages in an open thread. The receiver applies the same rule, and takes such a
-message from another machine only when it answers, takes or withdraws a request this machine holds,
-in a mailbox or in the outbox, so a request, or a message in a thread the address never had, is
-refused. keryx's own notices still reach such an address while a live session here holds it, so that
+message from another machine only when it answers, takes or withdraws a request still open, so a
+request, a message in a thread the address never had and a new message in a thread that is over are
+refused. A message the mailbox already holds answers duplicate whatever became of its thread, so a
+sender that lost the receipt and sends it again stops. Every message between an address here and one
+elsewhere is kept in the mailbox here or in the outbox to that machine, so the receiver looks for the
+request and for what answered or withdrew it in those two alone. keryx's own notices still reach such an address while a live session here holds it, so that
 session does not go blind before it moves to a team address, and the courier skips one that nobody
 holds.
 
