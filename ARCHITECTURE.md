@@ -449,13 +449,14 @@ that records the session's process again keeps the ceiling and the director, and
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
 of the ceiling, and again once it reaches the ceiling, it tells the session and its director, or the sender of the
 oldest request the session has not answered when no director was recorded, from `keryx.system@HOST`. A session that
-`join --force` displaced is told at its session address. A director that spawned from a displaced session is
-recorded as `KEY/SESSION` and told there while that session is bound and runs, and at the stable address once it
-left, since the holder took its work; a director taken from the oldest request falls back the same way. Each notice
-goes once to each recipient for a join and a ceiling, marked in the session's `receipts/`, so a session that joins
-again or gets another ceiling can be told again; a recipient the post failed for is tried again alone in the next
-round. A session first seen at or past the ceiling is told only that it reached it, and the comparison uses whole
-numbers.
+`join --force` displaced is told at its session address, and its oldest request is the oldest of those it lists,
+the ones to its session address, so neither it nor the holder takes the sender of the other's work. A director that
+spawned from a displaced session is recorded as `KEY/SESSION` and told there while that session is bound and runs,
+and at the stable address once it left, since the holder took its work; a director taken from the oldest request
+falls back the same way. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
+`receipts/`, so a session that joins again or gets another ceiling can be told again; a recipient the post failed
+for is tried again alone in the next round. A session first seen at or past the ceiling is told only that it
+reached it, and the comparison uses whole numbers.
 
 The courier claims a notice's id in `receipts/` in the same hold of the occupants lock as the mailbox or outbox
 write. The first courier writes an id with the current time, and every other courier or later round reads that id

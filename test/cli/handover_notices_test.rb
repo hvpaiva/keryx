@@ -56,6 +56,25 @@ class HandoverNoticesTest < Minitest::Test
     assert_empty keryx('courier', '--once').out
   end
 
+  # With no director recorded, each incarnation tells the sender of the oldest request it sees, and never the sender of
+  # a request to the other one.
+  def test_without_a_director_each_incarnation_tells_the_sender_of_the_oldest_request_it_sees
+    lead = join_claude('lead.dev', 100)
+    orq = join_claude('orq.dev', 111)
+    [222, 333].each { claude_transcript(it) }
+    session = take_over('rev-1.dev', 222, 333, '--ceiling', '125k')
+    store.bind('rev-1.dev', store.occupant('rev-1.dev').with(ceiling: 125_000))
+    old = "rev-1.dev@athena/#{session}"
+    keryx('ask', 'rev-1.dev', 'For the holder', env: lead)
+    clock.advance(1)
+    keryx('ask', old, 'For the displaced session', env: orq)
+    told = ->(to, of) { "told #{to} that #{of} is at 121k 97% of 125k, near its context ceiling\n" }
+
+    assert_equal [told.call('rev-1.dev@athena', 'rev-1.dev@athena'), told.call('lead.dev@athena', 'rev-1.dev@athena'),
+                  told.call(old, old), told.call('orq.dev@athena', old)].join, keryx('courier', '--once').out
+    assert_equal([['lead.dev@athena'], ['orq.dev@athena']], [lead, orq].map { notices(it) })
+  end
+
   def test_a_displaced_session_that_spawns_directs_at_its_session_address_and_then_at_the_address_it_left
     session = take_over('orq.dev', 111, 444)
     session_joins
