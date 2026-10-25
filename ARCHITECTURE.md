@@ -447,11 +447,12 @@ closing call to answer every request when nothing listed is a request. A read re
 took with `keryx send --re` is left out too, since its work goes on, and the closing call names that
 command beside `keryx reply`, so a session that took work does not close the request early to quiet
 the hook.
-The hook prepares a marker in `receipts/` for each reminder before it prints the decision and keeps
-it once the decision is out. Every message is reminded about once, again only when the hook was cut
-off before it answered, and a marker the hook cannot write ends the turn with the error, so the hook
-cannot hold a session in a loop. For Claude Code the hook also records the session's transcript path on its
-occupant, as the next section explains, and leaves it to a later turn rather than wait for the occupants lock.
+The hook prepares a marker in `receipts/` for each reminder before it prints the decision and keeps it once
+the decision is out. Every message is reminded about once while it is unread, and a request once more once it
+is read and has no reply, each again only when the hook was cut off before it answered, and a marker the hook
+cannot write ends the turn with the error, so the hook cannot hold a session in a loop. For Claude Code the
+hook also records the session's transcript path on its occupant, as the next section explains, and leaves it
+to a later turn rather than wait for the occupants lock.
 
 ## Context
 
