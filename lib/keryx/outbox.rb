@@ -30,13 +30,14 @@ module Keryx
 
     # Messages of one thread written for HOST take turns. The block gets the id of the last message of THREAD still
     # waiting in new/, the queue the forwarder sends in id order, and returns the message to queue in the same hold.
-    # A message that left new/ arrived or was refused, so the next one goes after it whatever its id.
+    # A message that left new/ arrived or was refused, so the next one goes after it whatever its id. Such a message can
+    # hold the id the block chose; a taken id is given to the block to choose after, so the message returned was queued.
     def queue_in_thread(host, thread)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
       File.open(File.join(dir(host), THREAD_LOCK), File::RDWR | File::CREAT, FILE_MODE) do |lock|
         lock.flock(File::LOCK_EX)
         message = yield(queued(host).select { it.thread == thread }.map(&:id).max)
-        queue(host, message)
+        message = yield(message.id) while queue(host, message) == :duplicate
         message
       end
     end

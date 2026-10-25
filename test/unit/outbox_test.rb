@@ -26,6 +26,24 @@ class OutboxTest < Minitest::Test
     assert_empty queued.map(&:id) - outbox.queued('zeus').map(&:id)
   end
 
+  # The id after the last one in new/ can be taken by a message that left it, and the block then chooses after that.
+  def test_a_message_of_a_thread_whose_id_is_taken_is_given_one_after_it
+    waiting = build_message(to: 'port.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
+    gone = build_message(to: 'port.dev@zeus', thread: waiting.thread, id: Keryx::Ulid.after(waiting.id))
+    [waiting, gone].each { outbox.queue('zeus', it) }
+    outbox.settle('zeus', gone.id, :forwarded)
+    seen = []
+    queued = outbox.queue_in_thread('zeus', waiting.thread) do |last|
+      seen << last
+      build_message(to: 'port.dev@zeus', thread: waiting.thread, body: 'next', id: Keryx::Ulid.after(last))
+    end
+
+    assert_equal [waiting.id, gone.id], seen
+    assert_equal([[waiting.id, 'hello'], [Keryx::Ulid.after(gone.id), 'next']],
+                 outbox.queued('zeus').sort_by(&:id).map { [it.id, it.body] })
+    assert_equal Keryx::Ulid.after(gone.id), queued.id
+  end
+
   def test_the_outbox_queues_once_and_settles_each_message
     first = build_message(to: 'port.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
     second = build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + 1))

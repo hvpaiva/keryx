@@ -27,6 +27,16 @@ class ThreadIdsTest < Minitest::Test
     bodies.each { keryx('send', '--re', @request.id, it, env: @orq) }
   end
 
+  # A message of the thread under the id right after ID, which reached zeus and was moved to cur/ with its outcome.
+  def forwarded_after(id)
+    build_message(to: 'rev.dev@zeus', body: 'B', id: Keryx::Ulid.after(id), thread: @request.thread,
+                  in_reply_to: @request.id).tap do |message|
+      store.outbox.queue('zeus', message)
+      store.outbox.write_outcome('zeus', message.id, { 'status' => Keryx::Forwarder::FORWARDED })
+      store.outbox.settle('zeus', message.id, :forwarded)
+    end
+  end
+
   def test_messages_of_a_thread_written_in_one_millisecond_go_in_the_order_written
     write(*Array.new(10) { "Step #{it}" })
     keryx('reply', @request.id, 'Done', env: @orq)
@@ -50,6 +60,26 @@ class ThreadIdsTest < Minitest::Test
 
     assert_empty JSON.parse(keryx('status', '-o', 'json').out)['not_forwarded']
     assert_equal(6, Keryx::Store.new(tmp('zeus')).stored('rev.dev').count { !it.message.request? })
+  end
+
+  # A waits in new/, B took the id right after A's and already reached zeus, and the clock is behind them both, so
+  # the id after A's, the one C would take, is B's.
+  def test_a_message_whose_turn_falls_on_an_id_that_left_the_outbox_goes_under_its_own
+    write('A')
+    gone = forwarded_after(store.outbox.queued('zeus').first.id)
+    clock.advance(-5)
+    sent = keryx('send', '--re', @request.id, 'C', env: @orq)
+    id = sent.out[/Sent ([0-9A-Z]{26})/, 1]
+
+    assert_equal %w[A C], queued_bodies
+    assert_match 'waits in the outbox', sent.out
+    assert_operator id, :>, gone.id
+    assert_includes JSON.parse(keryx('status', '-o', 'json').out)['not_forwarded'].map { it.values_at('id', 'state') },
+                    [id, 'queued']
+    remote.down.delete('zeus')
+    keryx('courier', '--once')
+
+    assert_equal 'C', Keryx::Store.new(tmp('zeus')).stored('rev.dev').map(&:message).find { it.id == id }&.body
   end
 
   def test_a_withdrawal_written_in_the_millisecond_of_its_request_goes_after_it
