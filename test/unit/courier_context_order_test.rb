@@ -21,7 +21,7 @@ class CourierContextOrderTest < Minitest::Test
   def other_courier(figure, clock, waits)
     box = Keryx::Store.new(tmp('state'), sleeper: ->(seconds) { sleep(seconds.tap { waits << it }) })
     mail = Keryx::Postman.new(store: box, bell: QuietBell.new, forwarder: nil, host: 'athena', clock:,
-                              person: 'person')
+                              person: 'person.local')
     build_courier(clock:, measure: Meter.new.tap { it.figures['session-impl'] = figure }, box:, mail:)
   end
 
@@ -45,9 +45,9 @@ class CourierContextOrderTest < Minitest::Test
     ceiling = courier.round
     near = threads.first.value
 
-    assert_equal [[], [], [['impl@athena', :ceiling]]], [ceiling.errors, near.errors, told.call(ceiling)]
-    assert_includes [%w[126k], %w[100k 126k]], mailbox('impl')
-    assert_equal mailbox('impl'), read_in_order('impl')
+    assert_equal [[], [], [['impl.dev@athena', :ceiling]]], [ceiling.errors, near.errors, told.call(ceiling)]
+    assert_includes [%w[126k], %w[100k 126k]], mailbox('impl.dev')
+    assert_equal mailbox('impl.dev'), read_in_order('impl.dev')
   end
 
   def test_a_ceiling_notice_sorts_after_the_notice_near_it_when_the_clock_steps_back_between_them
@@ -59,8 +59,8 @@ class CourierContextOrderTest < Minitest::Test
     time -= 3600
     meter.figures['session-impl'] = 126_000
 
-    assert_equal [['impl@athena', :ceiling]], told.call(stepping.round)
-    assert_equal [%w[100k 126k]] * 2, [mailbox('impl'), read_in_order('impl')]
+    assert_equal [['impl.dev@athena', :ceiling]], told.call(stepping.round)
+    assert_equal [%w[100k 126k]] * 2, [mailbox('impl.dev'), read_in_order('impl.dev')]
   end
 
   # Tells the notice near the ceiling, writes over the id claimed for it what the block makes of that id, and runs
@@ -69,7 +69,7 @@ class CourierContextOrderTest < Minitest::Test
     impl
     meter.figures['session-impl'] = 100_000
     courier.round
-    claims = Dir[tmp('state', 'addresses', 'impl', 'receipts', '*.context-id')]
+    claims = Dir[tmp('state', 'addresses', 'impl.dev', 'receipts', '*.context-id')]
     File.write(claims.first, yield(File.read(claims.first)))
     meter.figures['session-impl'] = 126_000
     [claims, courier.round]
@@ -79,11 +79,11 @@ class CourierContextOrderTest < Minitest::Test
   def assert_the_ceiling_notice_goes_out_with_a_fresh_id(&)
     claims, round = round_past_a_damaged_near_claim(&)
 
-    assert_equal [1, [['impl@athena', :ceiling]]], [claims.size, told.call(round)]
-    assert_equal %w[100k 126k], mailbox('impl').sort
+    assert_equal [1, [['impl.dev@athena', :ceiling]]], [claims.size, told.call(round)]
+    assert_equal %w[100k 126k], mailbox('impl.dev').sort
     assert_equal ["#{claims.first} is damaged"], store.problems
-    assert_equal ['the ceiling notice of impl@athena to impl@athena takes a fresh id and may sort before the notice ' \
-                  "near it; #{claims.first} is damaged"], round.errors
+    assert_equal ['the ceiling notice of impl.dev@athena to impl.dev@athena takes a fresh id and may sort before ' \
+                  "the notice near it; #{claims.first} is damaged"], round.errors
     assert_equal([[], []], courier.round.then { [it.context, it.errors] })
   end
 
@@ -108,7 +108,7 @@ class CourierContextOrderTest < Minitest::Test
     failures = [Errno::ENOSPC.new('mail')]
     store.define_singleton_method(:deliver) { |*args| failures.empty? ? original.call(*args) : raise(failures.shift) }
     courier.round
-    claims = Dir[tmp('state', 'addresses', 'impl', 'receipts', '*.context-id')]
+    claims = Dir[tmp('state', 'addresses', 'impl.dev', 'receipts', '*.context-id')]
     File.write(claims.first, yield(File.read(claims.first)))
     claims
   end
@@ -122,11 +122,11 @@ class CourierContextOrderTest < Minitest::Test
     other = threads.first.value
 
     refute_empty waits
-    assert_equal [1, [['impl@athena', stage]], []], [claims.size, told.call(round) + told.call(other), other.errors]
-    assert_equal([File.read(claims.first)], store.mailbox('impl').map { it.message.id })
+    assert_equal [1, [['impl.dev@athena', stage]], []], [claims.size, told.call(round) + told.call(other), other.errors]
+    assert_equal([File.read(claims.first)], store.mailbox('impl.dev').map { it.message.id })
     assert_equal ["#{claims.first} is damaged"], store.problems
-    assert_equal ["the #{stage} notice of impl@athena to impl@athena writes a fresh id over its damaged claim; " \
-                  "#{claims.first} is damaged"], round.errors
+    assert_equal ["the #{stage} notice of impl.dev@athena to impl.dev@athena writes a fresh id over its damaged " \
+                  "claim; #{claims.first} is damaged"], round.errors
     assert_equal([[], []], courier.round.then { [it.context, it.errors] })
   end
 

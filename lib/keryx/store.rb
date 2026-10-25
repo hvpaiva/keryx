@@ -9,22 +9,30 @@ require_relative 'files'
 require_relative 'message'
 require_relative 'occupant'
 require_relative 'outbox'
+require_relative 'incarnations'
 require_relative 'retirement'
 require_relative 'spawned'
 
 module Keryx
-  AddressRecord = Data.define(:name, :role, :created_at) do
+  # The record names its member and team apart; one written before team names has a name and no team.
+  AddressRecord = Data.define(:member, :team, :role, :created_at) do
     def self.from_record(data)
-      name, role = data.values_at('name', 'role')
-      raise TypeError, 'the name or the role is not text' unless [name, role].all? { it.nil? || it.is_a?(String) }
+      member, team, role = data.values_at('member', 'team', 'role')
+      member ||= data['name']
+      raise TypeError, 'a field is not text' unless [member, team, role].all? { it.nil? || it.is_a?(String) }
 
-      new(name:, role:, created_at: Time.iso8601(data['created_at'].to_s))
+      new(member:, team:, role:, created_at: Time.iso8601(data['created_at'].to_s))
     end
+
+    def name = team ? "#{member}.#{team}" : member
+
+    def record = { 'member' => member, 'team' => team, 'role' => role, 'created_at' => created_at.utc.iso8601 }
   end
   StoredMessage = Data.define(:message, :state)
 
   class Store
     include Files
+    include Incarnations
     include Retirement
 
     class Busy < Error; end
@@ -45,8 +53,8 @@ module Keryx
     # The local name that sent REQUEST from here, under whatever name the machine had then: only this machine writes
     # its outbox, and nothing that arrives from another machine has the host of its recipient.
     def self.sender_here(holder, request)
-      sender, host = request.from.split('@')
-      sender if holder.nil? || host == request.to.split('@').last
+      sender = Address.parse(request.from)
+      sender.key if holder.nil? || sender.host == Address.parse(request.to).host
     end
 
     def self.reference(text)
@@ -67,7 +75,7 @@ module Keryx
       base = File.join(root, ADDRESSES)
       return [] unless File.directory?(base)
 
-      Dir.children(base).select { Address::NAME.match?(it) && File.file?(address_file(it)) }.sort
+      Dir.children(base).select { Address.key?(it) && File.file?(address_file(it)) }.sort
     end
 
     def address?(name) = File.file?(address_file(name))
@@ -79,22 +87,27 @@ module Keryx
       raise Error, "#{address_file(name)} is damaged"
     end
 
+    # Only an address with a team starts here, and none in the scope of keryx's own services.
     def create_address(name, role: nil, now: Time.now.utc)
-      Address.validate_name(name)
-      BOX_DIRS.each { FileUtils.mkdir_p(File.join(box(name), it), mode: DIR_MODE) }
+      address = Address.from_key(name, host: nil)
       current = address(name)
+      check_new(address) unless current
+      BOX_DIRS.each { FileUtils.mkdir_p(File.join(box(name), it), mode: DIR_MODE) }
       return current if current && (role.nil? || role == current.role)
 
-      record = AddressRecord.new(name:, role: role || current&.role, created_at: current&.created_at || now)
-      write_atomic(address_file(name), JSON.generate(record.to_h.merge(created_at: record.created_at.utc.iso8601)))
+      record = current&.with(role:) || AddressRecord.new(member: address.member, team: address.team, role:,
+                                                         created_at: now)
+      write_atomic(address_file(name), JSON.generate(record.record.compact))
       record
     end
 
+    # NAME is an address's key, or KEY/SESSION for one of its incarnations; see Incarnations.
     def occupant(name)
-      data = read_json(occupant_file(name)) or return nil
+      path = occupant_path(name)
+      data = read_json(path) or return nil
       Occupant.from_record(data)
     rescue ArgumentError, KeyError, TypeError, NotAnObject
-      raise Error, "#{occupant_file(name)} is damaged"
+      raise Error, "#{path} is damaged"
     end
 
     # A command that walks every address goes on past a file it cannot read: the file is reported once as a problem,
@@ -108,10 +121,10 @@ module Keryx
 
     def bind(name, occupant)
       require_address(name)
-      write_atomic(occupant_file(name), JSON.generate(occupant.record))
+      write_atomic(occupant_path(name), JSON.generate(occupant.record))
     end
 
-    def unbind(name) = FileUtils.rm_f(occupant_file(name))
+    def unbind(name) = FileUtils.rm_f(occupant_path(name))
 
     # What spawn recorded about the session it started, until a session joins the address. A damaged record is none,
     # since the join that reads it removes it.
@@ -143,14 +156,18 @@ module Keryx
       drop_in(box(name), MAIL, message)
     end
 
-    def mailbox(name)
+    # Every message the address holds, whichever of its incarnations it was sent to.
+    def stored(name)
       read = read_ids(name)
       messages_in(File.join(box(name), MAIL)).map { StoredMessage.new(it, read.include?(it.id) ? :read : :unread) }
     end
 
+    # What the incarnation NAME lists; see Incarnations#sees.
+    def mailbox(name) = sees(name).then { |seen| stored(name).select { seen.call(it.message) } }
+
     def unread(name)
       read = read_ids(name)
-      messages_in(File.join(box(name), MAIL)) { !read.include?(it) }
+      messages_in(File.join(box(name), MAIL)) { !read.include?(it) }.select(&sees(name))
     end
 
     # By id, each request among MESSAGES that its own sender withdrew in the mailbox of NAME, with that withdrawal.
@@ -164,12 +181,11 @@ module Keryx
 
     def find(name, reference)
       reference = Store.reference(reference)
-      ids = ids_in(File.join(box(name), MAIL)).select { it.start_with?(reference) }
+      found = messages_in(File.join(box(name), MAIL)) { it.start_with?(reference) }.select(&sees(name, by_id: true))
+      ids = found.map(&:id)
       raise Error, "#{reference} matches #{ids.size} messages (#{ids.join(', ')}); type more of the id" if ids.size > 1
 
-      message = ids.one? && read_message(File.join(box(name), MAIL, "#{ids.first}.json"))
-      raise Error, "no message #{reference} in the mailbox of #{name}" unless message
-
+      message = found.first or raise Error, "no message #{reference} in the mailbox of #{name}"
       StoredMessage.new(message, read_ids(name).include?(message.id) ? :read : :unread)
     end
 
@@ -183,18 +199,9 @@ module Keryx
     def outbox = @outbox ||= Outbox.new(root, problems: @problems)
 
     def all_messages
-      kept = address_names.flat_map { |name| mailbox(name).map { [name, it] } }
+      kept = address_names.flat_map { |name| stored(name).map { [name, it] } }
       sent = outbox.outgoing.reject { it.state == :refused }.map { [nil, StoredMessage.new(it.message, it.state)] }
       kept + sent
-    end
-
-    def locate(id) = all_messages.find { |_name, stored| stored.message.id == id }
-
-    def sent_requests(name)
-      all_messages.filter_map do |holder, stored|
-        request = stored.message
-        [holder, request] if request.request? && Store.sender_here(holder, request) == name
-      end
     end
 
     def write_receipt(name, id, kind, data)
@@ -258,6 +265,13 @@ module Keryx
 
     private
 
+    def check_new(address)
+      raise Error, "#{address.key} has no team; an address is MEMBER.TEAM, such as #{address.key}.TEAM" if address.flat?
+      return unless address.team == Address::SYSTEM
+
+      raise Error, "#{address.key} is in the scope of keryx's own services, which no address joins"
+    end
+
     def take(lock, within)
       deadline = @clock.call + within
       until lock.flock(File::LOCK_EX | File::LOCK_NB)
@@ -270,7 +284,7 @@ module Keryx
       end
     end
 
-    def box(name) = File.join(root, ADDRESSES, Address.validate_name(name))
+    def box(name) = File.join(root, ADDRESSES, split(name).first)
 
     def address_file(name) = File.join(box(name), 'address.json')
 

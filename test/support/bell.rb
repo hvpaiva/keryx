@@ -15,8 +15,8 @@ module BellHelpers
   end
 
   def deliver(kind: 'request')
-    store.create_address('rev-1')
-    build_message(to: 'rev-1@athena', kind:).tap { store.deliver('rev-1', it) }
+    store.create_address('rev-1.dev')
+    build_message(to: 'rev-1.dev@athena', kind:).tap { store.deliver('rev-1.dev', it) }
   end
 
   def pane_occupant(**overrides)

@@ -8,20 +8,28 @@ module Keryx
     class Retire < CLI::Command
       define 'retire', section: 'Session Commands', arguments: 'ADDRESS', min: 1, max: 1,
                        summary: 'Retire an address that nobody holds and nobody waits on',
-                       description: "Retire an address whose work is done, so that nothing reaches it any more.\n\n" \
+                       description: "Retire an address whose work is done, so that it takes no new mail.\n\n" \
                                     'keryx refuses while a live session holds the address, which that session ' \
                                     "releases with 'keryx leave', and while a request sent to it waits for its " \
                                     'answer or one it sent waits for a reply. The refusal names each request and ' \
-                                    "the command that settles it, such as 'keryx reply ID --as NAME'.\n\n" \
+                                    "the command that settles it, such as 'keryx reply ID --as ADDRESS'. A " \
+                                    'session that join --force displaced from the address holds it too until it ' \
+                                    "leaves.\n\n#{ADDRESS_FORMS} retire takes only the address itself, and " \
+                                    'refuses ADDRESS/SESSION, one session of it, with the address to give ' \
+                                    "instead.\n\n" \
                                     'Once retired, the address is gone from keryx who and keryx status, even with ' \
-                                    '--all, mail to it is refused, from this machine and from others, and no ' \
-                                    'command acts as it with --as. Its files stay where they were, under ' \
-                                    "addresses/NAME in the keryx state directory, and 'keryx join NAME --revive' " \
+                                    '--all, new mail to it is refused, from this machine and from others, and no ' \
+                                    'command acts as it with --as. A request that reached it as it was retired ' \
+                                    'stays open for its sender, and the withdrawal of that request still reaches ' \
+                                    'it, from here or from another machine, so its sender stops waiting. Its ' \
+                                    'files stay where they were, under ' \
+                                    'addresses/MEMBER.TEAM in the keryx state directory, and ' \
+                                    "'keryx join MEMBER.TEAM --revive' " \
                                     "brings it back with its mailbox as it was.\n\n" \
                                     'An address is retired on the machine that has it, since only that machine ' \
                                     'sees its session and its mail.',
-                       examples: [['Retire the address of a reviewer whose session ended', 'retire rev-1'],
-                                  ['Take it back later', 'join rev-1 --revive']]
+                       examples: [['Retire the address of a reviewer whose session ended', 'retire rev-1.alpha'],
+                                  ['Take it back later', 'join rev-1.alpha --revive']]
 
       def call(arguments)
         name = local_name(arguments.first)
@@ -36,10 +44,13 @@ module Keryx
       private
 
       def local_name(text)
-        address = app.address(text)
-        return address.name if address.local?(app.host)
+        address = app.address(text, flat: true)
+        if address.session
+          raise Error, "#{address} is one session of #{address.stable}, and retire takes only the address itself"
+        end
+        return address.key if address.local?(app.host)
 
-        raise Error, "retire runs on the machine that holds the address; run 'keryx retire #{address.name}' on " \
+        raise Error, "retire runs on the machine that holds the address; run 'keryx retire #{address.key}' on " \
                      "#{address.host}"
       end
 
@@ -65,13 +76,15 @@ module Keryx
       end
 
       def refuse_held(name)
-        occupant = app.store.occupant(name)
-        if occupant && app.caller.holds?(occupant)
-          raise Error, "this session holds #{app.full(name)}; release it with 'keryx leave' first"
-        end
+        app.store.incarnations(name).each do |incarnation|
+          occupant = app.store.occupant(incarnation)
+          if occupant && app.caller.holds?(occupant)
+            raise Error, "this session holds #{app.full(incarnation)}; release it with 'keryx leave' first"
+          end
 
-        Join.refuse_taken(app, name, "that session releases it with 'keryx leave', and once it ends " \
-                                     "'keryx retire #{name}' works")
+          Join.refuse_taken(app, incarnation, "that session releases it with 'keryx leave', and once it ends " \
+                                              "'keryx retire #{name}' works")
+        end
       end
 
       def refuse_waiting(name)

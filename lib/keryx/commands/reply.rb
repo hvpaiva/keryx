@@ -10,7 +10,10 @@ module Keryx
                       summary: 'Answer a message',
                       description: 'Answer a message in your mailbox. The reply goes to its sender in the same ' \
                                    "thread, and a request counts as answered once its recipient replies to it.\n\n" \
-                                   'Replying also marks the message as read.',
+                                   "Replying also marks the message as read.\n\n" \
+                                   'A session that join --force displaced answers by ID what it took before, ' \
+                                   'and the reply goes out as the address the message was sent to, so it settles ' \
+                                   'the request.',
                       examples: [['Answer a request', 'reply 01JB8Y2Q "Approved, with two comments on the PR"'],
                                  ['Answer with a file', 'reply 01JB8Y2Q --file review.md']]
 
@@ -28,7 +31,7 @@ module Keryx
 
       def answer(name, original, text)
         app.store.mark_read(name, original.id)
-        app.postman.post(sender: name, recipient: app.address(original.from), kind: 'reply', body: text,
+        app.postman.post(sender: name, recipient: Address.parse(original.from), kind: 'reply', body: text,
                          reply_to: original)
       end
     end

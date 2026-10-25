@@ -34,7 +34,8 @@ class PostmanGuardTest < Minitest::Test
 
   def remote
     @remote ||= FakeRemote.new do |_host, input|
-      receiver = Keryx::Receiver.new(store: zeus, bell: WatchingBell.new(->(_) {}), host: 'zeus', person: 'person')
+      receiver = Keryx::Receiver.new(store: zeus, bell: WatchingBell.new(lambda { |_|
+      }), host: 'zeus', person: 'person.local')
       input.each_line.map { "#{JSON.generate(receiver.receive(it))}\n" }.join
     end
   end
@@ -49,17 +50,17 @@ class PostmanGuardTest < Minitest::Test
     end
   end
 
-  def postman
+  def postman(**)
     Keryx::Postman.new(store:, bell: WatchingBell.new(watch), forwarder:, host: 'athena', clock: -> { NOW },
-                       person: 'person')
+                       person: 'person.local', **)
   end
 
-  def address(text) = Keryx::Address.parse(text, local_host: 'athena')
+  def address(text) = Keryx::Resolver.new(store:, host: 'athena').resolve(text, sender: 'orq.dev')
 
   def setup
     super
-    store.create_address('rev-1')
-    zeus.create_address('port')
+    store.create_address('rev-1.dev')
+    zeus.create_address('port.dev')
     seen = watch
     store.define_singleton_method(:deliver) do |name, message|
       seen.call(:write)
@@ -71,47 +72,74 @@ class PostmanGuardTest < Minitest::Test
     end
   end
 
-  def post(to, claim:) = postman.post(sender: 'orq', recipient: address(to), kind: 'message', body: 'hello', claim:)
+  def post(to, claim:) = postman.post(sender: 'orq.dev', recipient: address(to), kind: 'message', body: 'hello', claim:)
 
   def claiming(id) = -> { watch.call(:claim).then { id } }
 
   def test_a_claimed_post_writes_the_mailbox_under_the_claimed_id_in_the_claim_hold_and_rings_after_it
     id = Keryx::Ulid.generate(NOW)
-    posted = post('rev-1', claim: claiming(id))
+    posted = post('rev-1.dev', claim: claiming(id))
 
-    assert_equal [id, [posted.message]], [posted.message.id, store.unread('rev-1')]
+    assert_equal [id, [posted.message]], [posted.message.id, store.unread('rev-1.dev')]
     assert_equal({ claim: true, write: true, bell: false }, held)
   end
 
   def test_a_claimed_post_queues_for_another_machine_in_the_claim_hold_and_forwards_after_it
     id = Keryx::Ulid.generate(NOW)
-    posted = post('port@zeus', claim: claiming(id))
+    posted = post('port.dev@zeus', claim: claiming(id))
 
     assert_equal ['forwarded', id], [posted.forward.status, posted.message.id]
-    assert_equal [posted.message], zeus.unread('port')
+    assert_equal [posted.message], zeus.unread('port.dev')
     assert_equal({ claim: true, write: true, forward: false }, held)
   end
 
   def test_a_post_without_a_claim_takes_no_lock
-    post('rev-1', claim: nil)
-    post('port@zeus', claim: nil)
+    post('rev-1.dev', claim: nil)
+    post('port.dev@zeus', claim: nil)
 
     assert_equal({ write: false, bell: false, forward: false }, held)
   end
 
   def test_a_claim_that_gives_no_id_writes_nothing_and_rings_or_forwards_nothing
-    assert_nil post('rev-1', claim: claiming(false))
-    assert_nil post('port@zeus', claim: claiming(nil))
-    assert_empty store.unread('rev-1')
+    assert_nil post('rev-1.dev', claim: claiming(false))
+    assert_nil post('port.dev@zeus', claim: claiming(nil))
+    assert_empty store.unread('rev-1.dev')
     assert_empty store.outbox.outgoing
     assert_empty remote.sent
     assert_equal({ claim: true }, held)
   end
 
-  def test_a_claimed_post_the_other_machine_refuses_still_fails_and_is_not_kept
-    error = assert_raises(Keryx::Error) { post('ghost@zeus', claim: claiming(Keryx::Ulid.generate(NOW))) }
+  def test_a_post_to_a_session_address_writes_in_the_hold_that_checks_the_session_with_or_without_a_claim
+    store.bind('rev-1.dev', build_occupant(session: 'abc123'))
+    session = Keryx::Address.parse('rev-1.dev@athena/abc123')
+    bound = postman(live: ->(_name) { true })
+    bound.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello')
+    bound.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello', claim: claiming(Keryx::Ulid.generate))
 
-    assert_equal 'zeus refused the message; no address ghost@zeus', error.message
+    assert_equal 2, store.unread('rev-1.dev').size
+    assert_equal({ write: true, bell: false, claim: true }, held)
+  end
+
+  # Measuring the sender's context comes after the checks and before the write, so a leave then comes between them.
+  def test_a_session_that_leaves_after_the_checks_of_a_post_gets_no_mail_and_asks_no_claim
+    session = Keryx::Address.parse('rev-1.dev@athena/abc123')
+    leave = ->(_name) { store.with_occupants_lock { store.unbind('rev-1.dev') } }
+    leaving = postman(live: ->(_name) { true }, measure: leave)
+    errors = [nil, claiming(Keryx::Ulid.generate)].map do |claim|
+      store.bind('rev-1.dev', build_occupant(session: 'abc123'))
+      assert_raises(Keryx::Error) { leaving.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello', claim:) }
+    end
+
+    assert_equal ['mail to rev-1.dev@athena/abc123 is refused: its session left; write to rev-1.dev@athena'] * 2,
+                 errors.map(&:message)
+    assert_empty store.mailbox('rev-1.dev')
+    assert_empty held
+  end
+
+  def test_a_claimed_post_the_other_machine_refuses_still_fails_and_is_not_kept
+    error = assert_raises(Keryx::Error) { post('ghost.dev@zeus', claim: claiming(Keryx::Ulid.generate(NOW))) }
+
+    assert_equal 'zeus refused the message; no address ghost.dev@zeus', error.message
     assert_empty store.outbox.outgoing
   end
 end

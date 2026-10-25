@@ -15,7 +15,7 @@ class HostConfigTest < Minitest::Test
     result = whoami
 
     assert_equal 0, result.status
-    assert_equal 'person@zeus', JSON.parse(result.out)['address']
+    assert_equal 'person.local@zeus', JSON.parse(result.out)['address']
     assert_empty result.err
   end
 
@@ -23,7 +23,7 @@ class HostConfigTest < Minitest::Test
     write_config("host = zeus\nnoise\n")
     result = whoami({})
 
-    assert_equal 'person@athena', JSON.parse(result.out)['address']
+    assert_equal 'person.local@athena', JSON.parse(result.out)['address']
     assert_empty result.err
   end
 
@@ -32,7 +32,7 @@ class HostConfigTest < Minitest::Test
     result = whoami
 
     assert_equal 0, result.status
-    assert_equal 'person@zeus', JSON.parse(result.out)['address']
+    assert_equal 'person.local@zeus', JSON.parse(result.out)['address']
     assert_equal "warning: #{config_path}:1: unknown key \"hots\", ignored\n", result.err
   end
 
@@ -83,6 +83,6 @@ class HostConfigTest < Minitest::Test
   def test_without_a_file_or_keryx_host_the_machine_name_is_used
     expected = Keryx::Address.local_host({})
 
-    assert_equal "person@#{expected}", JSON.parse(whoami.out)['address']
+    assert_equal "person.local@#{expected}", JSON.parse(whoami.out)['address']
   end
 end

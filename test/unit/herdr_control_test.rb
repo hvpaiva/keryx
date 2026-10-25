@@ -76,13 +76,13 @@ class HerdrControlTest < Minitest::Test
 
   def test_rename_labels_a_pane_or_says_why_it_could_not
     runner = FakeRunner.new(%w[herdr pane rename w1:p4] => { out: pane_json('w1:p4', 'w1:t1') })
-    Keryx::Herdr.new(runner:).rename(SOCKET, 'w1:p4', 'rev-1')
+    Keryx::Herdr.new(runner:).rename(SOCKET, 'w1:p4', 'rev-1.dev')
     refused = { success: false, err: '{"error":{"code":"pane_not_found","message":"pane w1:p9 not found"}}' }
     error = assert_raises(Keryx::Error) do
-      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr pane rename] => refused)).rename(SOCKET, 'w1:p9', 'rev-1')
+      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr pane rename] => refused)).rename(SOCKET, 'w1:p9', 'rev-1.dev')
     end
 
-    assert_equal [%w[herdr pane rename w1:p4 rev-1], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
+    assert_equal [%w[herdr pane rename w1:p4 rev-1.dev], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
     assert_equal 'herdr pane rename failed: pane w1:p9 not found', error.message
   end
 

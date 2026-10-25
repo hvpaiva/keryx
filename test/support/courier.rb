@@ -23,13 +23,15 @@ module CourierHelpers
     end
   end
 
-  def store = @store ||= Keryx::Store.new(tmp('state')).tap { |box| %w[orq rev-1].each { box.create_address(it) } }
+  def store
+    @store ||= Keryx::Store.new(tmp('state')).tap { |box| %w[orq.dev rev-1.dev].each { box.create_address(it) } }
+  end
 
   def meter = @meter ||= Meter.new
 
   def postman
     @postman ||= Keryx::Postman.new(store:, bell: QuietBell.new, forwarder: nil, host: 'athena', clock: -> { LATER },
-                                    person: 'person')
+                                    person: 'person.local')
   end
 
   def rosters = @rosters ||= []
@@ -39,8 +41,8 @@ module CourierHelpers
   def courier = @courier ||= build_courier
 
   def impl(ceiling: 125_000, **fields)
-    store.create_address('impl')
-    build_occupant(session_id: 'session-impl', ceiling:, **fields).tap { store.bind('impl', it) }
+    store.create_address('impl.dev')
+    build_occupant(session_id: 'session-impl', ceiling:, **fields).tap { store.bind('impl.dev', it) }
   end
 
   def told = ->(round) { round.context.map { [it.recipient, it.stage] } }

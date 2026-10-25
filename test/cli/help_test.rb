@@ -34,7 +34,7 @@ class HelpTest < Minitest::Test
     assert_equal 0, result.status
     assert_match(/^Usage:\n  keryx ask \[options\] ADDRESS \[TEXT\]$/, result.out)
     assert_match(/^Options:\n  -f, --file PATH .*\n      --within DURATION/, result.out)
-    assert_match(/^Global Options:\n      --as NAME/, result.out)
+    assert_match(/^Global Options:\n      --as ADDRESS/, result.out)
     assert_match(/^Examples:\n  # Ask for a review/, result.out)
   end
 
@@ -70,7 +70,7 @@ class HelpTest < Minitest::Test
   def test_spawn_help_shows_the_harness_arguments_after_the_separator
     out = keryx('spawn', '--help').out
 
-    assert_match(/^Usage:\n  keryx spawn \[options\] NAME \[TEXT\] \[-- HARNESS_ARGS\.\.\.\]$/, out)
+    assert_match(/^Usage:\n  keryx spawn \[options\] ADDRESS \[TEXT\] \[-- HARNESS_ARGS\.\.\.\]$/, out)
     assert_match(/^      --harness HARNESS +Start claude, codex or cursor \(required\)$/, out)
   end
 

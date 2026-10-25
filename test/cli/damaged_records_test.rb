@@ -10,12 +10,12 @@ class DamagedRecordsTest < Minitest::Test
 
   def setup
     super
-    join_claude('healthy', 111)
-    store.create_address('broken')
-    %w[broken healthy].each { store.deliver(it, build_message(to: "#{it}@athena")) }
+    join_claude('healthy.dev', 111)
+    store.create_address('broken.dev')
+    %w[broken.dev healthy.dev].each { store.deliver(it, build_message(to: "#{it}@athena")) }
   end
 
-  def file(name) = tmp('state', 'addresses', 'broken', name)
+  def file(name) = tmp('state', 'addresses', 'broken.dev', name)
 
   def damage_occupant(**fields)
     File.write(file('occupant.json'), JSON.generate(build_occupant(**fields).record.merge('pid' => [])))
@@ -35,10 +35,10 @@ class DamagedRecordsTest < Minitest::Test
     who, status, courier = runs = overview
 
     assert_warned_once(runs, file('occupant.json'))
-    assert_equal %w[broken@athena - - unknown unknown unknown 1], row(who.out, 'broken')
-    assert_equal %w[healthy@athena - claude live unknown unknown 1], row(who.out, 'healthy')
-    assert_equal %w[broken@athena - unknown unknown unknown 1 0], row(status.out, 'broken')
-    assert_equal "rang healthy@athena: rung\n", courier.out
+    assert_equal %w[broken.dev@athena - - unknown unknown unknown 1], row(who.out, 'broken.dev')
+    assert_equal %w[healthy.dev@athena - claude live unknown unknown 1], row(who.out, 'healthy.dev')
+    assert_equal %w[broken.dev@athena - unknown unknown unknown 1 0], row(status.out, 'broken.dev')
+    assert_equal "rang healthy.dev@athena: rung\n", courier.out
   end
 
   def test_an_address_file_that_is_not_an_object_loses_only_its_role
@@ -46,16 +46,16 @@ class DamagedRecordsTest < Minitest::Test
     who, status, courier = runs = overview
 
     assert_warned_once(runs, file('address.json'))
-    assert_equal %w[broken@athena - - none - - 1], row(who.out, 'broken')
-    assert_equal %w[healthy@athena - claude live unknown unknown 1], row(who.out, 'healthy')
-    assert_equal %w[broken@athena - none - - 1 0], row(status.out, 'broken')
-    assert_equal "rang healthy@athena: rung\n", courier.out
+    assert_equal %w[broken.dev@athena - - none - - 1], row(who.out, 'broken.dev')
+    assert_equal %w[healthy.dev@athena - claude live unknown unknown 1], row(who.out, 'healthy.dev')
+    assert_equal %w[broken.dev@athena - none - - 1 0], row(status.out, 'broken.dev')
+    assert_equal "rang healthy.dev@athena: rung\n", courier.out
   end
 
   def test_an_occupant_that_cannot_be_read_is_never_typed_into_its_pane
     damage_occupant(herdr_socket: SOCKET, herdr_pane: 'w1:p3')
     show('w1:p3', 'claude', 'idle', 'session-1')
-    runs = [*overview, keryx('ring'), keryx('send', 'broken', 'hello')]
+    runs = [*overview, keryx('ring'), keryx('send', 'broken.dev', 'hello')]
 
     assert_equal [0] * runs.size, runs.map(&:status)
     assert_empty herdr.prompts
@@ -67,7 +67,7 @@ class DamagedRecordsTest < Minitest::Test
     result = keryx('ring')
 
     assert_warned_once([result], file('occupant.json'))
-    assert_equal ["broken@athena   1 unread   not rung\n", "healthy@athena   1 unread   rung via claude\n"],
+    assert_equal ["broken.dev@athena   1 unread   not rung\n", "healthy.dev@athena   1 unread   rung via claude\n"],
                  result.out.lines
     assert_empty herdr.prompts
   end
@@ -75,9 +75,9 @@ class DamagedRecordsTest < Minitest::Test
   def test_join_passes_over_an_address_whose_occupant_cannot_be_read
     damage_occupant
     alive << 333
-    result = keryx('join', 'impl', env: claude(333))
+    result = keryx('join', 'impl.dev', env: claude(333))
 
     assert_warned_once([result], file('occupant.json'))
-    assert_equal 'session-333', store.occupant('impl').session_id
+    assert_equal 'session-333', store.occupant('impl.dev').session_id
   end
 end

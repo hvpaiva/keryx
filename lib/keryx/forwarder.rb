@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require 'time'
+require_relative 'message'
 
 module Keryx
   class Forwarder
@@ -11,6 +12,8 @@ module Keryx
     REFUSED = 'refused'
     FAILED = 'failed'
     ARRIVED = %w[delivered duplicate].freeze
+    # How a keryx from before team addresses refuses a message of a format it does not know.
+    OLD_PEER = 'not a keryx message'
 
     def initialize(store:, remote:, clock:)
       @store = store
@@ -40,7 +43,7 @@ module Keryx
       if receipt && ARRIVED.include?(receipt['status'])
         finish(host, message, FORWARDED, nil, bell: receipt['bell'])
       elsif receipt && receipt['status'] == REFUSED
-        finish(host, message, REFUSED, receipt['detail'].to_s)
+        finish(host, message, REFUSED, refusal(host, message, receipt['detail'].to_s))
       else
         wait(host, message, waiting_reason(host, message, receipt, answer))
       end
@@ -60,6 +63,13 @@ module Keryx
     def wait(host, message, reason)
       @store.outbox.write_receipt(host, message.id, data(QUEUED, reason, attempts: attempts(host, message) + 1))
       settled(host, message.id) || Result.new(status: QUEUED, detail: reason, bell: nil)
+    end
+
+    def refusal(host, message, detail)
+      return detail unless detail == OLD_PEER && message.format == Message::FORMAT_VERSION
+
+      "#{host} runs a keryx from before team addresses, which refuses message format #{Message::FORMAT_VERSION}; " \
+        "upgrade keryx on #{host} and send again"
     end
 
     def waiting_reason(host, message, receipt, answer)

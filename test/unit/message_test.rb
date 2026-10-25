@@ -6,9 +6,10 @@ class MessageTest < Minitest::Test
   CREATED = Time.utc(2026, 10, 22, 17, 0, 0)
 
   def build_message(**overrides)
-    Keryx::Message.new(id: '01JB8Y2Q7M0000000000000000', kind: 'request', from: 'orq@athena', to: 'rev-1@athena',
-                       thread: '01JB8Y2Q7M0000000000000000', in_reply_to: nil, created_at: CREATED,
-                       due_at: CREATED + 1800, body: "Review PR #448\n\nFocus on the retry path.", **overrides)
+    Keryx::Message.new(id: '01JB8Y2Q7M0000000000000000', kind: 'request', from: 'orq.dev@athena',
+                       to: 'rev-1.dev@athena', thread: '01JB8Y2Q7M0000000000000000', in_reply_to: nil,
+                       created_at: CREATED, due_at: CREATED + 1800, body: "Review PR #448\n\nFocus on the retry path.",
+                       **overrides)
   end
 
   def test_json_round_trips_every_field
@@ -20,8 +21,32 @@ class MessageTest < Minitest::Test
   def test_json_carries_the_format_version_and_utc_times
     data = JSON.parse(build_message(created_at: Time.new(2026, 10, 22, 14, 0, 0, '-03:00')).to_json)
 
-    assert_equal 1, data['keryx']
+    assert_equal 2, data['keryx']
     assert_equal '2026-10-22T17:00:00Z', data['created_at']
+  end
+
+  def test_a_message_between_two_addresses_from_before_team_names_keeps_the_old_format
+    flat = build_message(from: 'orq@athena', to: 'port@zeus')
+    data = JSON.parse(flat.to_json)
+
+    assert_equal 1, data['keryx']
+    assert_equal flat, Keryx::Message.from_json(flat.to_json)
+    assert_equal 2, JSON.parse(build_message(from: 'orq@athena', to: 'port.ports@zeus').to_json)['keryx']
+    assert_equal 2, JSON.parse(build_message(from: 'orq.dev@athena/k3m9qz', to: 'port.ports@zeus').to_json)['keryx']
+  end
+
+  def test_the_old_format_carries_only_addresses_without_a_team
+    data = JSON.parse(build_message.to_json).merge('keryx' => 1)
+
+    error = assert_raises(Keryx::Error) { Keryx::Message.from_json(JSON.generate(data)) }
+    assert_equal 'format 1 carries only addresses without a team', error.message
+  end
+
+  def test_an_unknown_format_is_not_a_keryx_message
+    data = JSON.parse(build_message.to_json).merge('keryx' => 3)
+
+    error = assert_raises(Keryx::Error) { Keryx::Message.from_json(JSON.generate(data)) }
+    assert_equal 'not a keryx message', error.message
   end
 
   def test_from_json_rejects_what_is_not_a_message
@@ -54,25 +79,25 @@ class MessageTest < Minitest::Test
 
   def test_only_the_recipients_reply_in_the_thread_answers_a_request
     request = build_message
-    reply = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'reply', from: 'rev-1@athena', to: 'orq@athena',
-                          in_reply_to: request.id, due_at: nil)
+    reply = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'reply', from: 'rev-1.dev@athena',
+                          to: 'orq.dev@athena', in_reply_to: request.id, due_at: nil)
 
     assert reply.answers?(request)
     refute reply.with(kind: 'message').answers?(request)
-    refute reply.with(from: 'eve@athena').answers?(request)
-    refute reply.with(to: 'eve@athena').answers?(request)
+    refute reply.with(from: 'eve.dev@athena').answers?(request)
+    refute reply.with(to: 'eve.dev@athena').answers?(request)
     refute reply.with(thread: reply.id).answers?(request)
     refute reply.answers?(request.with(kind: 'message'))
   end
 
   def test_only_the_recipients_message_in_the_thread_takes_a_request
     request = build_message
-    taken = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'message', from: 'rev-1@athena', to: 'orq@athena',
-                          in_reply_to: request.id, due_at: nil)
+    taken = build_message(id: '01JB8Y2Q7M0000000000000001', kind: 'message', from: 'rev-1.dev@athena',
+                          to: 'orq.dev@athena', in_reply_to: request.id, due_at: nil)
 
     assert taken.takes?(request)
     refute taken.answers?(request)
-    { kind: 'reply', from: 'orq@athena', to: 'rev-1@athena', thread: taken.id, in_reply_to: taken.id }
+    { kind: 'reply', from: 'orq.dev@athena', to: 'rev-1.dev@athena', thread: taken.id, in_reply_to: taken.id }
       .each { |field, value| refute taken.with(field => value).takes?(request), field }
     refute taken.takes?(request.with(kind: 'message'))
   end
@@ -84,7 +109,7 @@ class MessageTest < Minitest::Test
 
     assert withdrawal.withdraws?(request)
     refute withdrawal.answers?(request)
-    { kind: 'reply', from: 'eve@athena', to: 'eve@athena', thread: withdrawal.id, in_reply_to: withdrawal.id }
+    { kind: 'reply', from: 'eve.dev@athena', to: 'eve.dev@athena', thread: withdrawal.id, in_reply_to: withdrawal.id }
       .each { |field, value| refute withdrawal.with(field => value).withdraws?(request), field }
     refute withdrawal.withdraws?(request.with(kind: 'message'))
     assert_equal withdrawal, Keryx::Message.from_json(withdrawal.to_json)

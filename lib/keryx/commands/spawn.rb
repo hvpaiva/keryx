@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../cli/spawn_help'
 require_relative '../courier'
 require_relative '../duration'
 require_relative '../harness'
@@ -23,17 +24,17 @@ module Keryx
       LABEL = /\A[[:alnum:]][[:alnum:] ._-]{0,39}\z/
       FREE = "choose another name, or run 'keryx leave' in that session first"
 
-      define 'spawn', section: 'Session Commands', arguments: 'NAME [TEXT] [-- HARNESS_ARGS...]', min: 1, max: 2,
+      define 'spawn', section: 'Session Commands', arguments: 'ADDRESS [TEXT] [-- HARNESS_ARGS...]', min: 1, max: 2,
                       passthrough: true,
                       summary: 'Start an agent session in a herdr pane and give it an address',
-                      description: 'Start an agent session in a new herdr pane, give it the address NAME and hand it ' \
-                                   "its first request.\n\n#{Spawner::PLACEMENT}\n\n" \
-                                   'spawn creates NAME and, when TEXT or --file gives one, posts the request from ' \
-                                   'this session before the new session exists, without a bell, since nothing ' \
-                                   'holds NAME yet but a session that may have ended. The harness then starts with ' \
-                                   'a first prompt that tells the session to join NAME, follow the keryx skill and ' \
-                                   'open its inbox. spawn waits for the join and prints the address, harness, pane ' \
-                                   "and request id.\n\n" \
+                      description: 'Start an agent session in a new herdr pane, give it ADDRESS and hand it its ' \
+                                   "first request.\n\n#{CLI::SpawnHelp::NAMING}\n\n#{CLI::SpawnHelp::PLACEMENT}\n\n" \
+                                   'spawn creates the address and, when TEXT or --file gives one, posts the request ' \
+                                   'from this session before the new session exists, without a bell, since nothing ' \
+                                   'holds the address yet but a session that may have ended. The harness then ' \
+                                   'starts with a first prompt that tells the session to join MEMBER.TEAM, follow ' \
+                                   'the keryx skill and open its inbox. spawn waits for the join and prints the ' \
+                                   "address, harness, pane and request id.\n\n" \
                                    'The session starts in this directory, or in --cwd, with KERYX_HOME set to this ' \
                                    'store, XDG_CONFIG_HOME to the directory this keryx reads its config from, and ' \
                                    'KERYX_HOST passed on when it is set. Claude Code also gets the settings that let ' \
@@ -45,15 +46,15 @@ module Keryx
                                    'process can read, so none of them may carry a secret; the request goes to the ' \
                                    'mailbox, in files only your user can read. spawn refuses a command line over ' \
                                    "4000 bytes on Linux or 1000 on macOS, which the pane's terminal would cut.\n\n" \
-                                   "#{Spawner::WAITING}\n\n" \
+                                   "#{CLI::SpawnHelp::WAITING}\n\n" \
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
                                    "after spawn gave up; 'keryx join --help' explains both.",
-                      examples: [['Start a reviewer in Claude Code with its first request',
-                                  'spawn rev-1 --harness claude --role reviewer "Review PR #448"'],
-                                 ['Start Codex in the agents tab with a brief from a file and a deadline',
+                      examples: [['Start a reviewer of team alpha in Claude Code with its first request',
+                                  'spawn rev-1.alpha --harness claude --role reviewer "Review PR #448"'],
+                                 ["Start Codex for this session's team in the agents tab, with a brief and a deadline",
                                   'spawn impl --harness codex --tab agents --file brief.md --within 1h'],
-                                 ['Choose the model and pass the harness flags of its own',
+                                 ["Start one of this session's team with a model and harness flags of its own",
                                   'spawn docs --harness claude --model haiku "Check the links in docs/" -- ' \
                                   '--add-dir ../site']]
 
@@ -74,7 +75,7 @@ module Keryx
 
       def call(arguments)
         @started = app.now
-        name = Address.validate_name(arguments[0])
+        name = Join.resolve(app, arguments[0], -> { app.own_address })
         text = request_text(arguments[1])
         check(name, text)
         sender = app.me if text
@@ -208,7 +209,7 @@ module Keryx
       end
 
       def post(sender, name, text)
-        app.postman.post(sender:, recipient: Address.new(name:, host: app.host), kind: 'request', body: text,
+        app.postman.post(sender:, recipient: Address.from_key(name, host: app.host), kind: 'request', body: text,
                          due_at:, ring: false).message
       end
 
@@ -242,7 +243,7 @@ module Keryx
       end
 
       def tell(name, body)
-        app.postman.post(sender: Keryx::Courier::NAME, recipient: Address.new(name:, host: app.host), kind: 'message',
+        app.postman.post(sender: Identity::SYSTEM, recipient: Address.from_name(name, host: app.host), kind: 'message',
                          body:)
       end
 

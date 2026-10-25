@@ -10,7 +10,7 @@ class ActivityTest < Minitest::Test
 
   def setup
     super
-    @orq = join_claude('orq', 111, role: 'orchestrator')
+    @orq = join_claude('orq.dev', 111, role: 'orchestrator')
   end
 
   def written(age, *parts)
@@ -35,11 +35,11 @@ class ActivityTest < Minitest::Test
 
   def test_who_and_status_show_when_each_session_last_wrote_its_record
     transcript(111, 300)
-    join_claude('rev-1', 222)
-    join_claude('ended', 333)
+    join_claude('rev-1.dev', 222)
+    join_claude('ended.dev', 333)
     transcript(333, 60)
     alive.delete(333)
-    expected = { 'orq@athena' => '5m ago', 'rev-1@athena' => 'unknown', 'ended@athena' => '-' }
+    expected = { 'orq.dev@athena' => '5m ago', 'rev-1.dev@athena' => 'unknown', 'ended.dev@athena' => '-' }
 
     assert_equal expected, column(keryx('who', '--all').out, 'ACTIVE')
     assert_equal expected, column(keryx('status', '--all').out, 'ACTIVE')
@@ -52,11 +52,12 @@ class ActivityTest < Minitest::Test
 
   def test_json_gives_the_time_itself_and_null_when_there_is_none
     transcript(111, 300)
-    join_claude('rev-1', 222)
-    join_claude('ended', 333)
+    join_claude('rev-1.dev', 222)
+    join_claude('ended.dev', 333)
     transcript(333, 60)
     alive.delete(333)
-    expected = { 'orq@athena' => (clock.now - 300).utc.iso8601, 'rev-1@athena' => nil, 'ended@athena' => nil }
+    expected = { 'orq.dev@athena' => (clock.now - 300).utc.iso8601, 'rev-1.dev@athena' => nil,
+                 'ended.dev@athena' => nil }
 
     assert_equal expected, last_activity('who')
     assert_equal expected, last_activity('status')
@@ -65,16 +66,16 @@ class ActivityTest < Minitest::Test
   def test_a_time_ahead_of_the_clock_reads_as_now
     transcript(111, -90)
 
-    assert_equal '0s ago', column(keryx('who').out, 'ACTIVE')['orq@athena']
+    assert_equal '0s ago', column(keryx('who').out, 'ACTIVE')['orq.dev@athena']
   end
 
   def test_cursor_reads_the_store_of_the_conversation_it_joined_with
     agent = Keryx::Herdr::Agent.new(pane: 'w1:p3', kind: 'cursor', status: 'idle', session: 'conversation-1')
     herdr.put('/h.sock', 'w1:p3', agent)
-    keryx('join', 'docs', env: { 'CURSOR_CONVERSATION_ID' => 'conversation-1', 'HERDR_SOCKET_PATH' => '/h.sock',
-                                 'HERDR_PANE_ID' => 'w1:p3' })
+    keryx('join', 'docs.dev', env: { 'CURSOR_CONVERSATION_ID' => 'conversation-1', 'HERDR_SOCKET_PATH' => '/h.sock',
+                                     'HERDR_PANE_ID' => 'w1:p3' })
     written(7200, '.cursor', 'chats', Digest::MD5.hexdigest('/work'), 'conversation-1', 'store.db')
 
-    assert_equal '2h ago', column(keryx('who').out, 'ACTIVE')['docs@athena']
+    assert_equal '2h ago', column(keryx('who').out, 'ACTIVE')['docs.dev@athena']
   end
 end

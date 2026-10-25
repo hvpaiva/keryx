@@ -4,49 +4,72 @@ require 'json'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'identity'
 require_relative 'message'
+require_relative 'postman'
 require_relative 'retirement'
+require_relative 'store'
 require_relative 'ulid'
 
 module Keryx
   class Receiver
     FRAME_LIMIT = (6 * Message::MAX_BODY_BYTES) + 4096
     CLAIMED_ID = /"id":"(?<id>[0-9A-HJKMNP-TV-Z]{26})"/
+    FAILED = 'failed'
+    BEHIND = 'it waits for %<id>s, written before it in its thread'
 
-    def initialize(store:, bell:, host:, person:)
+    def initialize(store:, bell:, host:, person:, live: ->(_name) {})
       @store = store
       @bell = bell
       @host = host
       @person = person
+      @live = live
     end
 
     def receive_all(input, &)
       @oversized = nil
+      stalled = {}
       input.each_line(FRAME_LIMIT) do |chunk|
         next skip(chunk, &) if @oversized || truncated?(chunk)
 
-        yield receive(chunk) unless chunk.strip.empty?
+        yield receive(chunk, stalled) unless chunk.strip.empty?
       end
       yield too_large(@oversized[:id]) if @oversized
     end
 
-    def receive(line)
+    # The forwarder sends a batch in id order, which is the order its messages were written in to the millisecond.
+    # Once a message of a thread fails, each later one of that thread fails too without being written, so none
+    # overtakes it and the sender sends them all again in that order. STALLED holds, by thread, the first that failed.
+    def receive(line, stalled = {})
       message = Message.from_json(line)
-      to = Address.parse(message.to, local_host: @host)
-      refusal = refusal(message, to)
-      return receipt(message.id, 'refused', detail: refusal) if refusal
+      earlier = stalled[message.thread]
+      return receipt(message.id, FAILED, detail: format(BEHIND, id: earlier)) if earlier
 
-      @store.create_address(to.name, role: Identity::HUMAN_ROLE) unless @store.address?(to.name)
-      status = @store.deliver(to.name, message)
-      receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
-    rescue Error => e
-      receipt(claimed_id(line), 'refused', detail: e.message)
+      take(message).tap { stalled[message.thread] = message.id if it['status'] == FAILED }
     rescue StandardError => e
-      receipt(claimed_id(line), 'failed', detail: e.message)
+      failure(claimed_id(line), e)
     end
 
     private
+
+    def take(message)
+      to = Address.parse(message.to)
+      refusal = refusal(message, to)
+      return receipt(message.id, 'refused', detail: refusal) if refusal
+
+      status = deliver(to, message)
+      receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
+    rescue StandardError => e
+      failure(message.id, e)
+    end
+
+    # keryx's own errors refuse the message, but a lock another command keeps fails it, as any other error does, so the
+    # sender sends it again.
+    def failure(id, error)
+      refused = error.is_a?(Error) && !error.is_a?(Store::Busy)
+      receipt(id, refused ? 'refused' : FAILED, detail: error.message)
+    end
 
     def truncated?(chunk) = chunk.bytesize >= FRAME_LIMIT && !chunk.end_with?("\n")
 
@@ -60,6 +83,15 @@ module Keryx
 
     def too_large(id) = receipt(id, 'refused', detail: "the message is larger than #{FRAME_LIMIT} bytes")
 
+    # Mail to a session address is checked again in the hold that writes it. A lock another command keeps there is no
+    # refusal, so the sender keeps the message and sends it again.
+    def deliver(to, message)
+      @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
+      return @store.deliver(to.key, message) unless to.session
+
+      Postman.bound(@store, to, @live) { @store.deliver(to.key, message) }
+    end
+
     def ring(name, message)
       @bell.ring(name, [message]).record
     rescue StandardError => e
@@ -67,19 +99,18 @@ module Keryx
     end
 
     def refusal(message, to)
+      from = Address.parse(message.from)
       return "#{message.to} is not on #{@host}" unless to.local?(@host)
-      if Address.parse(message.from, local_host: @host).local?(@host)
-        return "#{message.from} is on #{@host} and cannot arrive from another machine"
-      end
+      return "#{message.from} is on #{@host} and cannot arrive from another machine" if from.local?(@host)
+      return retired(message, to) if @store.retired?(to.key)
+      return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
-      return retired(message, to) if @store.retired?(to.name)
-
-      "no address #{message.to}" unless @store.address?(to.name) || to.name == @person
+      Postman.session_left(@store, to, @live) || FlatRule.refusal(@store, message, host: @host)
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
     def retired(message, to)
-      return if message.withdrawal? && @store.mailbox(to.name).any? { message.withdraws?(it.message) }
+      return if message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }
 
       format(Retirement::RETIRED, to)
     end

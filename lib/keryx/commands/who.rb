@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/activity_view'
+require_relative '../cli/address_view'
 require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/short_view'
@@ -47,7 +48,7 @@ module Keryx
         entries = roster.entries
         view = CLI::ShortView.of(entries, all: options[:all]) { roster.open_requests }
         return print_json(json(view)) if json?
-        return terminal.puts('No addresses yet. A session joins one with: keryx join NAME') if entries.empty?
+        return terminal.puts('No addresses yet. A session joins one with: keryx join MEMBER.TEAM') if entries.empty?
 
         print_table(view.entries)
         view.note('who')&.then { terminal.puts(terminal.paint(:muted, it)) }
@@ -73,9 +74,9 @@ module Keryx
       def unread(count) = count.positive? ? [:unread, count.to_s] : '0'
 
       def record(entry)
-        { 'address' => app.full(entry.name), 'role' => entry.role, 'harness' => entry.occupant&.harness,
-          'session' => entry.session, 'last_activity' => CLI::ActivityView.record(app, entry),
-          'context' => CLI::ContextView.record(app, entry),
+        { 'address' => app.full(entry.name), **CLI::AddressView.record(app, entry.name, entry.occupant),
+          'role' => entry.role, 'harness' => entry.occupant&.harness, 'session' => entry.session,
+          'last_activity' => CLI::ActivityView.record(app, entry), 'context' => CLI::ContextView.record(app, entry),
           'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread }
       end
     end

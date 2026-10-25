@@ -15,7 +15,7 @@ class SkillTest < Minitest::Test
   end
 
   def test_the_skill_says_where_the_host_of_an_address_comes_from
-    host = keryx('skill').out.lines.drop_while { !it.include?('NAME@HOST') }.slice_before(/\A- /).first.join
+    host = keryx('skill').out.lines.drop_while { !it.include?('another machine is') }.slice_before(/\A- /).first.join
 
     %w[KERYX_HOST ~/.config/keryx/config hostname ssh].each { assert_includes host, it }
   end

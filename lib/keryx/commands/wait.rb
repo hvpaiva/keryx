@@ -60,14 +60,15 @@ module Keryx
 
       def passed?(deadline) = deadline && app.monotonic.call >= deadline
 
-      def reply(name, request) = app.store.mailbox(name).map(&:message).find { it.answers?(request) }
+      def reply(name, request) = app.store.stored(name).map(&:message).find { it.answers?(request) }
 
       # A withdrawal is written where its request is, in a mailbox or in the outbox for the recipient's host.
       def withdrawal(holder, request)
         held = if holder
-                 app.store.mailbox(holder).map(&:message)
+                 app.store.stored(holder).map(&:message)
                else
-                 app.store.outbox.outgoing(request.to.split('@').last).reject { it.state == :refused }.map(&:message)
+                 sent = app.store.outbox.outgoing(Address.parse(request.to).host)
+                 sent.reject { it.state == :refused }.map(&:message)
                end
         held.find { it.withdraws?(request) }
       end

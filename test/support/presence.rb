@@ -34,12 +34,12 @@ module PresenceHelpers
 
   # A record written before keryx kept processes has no start field at all.
   def bind_impl(older: false, **fields)
-    store.create_address('impl')
+    store.create_address('impl.dev')
     occupant = build_occupant(harness: 'codex', session_id: 'thread-1', herdr_socket: SOCKET, herdr_pane: 'w1:p3',
                               **fields)
-    store.bind('impl', occupant)
+    store.bind('impl.dev', occupant)
     record = occupant.record.then { older ? it.except('started') : it }
-    File.write(tmp('state', 'addresses', 'impl', 'occupant.json'), JSON.generate(record))
+    File.write(tmp('state', 'addresses', 'impl.dev', 'occupant.json'), JSON.generate(record))
     occupant
   end
 end

@@ -10,48 +10,48 @@ class PresenceTest < Minitest::Test
 
   def test_join_records_the_process_that_runs_in_the_foreground_of_its_pane
     runs_in('w1:p3', 500)
-    keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))
+    keryx('join', 'impl.dev', env: codex_in('w1:p3', 'thread-1'))
     herdr.foregrounds[[SOCKET, 'w1:p4']] = 700
-    keryx('join', 'docs', env: codex_in('w1:p4', 'thread-2'))
-    join_claude('rev-1', 111)
+    keryx('join', 'docs.dev', env: codex_in('w1:p4', 'thread-2'))
+    join_claude('rev-1.dev', 111)
 
-    assert_equal([500, 'started 500'], store.occupant('impl').then { [it.pid, it.started] })
-    assert_nil store.occupant('docs').pid
-    assert_equal 'started 111', store.occupant('rev-1').started
+    assert_equal([500, 'started 500'], store.occupant('impl.dev').then { [it.pid, it.started] })
+    assert_nil store.occupant('docs.dev').pid
+    assert_equal 'started 111', store.occupant('rev-1.dev').started
   end
 
   def test_a_new_session_in_the_pane_records_its_own_process
     runs_in('w1:p3', 500)
-    keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))
+    keryx('join', 'impl.dev', env: codex_in('w1:p3', 'thread-1'))
     keryx('inbox', env: codex_in('w1:p3', 'thread-1'))
 
-    assert_equal 500, store.occupant('impl').pid
+    assert_equal 500, store.occupant('impl.dev').pid
     runs_in('w1:p3', 900)
     keryx('inbox', env: codex_in('w1:p3', 'thread-2'))
 
-    assert_equal(['thread-2', 900], store.occupant('impl').then { [it.session_id, it.pid] })
+    assert_equal(['thread-2', 900], store.occupant('impl.dev').then { [it.session_id, it.pid] })
   end
 
   def test_a_session_id_herdr_reports_is_compared_even_when_the_session_has_none_of_its_own
     runs_in('w1:p3', 500)
     show('w1:p3', 'codex', 'idle', 'old-thread')
-    keryx('join', 'impl', env: { 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p3' })
+    keryx('join', 'impl.dev', env: { 'HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p3' })
 
-    assert_equal 'old-thread', store.occupant('impl').session_id
+    assert_equal 'old-thread', store.occupant('impl.dev').session_id
     show('w1:p3', 'codex', 'idle', 'new-thread')
 
-    assert_match(/\(pane w1:p3 runs thread new-thread, not old-thread\)/, keryx('send', 'impl', 'hello').out)
-    store.bind('impl', store.occupant('impl').with(session_id: nil))
+    assert_match(/\(pane w1:p3 runs thread new-thread, not old-thread\)/, keryx('send', 'impl.dev', 'hello').out)
+    store.bind('impl.dev', store.occupant('impl.dev').with(session_id: nil))
 
     assert_match(/\(pane w1:p3 runs thread new-thread, and the session that joined recorded no thread\)/,
-                 keryx('send', 'impl', 'hello again').out)
+                 keryx('send', 'impl.dev', 'hello again').out)
     assert_empty herdr.prompts
   end
 
   def test_a_lookup_that_does_not_answer_keeps_the_recorded_process
     runs_in('w1:p3', 500)
     env = codex_in('w1:p3', 'thread-1')
-    keryx('join', 'impl', env:)
+    keryx('join', 'impl.dev', env:)
     show('w1:p3', 'codex', 'idle')
     processes.starts[500] = nil
     keryx('inbox', env:)
@@ -60,22 +60,22 @@ class PresenceTest < Minitest::Test
     keryx('inbox', env:)
     lineage.replace([501, 500])
 
-    assert_equal([500, 'started 500'], store.occupant('impl').then { [it.pid, it.started] })
-    assert_match(/The bell rang through herdr\./, keryx('send', 'impl', 'hello').out)
+    assert_equal([500, 'started 500'], store.occupant('impl.dev').then { [it.pid, it.started] })
+    assert_match(/The bell rang through herdr\./, keryx('send', 'impl.dev', 'hello').out)
   end
 
   def test_a_claude_session_that_reuses_the_pid_records_its_own_start
-    env = join_claude('rev-1', 111)
+    env = join_claude('rev-1.dev', 111)
     processes.starts[111] = nil
     keryx('inbox', env:)
 
-    assert_equal 'started 111', store.occupant('rev-1').started
+    assert_equal 'started 111', store.occupant('rev-1.dev').started
     processes.starts[111] = 'started later'
     keryx('inbox', env: env.merge('CLAUDE_CODE_SESSION_ID' => 'session-new',
                                   'CLAUDE_CODE_MESSAGING_SOCKET' => '/tmp/cc-new.sock'))
 
-    assert_equal(['session-new', 'started later'], store.occupant('rev-1').then { [it.session_id, it.started] })
-    assert_equal 1, keryx('leave', '--as', 'rev-1').status
+    assert_equal(['session-new', 'started later'], store.occupant('rev-1.dev').then { [it.session_id, it.started] })
+    assert_equal 1, keryx('leave', '--as', 'rev-1.dev').status
   end
 
   # The one test that reads a real start, of this test's own process.
@@ -83,56 +83,56 @@ class PresenceTest < Minitest::Test
     @processes = Keryx::Processes.new
     zone = ENV.fetch('TZ', nil)
     ENV['TZ'] = 'UTC'
-    join_claude('rev-1', Process.pid)
+    join_claude('rev-1.dev', Process.pid)
     ENV['TZ'] = 'America/Sao_Paulo'
 
-    assert_equal 1, keryx('leave', '--as', 'rev-1').status
-    assert_equal Process.pid, store.occupant('rev-1').pid
+    assert_equal 1, keryx('leave', '--as', 'rev-1.dev').status
+    assert_equal Process.pid, store.occupant('rev-1.dev').pid
   ensure
     ENV['TZ'] = zone
   end
 
   def test_a_spawned_codex_whose_hooks_are_not_trusted_is_typed_into_while_its_process_runs
     runs_in('w1:p3', 500)
-    keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))
+    keryx('join', 'impl.dev', env: codex_in('w1:p3', 'thread-1'))
     show('w1:p3', 'codex', 'idle')
 
-    assert_match(/The bell rang through herdr\./, keryx('send', 'impl', 'hello').out)
+    assert_match(/The bell rang through herdr\./, keryx('send', 'impl.dev', 'hello').out)
     runs_in('w1:p3', 900)
 
-    assert_match(/The bell did not reach the session that holds impl@athena \(pane w1:p3 runs process 900, not 500\)/,
-                 keryx('send', 'impl', 'still there?').out)
+    assert_match(/bell did not reach the session that holds impl.dev@athena \(pane w1:p3 runs process 900, not 500\)/,
+                 keryx('send', 'impl.dev', 'still there?').out)
     assert_empty codex.queued
   end
 
   def test_leave_as_keeps_a_session_whose_activity_herdr_cannot_tell
     alive << 111
-    keryx('join', 'rev-1', env: claude(111).merge('HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p2'))
+    keryx('join', 'rev-1.dev', env: claude(111).merge('HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => 'w1:p2'))
     show('w1:p2', 'claude', 'unknown', 'session-111')
-    keryx('join', 'impl', env: codex_in('w1:p3', 'thread-1'))
+    keryx('join', 'impl.dev', env: codex_in('w1:p3', 'thread-1'))
     show('w1:p3', 'codex', 'unknown', 'thread-1')
-    keryx('join', 'docs', env: codex_in('w1:p4', 'thread-2'))
+    keryx('join', 'docs.dev', env: codex_in('w1:p4', 'thread-2'))
     herdr.unanswered << [SOCKET, 'w1:p4']
 
-    statuses = %w[rev-1 impl docs].map { keryx('leave', '--as', it).status }
-    kept = [store.occupant('rev-1').pid, *%w[impl docs].map { store.occupant(it).session_id }]
+    statuses = %w[rev-1.dev impl.dev docs.dev].map { keryx('leave', '--as', it).status }
+    kept = [store.occupant('rev-1.dev').pid, *%w[impl.dev docs.dev].map { store.occupant(it).session_id }]
 
     assert_equal [1, 1, 1], statuses
     assert_equal [111, 'thread-1', 'thread-2'], kept
-    assert_equal 'live', session('rev-1')
+    assert_equal 'live', session('rev-1.dev')
   end
 
   def test_the_reply_note_promises_no_bell_the_bell_would_not_ring
     outside = { 'CODEX_THREAD_ID' => 'thread-1' }
-    keryx('join', 'reviewer', env: outside)
-    join_claude('worker', 111)
-    keryx('join', 'stale', env: codex_in('w1:p2', 'old-thread'))
+    keryx('join', 'reviewer.dev', env: outside)
+    join_claude('worker.dev', 111)
+    keryx('join', 'stale.dev', env: codex_in('w1:p2', 'old-thread'))
     show('w1:p2', 'codex', 'idle', 'new-thread')
-    notes = [keryx('ask', 'worker', 'Review this', '--as', 'reviewer', env: outside),
-             keryx('ask', 'worker', 'Review that', '--as', 'stale')].map { it.out.lines.last }
+    notes = [keryx('ask', 'worker.dev', 'Review this', '--as', 'reviewer.dev', env: outside),
+             keryx('ask', 'worker.dev', 'Review that', '--as', 'stale.dev')].map { it.out.lines.last }
 
-    assert_equal(['keryx cannot reach the session that holds reviewer@athena, so no bell rings for the reply;',
-                  'keryx cannot reach the session that holds stale@athena, so no bell rings for the reply;'],
+    assert_equal(['keryx cannot reach the session that holds reviewer.dev@athena, so no bell rings for the reply;',
+                  'keryx cannot reach the session that holds stale.dev@athena, so no bell rings for the reply;'],
                  notes.map { it[/\A[^;]+;/] })
   end
 end

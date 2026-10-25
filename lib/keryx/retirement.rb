@@ -5,13 +5,14 @@ require 'json'
 require 'time'
 require_relative 'error'
 require_relative 'files'
+require_relative 'address'
 require_relative 'message'
 
 module Keryx
   # A retired address keeps its files; only this record, and the session records it removed, set it apart.
   RetiredRecord = Data.define(:retired_at, :by) do
     def self.from_record(data)
-      raise TypeError, 'by is not an address' unless Message::ADDRESS.match?(data['by'].to_s)
+      raise TypeError, 'by is not an address' unless Address.valid?(data['by'])
 
       new(retired_at: Time.iso8601(data['retired_at'].to_s), by: data['by'])
     end
@@ -39,7 +40,7 @@ module Keryx
     # that a session restarted in the old pane would find as its own.
     def retire(name, by:, now:)
       require_address(name)
-      unbind(name)
+      incarnations(name).each { unbind(it) }
       forget_spawned(name)
       write_atomic(retired_file(name), JSON.generate(RetiredRecord.new(retired_at: now, by:).record))
     end

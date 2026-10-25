@@ -5,16 +5,18 @@ require_relative 'address'
 
 module Keryx
   # refreshable is not written: a record without a start field predates keeping processes, and a command can add one.
+  # session is the id keryx drew at join, which the session address MEMBER.TEAM@HOST/SESSION names; session_id is the
+  # harness's own.
   Occupant = Data.define(:harness, :session_id, :pid, :started, :claude_socket, :herdr_socket, :herdr_pane, :cwd,
-                         :joined_at, :transcript, :ceiling, :director, :refreshable) do
-    def initialize(transcript: nil, ceiling: nil, director: nil, refreshable: false, **) = super
+                         :joined_at, :transcript, :ceiling, :director, :session, :refreshable) do
+    def initialize(transcript: nil, ceiling: nil, director: nil, session: nil, refreshable: false, **) = super
   end
 
   class Occupant
     FIELDS = %w[harness session_id pid started claude_socket herdr_socket herdr_pane cwd joined_at transcript ceiling
-                director].freeze
+                director session].freeze
     # What a command that records the session's process again keeps from the record it replaces.
-    KEPT = %i[cwd transcript ceiling director].freeze
+    KEPT = %i[cwd transcript ceiling director session].freeze
     # spawn compares joined_at with a deadline, and Time.now carries nanoseconds.
     FRACTION_DIGITS = 9
     TEXT = %w[harness session_id started claude_socket herdr_socket herdr_pane cwd].freeze
@@ -27,7 +29,8 @@ module Keryx
       fields = FIELDS.to_h { [it.to_sym, data[it]] }
       new(**fields, joined_at: Time.iso8601(data.fetch('joined_at')),
                     transcript: transcript(data['transcript'], data['session_id']), ceiling: ceiling(data['ceiling']),
-                    director: director(data['director']), refreshable: !data.key?('started'))
+                    director: director(data['director']), session: session(data['session']),
+                    refreshable: !data.key?('started'))
     end
 
     def self.typed?(data)
@@ -37,13 +40,15 @@ module Keryx
 
     def self.ceiling(value) = value.is_a?(Integer) && value.positive? ? value : nil
 
-    def self.director(value) = Address::NAME.match?(value.to_s) ? value : nil
+    def self.director(value) = Address.name?(value) ? value : nil
+
+    def self.session(value) = Address::SESSION.match?(value.to_s) ? value : nil
 
     # A transcript is kept only while it is named after the session the record holds.
     def self.transcript(path, session_id)
       path if path.is_a?(String) && File.absolute_path?(path) && File.basename(path) == "#{session_id}.jsonl"
     end
-    private_class_method :typed?, :transcript, :ceiling, :director
+    private_class_method :typed?, :transcript, :ceiling, :director, :session
 
     def record = FIELDS.to_h { [it, public_send(it)] }.merge('joined_at' => joined_at.utc.iso8601(FRACTION_DIGITS))
 

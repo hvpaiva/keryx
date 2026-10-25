@@ -9,14 +9,15 @@ No command depends on it being there. This page describes each piece and the rul
 All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 
 ```text
-addresses/NAME/address.json    the address: its role and when it was created
-addresses/NAME/occupant.json   the session holding it, while one does
-addresses/NAME/spawned.json    the director spawn recorded for the session it started, until a session joins
-addresses/NAME/retired.json    when the address was retired and by which address, until join --revive
-addresses/NAME/tmp/            messages being written
-addresses/NAME/mail/           every message, under its id, never moved
-addresses/NAME/read/           a hard link for each message read
-addresses/NAME/receipts/       bell results and hook reminders, one file per message, and context notice marks
+addresses/KEY/address.json     the address: its role and when it was created
+addresses/KEY/occupant.json    the session holding it, while one does
+addresses/KEY/spawned.json     the director spawn recorded for the session it started, until a session joins
+addresses/KEY/retired.json     when the address was retired and by which address, until join --revive
+addresses/KEY/outgoing/        sessions join --force displaced, one SESSION.json each, while they stay bound
+addresses/KEY/tmp/             messages being written
+addresses/KEY/mail/            every message, under its id, never moved
+addresses/KEY/read/            a hard link for each message read
+addresses/KEY/receipts/        bell results and hook reminders, one file per message, and context notice marks
 occupants.lock                 locked while a command changes which session holds an address
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
@@ -24,6 +25,18 @@ outbox/HOST/refused/           messages the other machine refused
 outbox/HOST/receipts/          forwarding attempts and outcomes, one file each per message
 outbox/HOST/outcomes.lock      locked while a command replaces an outcome that holds no decision
 ```
+
+KEY is the address without its host, `MEMBER.TEAM` for a team address or the bare `NAME` of an
+address from before team names, which keeps its directory. MEMBER, TEAM and NAME are each a
+lowercase letter followed by up to 31 lowercase letters, digits or hyphens, so no segment holds a
+dot, an underscore or a capital letter. A dotted directory therefore never collides with a flat one,
+and a keryx from before team names, whose name rule refuses a dot, skips it. HOST has a rule of its
+own, a lowercase letter or a digit followed by up to 62 lowercase letters, digits or hyphens, which is
+one label of a DNS name, so a full domain name with dots is no host. `address.json` holds member
+and team as fields, and `occupant.json` the session id keryx drew at join. Messages carry `from` and
+`to` as one spelled string, `MEMBER.TEAM@HOST` or `MEMBER.TEAM@HOST/SESSION`, which `Address.parse`
+reads back into the same fields. `outgoing/SESSION.json` is the occupant of a session that `join --force` displaced while it
+ran; it stays until that session leaves, or until a join finds it no longer running.
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
 linked into `mail/`. Linking is atomic, so a reader never sees half a message, and it fails when the
@@ -39,9 +52,10 @@ taken when one holds a plain message from its recipient to its sender the same w
 for its reply, so `keryx wait` keeps waiting and `keryx retire` still counts it as open.
 `keryx send --re` refuses a request whose reply or withdrawal it sees in a mailbox here or in the
 outbox. A withdrawal still on its way from another machine is not seen yet, so the message goes, and
-the requester's machine shows nothing new, since the request is settled there. The message is of
-format 1 with `thread` and `in_reply_to` set, so a machine with an older keryx stores it as a plain
-message and keeps showing the request read or forwarded. `keryx withdraw` writes the withdrawal
+the requester's machine shows nothing new, since the request is settled there. The message has
+`thread` and `in_reply_to` set. Between two addresses from before team names it is of format 1, as
+the section on machines says, so a machine with an older keryx stores it as a plain message and keeps
+showing the request read or forwarded. `keryx withdraw` writes the withdrawal
 where the request is, in the mailbox that holds it or in the outbox for its host, with the request's
 own sender and recipient, since those may carry a name the machine had before. The sender is the
 address of the same name on the machine that sent the request, which the store shows without a list
@@ -49,8 +63,10 @@ of former names: only this machine writes its outbox, and a message from another
 its recipient's host, so a request in a mailbox whose sender and recipient share a host was sent
 from here. Because no ordinary mailbox operation has to change two files together, none takes a lock
 and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
-decision, which takes `outcomes.lock`, as the forwarding section explains, and writing a context
-notice, which takes `occupants.lock`, as the section on context explains. A change of occupants
+decision, which takes `outcomes.lock`, as the forwarding section explains, writing a context
+notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
+session address, which takes it too unless it is a withdrawal written here, as the section on
+delivery explains. A change of occupants
 takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
@@ -118,9 +134,10 @@ with no address until it joins again. `App#me` records a new process or socket u
 from the occupant it reads again there, so it never writes back an address a join released. `leave`
 finds the session's address and removes it under the lock too, so a refresh cannot write it back
 and the occupant of a session that took the address over in between is never removed.
-`leave --as NAME` releases an address for a session that ended without leaving. Under the same
+`leave --as ADDRESS` releases an address for a session that ended without leaving, and
+`leave --as ADDRESS/SESSION` a displaced session that did the same. Under the same
 lock it refuses when the roster sees the occupant live, as join does, and removes the occupant
-otherwise, so a session that joins in between keeps the address. `keryx retire NAME` checks and
+otherwise, so a session that joins in between keeps the address. `keryx retire ADDRESS` checks and
 writes in one hold of the lock too. It refuses while the roster sees the occupant live and while an
 open request waits on the address, sent to it or sent by it from here, and then removes
 `occupant.json` and `spawned.json` before it writes `retired.json`. The occupant goes because a
@@ -128,13 +145,18 @@ session restarted in the old holder's herdr pane would otherwise find the addres
 pane rule, and it goes first, so a retire cut short leaves an address nobody holds rather than a
 retired one with an occupant. The address a plain terminal acts as cannot be retired, since every
 command from that terminal would create it again, and an address on another machine is retired
-there, since only that machine sees its session and its mail. `Postman` and `Receiver` refuse a
-retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
-`--revive`, which removes `retired.json` in the hold where it binds the session. Delivery takes no
-lock, so a message whose sender checked the address just before `retired.json` landed still lands
-in its mailbox. That stays visible: a request among such messages shows open in its sender's
-`keryx status`, and `keryx withdraw` settles it, since a withdrawal goes where its request is and
-`Receiver` takes into a retired mailbox the withdrawal of a request it holds. spawn checks the address for
+there, since only that machine sees its session and its mail. `Postman` and `Receiver` refuse new
+mail to a retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
+`--revive`, which removes `retired.json` in the hold where it binds the session. Delivery to an
+address takes no lock against retire, so a message whose sender checked the address just before
+`retired.json` landed still lands in its mailbox. That stays visible: a request among such messages
+shows open in its sender's `keryx status`, and `keryx withdraw` settles it, since a withdrawal goes
+where its request is and `Receiver` takes into a retired mailbox the withdrawal of a request it
+holds. The writes that take `occupants.lock` anyway, a context notice and mail to a session address
+other than a withdrawal written here, as the section on the store says, take turns with retire, and
+mail to a session address then finds
+no session bound, since retire unbinds every session of the address before it writes
+`retired.json`, so it is refused. spawn checks the address for
 the last time under the lock, right before it starts the harness, and refuses there an address
 retired since its first check, as retire writes `retired.json` in a hold of the same lock. When it
 frees the herdr name its own pane kept from an address the session there left, it clears the name
@@ -151,8 +173,40 @@ when another command holds the lock, it leaves the record to a later command, so
 and every other command keep their deadlines.
 
 An agent session that joined nothing is refused, so it cannot speak as the person at the
-keyboard. A plain terminal acts as an address named after `USER`, created on first use or by the
-first message sent to it.
+keyboard. A plain terminal acts as a member of the local scope named after `USER`, lowercased, with
+each character other than a to z, a digit or a hyphen turned into a hyphen, what comes before the
+first letter dropped and the rest cut to 32 characters, or `human` when nothing is left, so
+`USER=john_doe` acts as `john-doe.local`. That address is created on first use or by the first
+message sent to it.
+
+An address is `MEMBER.TEAM@HOST`. Two team names are reserved scopes with no authority of their own:
+`local` is a person at a terminal, and `system` is keryx's own services, so the courier's notices and
+spawn's quotes of a dialog come from `keryx.system@HOST`. join takes `MEMBER.TEAM`, and of the local
+scope only the name this host's terminal acts as, so that a session can answer for that person; it
+refuses every system name. `Resolver` turns what a user types into a full address before anything is
+stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team, and a sender with no
+team of its own (local, system, or an address from before team names) reaches it only when exactly
+one team on this host has that member, else the error lists the matches or says there is none.
+Either short form takes `/SESSION` for a session address on this host, as `MEMBER.TEAM/SESSION` or
+`MEMBER/SESSION`. What holds an `@` is read whole, as `MEMBER.TEAM@HOST` with or without `/SESSION`,
+and `MEMBER@HOST` is an address from before team names, never a member of the sender's team: send
+and ask refuse it with the spelling to use, and since such an address has no session addresses,
+`MEMBER@HOST/SESSION` is refused wherever it is typed. `--as`, ring and retire resolve the same way,
+and also take an address from before team names, typed whole.
+
+Each join draws a session id, six characters of lowercase Crockford base32, redrawn while a bound
+session of the address has it, and a command that records the session's process again keeps it.
+`MEMBER.TEAM@HOST/SESSION` names that incarnation alone. When `join --force` takes the address from a
+session that still runs, that session's occupant moves to `outgoing/SESSION.json`, and inside a
+command it acts as `KEY/SESSION` while the holder acts as `KEY`. A displaced session lists, rings,
+counts and is reminded of only the mail to its session address, and opens by id the mail to the
+stable address as well, which holds the work it took before; it never opens another session's mail.
+The holder sees everything else, including the mail to a session that left. In a thread, any
+incarnation of the address a message went to writes as that address, so a displaced session's reply
+still settles a request sent to the stable address. A join drops the displaced records whose session
+no longer runs, and retire refuses while a displaced session runs. retire takes only the stable
+address, since retiring ends the address for every session, and refuses a session address with the
+stable one to give instead.
 
 ## Delivery
 
@@ -235,6 +289,37 @@ herdr does not show at all, or with no pane, gets no bell; the message waits in 
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
 each message, and `keryx status` reads the receipts to list what did not ring.
 
+Mail to a session address is delivered only while that session is bound to the address and runs
+(`Postman.session_left`), here and in `Receiver` for mail from another machine; once it left, the
+sender is told to write to the stable address, and `keryx ring` refuses that session address in the
+same words. leave and join end or move a binding in a hold of
+`occupants.lock`, so the check is made again in such a hold and the message is written in the same
+one (`Postman.bound`): a session that leaves after a sender first checked it gets no new mail, and
+the mail written before it left stays for the holder. A receiver that finds the lock kept answers
+that it failed, so the sender keeps the message and sends it again. A withdrawal written here is the
+exception, as with a retired address, so that its sender stops waiting. `Postman.withdraw` writes it
+into the mailbox that holds its request with neither the check nor the lock, whether or not the
+session is still there, and once the session left the bell finds no session to ring. A withdrawal
+from another machine is no exception. `Receiver` refuses it once the session left, as it refuses
+other mail, and a retire since changes nothing. Its check for a retired address lets through the
+withdrawal of a request the mailbox holds, but the write that follows finds no session bound, as
+the section on retire says of mail to a session address, so the withdrawal is refused all the same.
+`keryx withdraw` then fails, or `keryx status` shows the withdrawal refused when it waited in the
+outbox, and the request stays open on the sender's machine. An address from before team
+names finishes its threads and starts no new work, so it sends and receives only replies,
+withdrawals and messages in an open thread. `FlatRule` holds the rule, for what `Postman` writes here
+and for what `Receiver` takes from another machine: in a thread, a message to or from such an address
+goes only when it answers, takes or withdraws a request still open, so a request, a message in a
+thread the address never had, a reply to a reply and a new message in a thread that is over are
+refused, here as on the other machine. The refusal names the recipient when it has no team, else the
+sender, and says the request is over when that is why. The receiver answers duplicate for a message
+the mailbox already holds, whatever became of its thread, so a sender that lost the receipt and sends
+it again stops. Every message between an address here and one elsewhere is kept in the mailbox here
+or in the outbox to that machine, and one between two addresses here in their mailboxes, so
+`FlatRule` looks for the request and for what answered or withdrew it there alone. keryx's own notices still reach such an address while a live session here holds it, so that
+session does not go blind before it moves to a team address, and the courier skips one that nobody
+holds.
+
 ## Between machines
 
 A machine's name is the host part of its addresses. `App#host` takes it from `KERYX_HOST`, then from
@@ -252,8 +337,10 @@ A message for an address on another host goes to `outbox/HOST/`, written in `tmp
 `new/` like a delivery. `Forwarder` moves a message in `new/` that already has an outcome by it, and
 sends the rest through `Remote`, which runs `ssh HOST keryx __receive` with one message per line. On
 the other machine, `Receiver` refuses a message for another host, one that claims to come from its
-own host, one for an address it lacks, and one for a retired address, with a detail that says it is
-retired, so the sender's `keryx status` shows why. It stores the rest under their ids, rings the local
+own host, one for an address it lacks (but not the address its own terminal acts as, named after
+`USER` in the SSH session, which it creates as it stores the message), and one for a retired address,
+with a detail that says it is retired, so the sender's `keryx status` shows why. It stores the rest
+under their ids, rings the local
 session and prints a receipt for each. The sender then records the outcome and moves the message to
 `cur/` or `refused/` by the outcome that stayed. The outcome is written before the move and its
 first decision stays, so an attempt that fails or hears otherwise after another one settled the
@@ -262,13 +349,30 @@ Only an outcome file that holds no decision is written again, under `outcomes.lo
 repair keeps the first. Without a receipt the message stays in `new/`, and another file in
 `receipts/` counts the attempts.
 
+The forwarder sends a host's queue in id order, the order its messages were written in to the
+millisecond, and the receiver takes the batch in that order. Once a message of a thread fails there,
+on a write error or a lock another command keeps, the receiver answers failed for each later message
+of that thread in the batch without writing it, so they all wait for the next round and arrive in
+order, and a reply never ends a thread ahead of a message written before it. Two messages of a
+thread written in the same millisecond go in the order of the random part of their ids, and a clock
+set back between two writes can swap them too, so either can still put a reply first.
+
 The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the machine that
 answers closes a request as soon as the reply is written, and the sender's machine once the reply arrives; a
 withdrawal closes it on the sender's machine at once and on the recipient's once it arrives. A message sent with
 `keryx send --re` shows the request taken on the recipient's machine once it is in the outbox and on the
 sender's once it arrives. A read is recorded only on the machine where it happens. `Courier` forwards on a
 schedule, rings again for bells that did not reach a session, and sends the deadline and context notices from
-`keryx@HOST`.
+`keryx.system@HOST`.
+
+Messages carry format 2 since team addresses. A message whose two addresses are both from before team names is
+still written in format 1, so a keryx from before team names takes the replies and withdrawals that finish old
+threads, and this keryx reads both. An older keryx answers a format 2 message with "not a keryx message", and
+the forwarder records that refusal as final, with the reason spelled out: that machine runs a keryx from before team
+addresses and must be upgraded. A refusal on the send itself is the sender's error, and the message is discarded,
+as every message refused on its send is. A message that waited in the outbox and is refused when the courier or a
+later send forwards it shows in `keryx status`, and stays in `outbox/HOST/refused/` to be sent again by hand.
+Nothing is downgraded or retried.
 
 ## Starting a session
 
@@ -295,7 +399,10 @@ through `Runner#start` while spawn watches the store, and spawn stops it when it
 names the agent when the start begins and keeps the name once the agent is idle or blocked, but
 drops it if the agent is still working when the timeout spawn passed to herdr runs out, so a session
 busy with its first request can lose its herdr name. keryx does not use that name, since the
-occupant records the pane.
+occupant records the pane. herdr's agent names take a lowercase letter and then up to 31 lowercase
+letters, digits, `-` or `_`, with no dot, so spawn gives herdr `MEMBER_TEAM`, cut to 32 characters
+(`Spawner.agent_name`), and the pane keeps the dotted address as its label. The first prompt's join
+line names `MEMBER.TEAM`.
 
 The new pane gets `KERYX_HOME`, `XDG_CONFIG_HOME`, and `KERYX_HOST` when it is set, through herdr,
 so the session joins the store spawn watches and reads the config file spawn read. Codex passes its
@@ -392,10 +499,19 @@ that records the session's process again keeps the ceiling and the director, and
 
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
 of the ceiling, and again once it reaches the ceiling, it tells the session and its director, or the sender of the
-oldest request the session has not answered when no director was recorded, from `keryx@HOST`. Each notice goes once
-to each recipient for a join and a ceiling, marked in the session's `receipts/`, so a session that joins again or
-gets another ceiling can be told again; a recipient the post failed for is tried again alone in the next round. A
-session first seen at or past the ceiling is told only that it reached it, and the comparison uses whole numbers.
+oldest request the session has not answered when no director was recorded, from `keryx.system@HOST`. A session that
+`join --force` displaced is told at its session address, and its oldest request is the oldest of those it lists,
+the ones to its session address, so neither it nor the holder takes the sender of the other's work. A director that
+spawned from a displaced session is recorded as `KEY/SESSION` and told there while that session is bound and runs,
+and at the stable address once it left, since the holder took its work; a director taken from the oldest request
+falls back the same way when it is on this machine. One on another machine is told at the address it wrote from, since
+only a session here can be checked, and once that session has left, the other machine refuses the notice, as other
+mail to it, so neither that session nor the holder there is told. The courier then reports that it could not tell it
+and tries again in each round, or, when the notice waited in the outbox, counts it as told and `keryx status` shows it
+refused once it arrives. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
+`receipts/`, so a session that joins again or gets another ceiling can be told again; a recipient the post failed
+for is tried again alone in the next round. A session first seen at or past the ceiling is told only that it
+reached it, and the comparison uses whole numbers.
 
 The courier claims a notice's id in `receipts/` in the same hold of the occupants lock as the mailbox or outbox
 write. The first courier writes an id with the current time, and every other courier or later round reads that id

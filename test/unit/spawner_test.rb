@@ -12,8 +12,8 @@ class SpawnerTest < Minitest::Test
     spawner = Keryx::Spawner.new(herdr:, store: nil, socket: '/h.sock', clock: -> { Factory::NOW }, sleeper: ->(_) {},
                                  deadline: Factory::NOW + 60, notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
     error = assert_raises(Keryx::Error) do
-      spawner.place('w1:p1', label: 'rev-1', address: 'rev-1@athena', kind: 'claude', split: 'right', tab: 'agents',
-                             cwd: '/work', env: {})
+      spawner.place('w1:p1', label: 'rev-1.dev', address: 'rev-1.dev@athena', kind: 'claude', split: 'right',
+                             tab: 'agents', cwd: '/work', env: {})
     end
 
     assert_equal 'herdr lists no pane in the tab agents', error.message
@@ -41,8 +41,8 @@ class SpawnerTest < Minitest::Test
                                  clock: -> { Factory::NOW }, sleeper: ->(_) {}, deadline: Factory::NOW + 60,
                                  notice: ->(_) {}, post: ->(*) {}, vacant: ->(*) {})
     error = assert_raises(Keryx::Error) do
-      spawner.run('rev-1', 'rev-1@athena', 'w1:p2', kind: 'claude', arguments: [], before: nil, director: nil,
-                                                    prompt: 'Review it')
+      spawner.run('rev-1.dev', 'rev-1.dev@athena', 'w1:p2', kind: 'claude', arguments: [], before: nil, director: nil,
+                                                            prompt: 'Review it')
     end
 
     assert_equal 'herdr: not found', error.message
@@ -55,19 +55,20 @@ class SpawnerTest < Minitest::Test
 
   def test_the_director_is_recorded_for_the_harness_spawn_starts_in_its_pane
     store = Keryx::Store.new(tmp('state'))
-    store.create_address('impl')
-    spawner(store).direct('impl', 'w1:p2', 'codex', 'orq')
+    store.create_address('impl.dev')
+    spawner(store).direct('impl.dev', 'w1:p2', 'codex', 'orq.dev')
 
-    assert_equal Keryx::Spawned.new(director: 'orq', harness: 'codex', herdr_socket: '/h.sock', herdr_pane: 'w1:p2'),
-                 store.spawned('impl')
+    assert_equal Keryx::Spawned.new(director: 'orq.dev', harness: 'codex', herdr_socket: '/h.sock',
+                                    herdr_pane: 'w1:p2'), store.spawned('impl.dev')
   end
 
   def test_a_director_spawn_cannot_record_is_a_notice
     store = Keryx::Store.new(tmp('state'))
     store.define_singleton_method(:record_spawned) { |*| raise Errno::ENOSPC, 'spawned' }
     notices = []
-    spawner(store, notices).direct('impl', 'w1:p2', 'codex', 'orq')
+    spawner(store, notices).direct('impl.dev', 'w1:p2', 'codex', 'orq.dev')
 
-    assert_equal ['spawn could not record orq as the director of impl: No space left on device - spawned.'], notices
+    assert_equal ['spawn could not record orq.dev as the director of impl.dev: No space left on device - spawned.'],
+                 notices
   end
 end

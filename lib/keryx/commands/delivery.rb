@@ -15,7 +15,7 @@ module Keryx
 
       def forwarded(posted)
         result = posted.forward
-        host = posted.message.to.split('@').last
+        host = Address.parse(posted.message.to).host
         if result.status == Forwarder::QUEUED
           return "#{host} did not answer (#{Text.plain(result.detail)}); the message waits in the outbox and " \
                  "'keryx courier' forwards it once #{host} is back."

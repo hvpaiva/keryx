@@ -7,8 +7,8 @@ module ProcessRaces
   EXE = File.expand_path('../../exe/keryx', __dir__)
   LIB = File.expand_path('../../lib', __dir__)
   SECONDS = 5
-  # Loaded into each command: it stops before writing or removing an occupant, or after the first occupant
-  # read of App#refresh, marks when it finds the lock taken, and marks when it ends.
+  # Loaded into each command: it stops before writing or removing an occupant or writing a message, or after the
+  # first occupant read of App#refresh, marks when it finds the lock taken, and marks when it ends.
   PAUSE = <<~'RUBY'
     require 'keryx'
 
@@ -28,14 +28,11 @@ module ProcessRaces
         @refreshed = true
       end
 
-      def bind(...)
-        Pause.hold('ready') if ENV['PAUSE_ON'] == 'bind'
-        super
-      end
-
-      def unbind(...)
-        Pause.hold('ready') if ENV['PAUSE_ON'] == 'unbind'
-        super
+      %w[bind unbind deliver].each do |stage|
+        define_method(stage) do |*arguments|
+          Pause.hold('ready') if ENV['PAUSE_ON'] == stage
+          super(*arguments)
+        end
       end
 
       def occupant(...)

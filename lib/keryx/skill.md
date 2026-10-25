@@ -5,15 +5,16 @@ description: Exchange messages with other AI coding agent sessions (Claude Code,
 
 # keryx
 
-keryx gives this session an address, such as `rev-1`, and a mailbox. Other sessions write to the
+keryx gives this session an address, such as `rev-1.alpha@box1` (member `rev-1` of team `alpha` on
+machine `box1`), and a mailbox. Other sessions write to the
 mailbox; a bell, a line starting with `[keryx]`, tells you something arrived. The bell never carries
 the message itself: open it with keryx.
 
 ## Join first
 
-Run `keryx join NAME` once, with the name the user or the orchestrating session gave you, for
-example `keryx join rev-1 --role reviewer`. Until you join, keryx refuses to send on your behalf.
-`keryx whoami` shows your address.
+Run `keryx join MEMBER.TEAM` once, with the name the user or the orchestrating session gave you,
+for example `keryx join rev-1.alpha --role reviewer`. Until you join, keryx refuses to send on your
+behalf. `keryx whoami` shows your address, and the session address that reaches this session alone.
 
 ## When the bell rings
 
@@ -43,9 +44,14 @@ working on it.
 - When a session you started with `keryx spawn` stops at a dialog, keryx sends you a message with
   the dialog's text. Read it and take it to your human, and answer the dialog with
   `herdr pane send-keys` only on their word.
-- An address on another machine is `NAME@HOST`, such as `port@zeus`. HOST is that machine's keryx
-  name (`KERYX_HOST` when set there, else `host` in its `~/.config/keryx/config`, else its short
-  hostname), and it must be the name ssh reaches that machine by from here. Mail to it goes over
+- Within your team, a bare member such as `orq` is enough; `MEMBER.TEAM` names a member of another
+  team on this machine. A person at a terminal is `NAME.local`, and `keryx.system` is keryx itself.
+- If another session took your address with `join --force`, you keep your session address,
+  `MEMBER.TEAM@HOST/SESSION`, until you leave: your inbox lists only mail to it, and you still open
+  by id, reply to and finish the requests you took before.
+- An address on another machine is `MEMBER.TEAM@HOST`, such as `port.ops@zeus`. HOST is that
+  machine's keryx name (`KERYX_HOST` when set there, else `host` in its `~/.config/keryx/config`,
+  else its short hostname), and it must be the name ssh reaches that machine by from here. Mail to it goes over
   SSH, and when that machine is unreachable it waits and goes out later; `keryx status` shows it.
 - `keryx who` lists the addresses on this machine that have a session or mail, whether a session
   holds each one, and how many tokens of context each session uses, your own included.

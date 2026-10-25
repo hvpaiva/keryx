@@ -9,10 +9,24 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - Addresses that outlive sessions, claimed with `keryx join` and released with `keryx leave`, or
-  with `keryx leave --as NAME` once the session holding one ended without leaving, for Claude Code,
-  Codex and Cursor sessions and any agent in a herdr pane.
-- Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks, and each
-  message stored once however often it arrives.
+  with `keryx leave --as ADDRESS` once the session holding one ended without leaving, for Claude
+  Code, Codex and Cursor sessions and any agent in a herdr pane.
+- Team addresses, `MEMBER.TEAM@HOST`. A bare `MEMBER` names one of the sender's team and
+  `MEMBER.TEAM` one on this machine; a sender with no team names a bare member only when one team
+  here has it, and is told the matches otherwise. Two scopes are reserved: `NAME.local` is a person
+  at a terminal and `keryx.system` is keryx's own notices.
+- Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
+  session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
+  opens by id and answers the requests it took before. `who` and `status` list a displaced session
+  at its session address beside the address, `whoami` gives the session address of the session
+  that runs it, and their JSON gives `member`, `team`, `host` and `session_address`.
+- Message format 2, for team and session addresses. Addresses from before team names finish their
+  open threads in format 1 and start no new work, and a machine that runs an older keryx refuses
+  format 2 for good, with the reason in the sender's error, or in `keryx status` for a message
+  that waited in the outbox.
+- Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks but around
+  mail to a session address and the context notices, and each message stored once however often it
+  arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents
   can write to the person at the keyboard before that person has used keryx.
 - `keryx withdraw`, which closes a request its sender no longer needs answered, including one sent
@@ -24,12 +38,16 @@ All notable changes to this project are documented here. The format follows
 - Mail between machines over SSH, with an outbox that holds it while the other machine is
   unreachable, and `keryx courier`, which forwards it, rings again for bells that did not reach a
   session and tells senders about missed deadlines.
+- Thread order between machines. The outbox sends a machine's messages in id order, and when the
+  other machine cannot store one, the later messages of its thread in the same delivery wait with
+  it and arrive after it, so a reply does not overtake an earlier message of its thread that waits.
 - `~/.config/keryx/config`, whose `host` line names the machine unless `KERYX_HOST` is set.
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
 - `keryx retire`, which retires an address that no live session holds and no open request waits
-  on. It leaves `who` and `status`, mail to it is refused from this machine and from others, and
-  its files stay until `keryx join --revive` takes it back.
+  on. It leaves `who` and `status`, new mail to it is refused from this machine and from others,
+  though the withdrawal of a request that reached it as it was retired still settles that request,
+  and its files stay until `keryx join --revive` takes it back.
 - A short view in `who` and `status`, which leave out the addresses nobody holds and nobody writes
   to and say how many they left out, with `--all` to list every address.
 - The context each session uses in `who` and `status`, and the sender's on each message it sends,

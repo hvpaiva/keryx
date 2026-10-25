@@ -32,8 +32,8 @@ class CourierCommandTest < Minitest::Test
   def test_a_store_problem_is_printed_after_the_round_that_first_saw_it_and_never_again
     first = Keryx::Ulid.generate(NOW)
     later = Keryx::Ulid.generate(NOW + 1)
-    damage('rev-1', first)
-    printed = rounds(3) { damage('rev-1', later) if it == 1 }
+    damage('rev-1.dev', first)
+    printed = rounds(3) { damage('rev-1.dev', later) if it == 1 }
     counts = printed.map { |out| [first, later].map { out.scan("#{it}.json").size } }
 
     assert_equal [[1, 0], [1, 1], [1, 1]], counts
@@ -47,14 +47,14 @@ class CourierCommandTest < Minitest::Test
   end
 
   def test_an_agent_list_of_the_wrong_shape_defers_the_bell_and_the_round_goes_on
-    store.create_address('docs')
-    store.bind('docs', build_occupant(harness: 'cursor', session_id: 'conversation-1', herdr_socket: '/h.sock',
-                                      herdr_pane: 'w1:p1'))
+    store.create_address('docs.dev')
+    store.bind('docs.dev', build_occupant(harness: 'cursor', session_id: 'conversation-1', herdr_socket: '/h.sock',
+                                          herdr_pane: 'w1:p1'))
     rounds = ['[]', 'true', '7', '{"result":[]}', '{"result":{"agents":[true]}}'].map do |answer|
-      request = build_message(to: 'docs@athena', kind: 'request', body: 'Review PR #448')
-      store.deliver('docs', request)
+      request = build_message(to: 'docs.dev@athena', kind: 'request', body: 'Review PR #448')
+      store.deliver('docs.dev', request)
       @herdr = Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr agent list] => { out: answer }))
-      [keryx('courier', '--once').status, store.receipt('docs', request.id, 'bell')&.fetch('status')]
+      [keryx('courier', '--once').status, store.receipt('docs.dev', request.id, 'bell')&.fetch('status')]
     end
 
     assert_equal [[0, Keryx::Bell::DEFERRED]] * 5, rounds
@@ -62,7 +62,7 @@ class CourierCommandTest < Minitest::Test
 
   def test_the_problems_taken_are_not_kept
     app = Keryx::App.new(env: base_env, herdr:, clock:, processes:)
-    damage('rev-1', Keryx::Ulid.generate(NOW))
+    damage('rev-1.dev', Keryx::Ulid.generate(NOW))
     3.times { app.store.all_messages }
 
     assert_equal 1, app.take_problems.size

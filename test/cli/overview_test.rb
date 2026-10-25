@@ -10,8 +10,8 @@ class OverviewTest < Minitest::Test
 
   def setup
     super
-    @orq = join_claude('orq', 111, role: 'orchestrator')
-    @rev = join_claude('rev-1', 222, role: 'reviewer')
+    @orq = join_claude('orq.dev', 111, role: 'orchestrator')
+    @rev = join_claude('rev-1.dev', 222, role: 'reviewer')
   end
 
   def section(output, title)
@@ -19,22 +19,22 @@ class OverviewTest < Minitest::Test
   end
 
   def test_status_shows_addresses_open_requests_and_unrung_bells
-    keryx('ask', 'rev-1', 'Review PR #448', '--within', '10m', env: @orq)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', '--within', '10m', env: @orq)
     sockets.gone << '/tmp/cc-111.sock'
-    keryx('send', 'orq', 'heads-up', env: @rev)
+    keryx('send', 'orq.dev', 'heads-up', env: @rev)
     clock.advance(900)
     output = keryx('status').out
 
     assert_equal [%w[ADDRESS ROLE SESSION ACTIVE CONTEXT UNREAD WAITING],
-                  %w[orq@athena orchestrator live unknown unknown 1 0],
-                  %w[rev-1@athena reviewer live unknown unknown 1 1]], section(output, 'ADDRESSES')
-    assert_equal ['orq@athena', 'rev-1@athena', '15m', 'overdue 5m', 'unread', 'Review PR #448'],
+                  %w[orq.dev@athena orchestrator live unknown unknown 1 0],
+                  %w[rev-1.dev@athena reviewer live unknown unknown 1 1]], section(output, 'ADDRESSES')
+    assert_equal ['orq.dev@athena', 'rev-1.dev@athena', '15m', 'overdue 5m', 'unread', 'Review PR #448'],
                  section(output, 'OPEN REQUESTS')[1][1..]
-    assert_equal %w[orq@athena rev-1@athena failed], section(output, 'NOT RUNG')[1][1..3]
+    assert_equal %w[orq.dev@athena rev-1.dev@athena failed], section(output, 'NOT RUNG')[1][1..3]
   end
 
   def test_a_deadline_reads_as_it_was_set_a_few_seconds_later
-    %w[90s 2m 90m 4h 2d].each { keryx('ask', 'rev-1', "Within #{it}", '--within', it, env: @orq) }
+    %w[90s 2m 90m 4h 2d].each { keryx('ask', 'rev-1.dev', "Within #{it}", '--within', it, env: @orq) }
     clock.advance(5)
     due = -> { section(keryx('status').out, 'OPEN REQUESTS').drop(1).to_h { [it.last, it[4]] } }
 
@@ -46,7 +46,7 @@ class OverviewTest < Minitest::Test
   end
 
   def test_a_reply_closes_the_request
-    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
     keryx('reply', last_id(@rev), 'Done', env: @rev)
     data = JSON.parse(keryx('status', '-o', 'json').out)
 
@@ -55,7 +55,7 @@ class OverviewTest < Minitest::Test
   end
 
   def test_a_read_request_without_a_reply_stays_open
-    keryx('ask', 'rev-1', 'Review PR #448', env: @orq)
+    keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
     keryx('read', env: @rev)
 
     assert_equal(['read'], JSON.parse(keryx('status', '-o', 'json').out)['open_requests'].map { it['state'] })
@@ -63,7 +63,7 @@ class OverviewTest < Minitest::Test
 
   def test_json_output_escapes_the_controls_a_terminal_acts_on_and_still_decodes_to_the_value
     body = "ab\u202Ecd\u202C \u009B2J \u007F \u2066e\u2069 \e[2J"
-    keryx('ask', 'rev-1', body, env: @orq)
+    keryx('ask', 'rev-1.dev', body, env: @orq)
     runs = [keryx('status', '-o', 'json'), *%w[inbox read].map { keryx(it, '-o', 'json', env: @rev) }]
     status, inbox, read = runs.map { JSON.parse(it.out) }
 
@@ -75,9 +75,9 @@ class OverviewTest < Minitest::Test
   end
 
   def test_status_takes_a_damaged_bell_receipt_for_a_bell_never_rung
-    keryx('send', 'rev-1', 'hello', env: @orq)
+    keryx('send', 'rev-1.dev', 'hello', env: @orq)
     id = last_id(@rev)
-    File.write(tmp('state', 'addresses', 'rev-1', 'receipts', "#{id}.bell"), '[]')
+    File.write(tmp('state', 'addresses', 'rev-1.dev', 'receipts', "#{id}.bell"), '[]')
     result = keryx('status', '-o', 'json')
 
     assert_equal 0, result.status
@@ -86,8 +86,8 @@ class OverviewTest < Minitest::Test
   end
 
   def test_a_socket_in_a_mailbox_stops_neither_listing_nor_the_courier
-    keryx('send', 'rev-1', 'readable', env: @orq)
-    UNIXServer.open(tmp('state', 'addresses', 'rev-1', 'mail', "#{Keryx::Ulid.generate}.json")).close
+    keryx('send', 'rev-1.dev', 'readable', env: @orq)
+    UNIXServer.open(tmp('state', 'addresses', 'rev-1.dev', 'mail', "#{Keryx::Ulid.generate}.json")).close
     runs = [keryx('inbox', '-o', 'json', env: @rev), keryx('status'), keryx('courier', '--once')]
 
     assert_equal([0, 0, 0], runs.map(&:status))
@@ -104,20 +104,20 @@ class OverviewTest < Minitest::Test
 
   def test_ring_retries_the_bells_that_did_not_reach_a_session
     sockets.gone << '/tmp/cc-222.sock'
-    keryx('send', 'rev-1', 'one', env: @orq)
+    keryx('send', 'rev-1.dev', 'one', env: @orq)
     clock.advance(1)
-    keryx('send', 'rev-1', 'two', env: @orq)
+    keryx('send', 'rev-1.dev', 'two', env: @orq)
     sockets.gone.clear
     result = keryx('ring')
 
-    assert_match(/\Arev-1@athena +2 unread +rung via claude\n\z/, result.out)
-    assert_match(/\[keryx\] 2 unread messages for rev-1@athena/, sockets.posts.last.last)
+    assert_match(/\Arev-1.dev@athena +2 unread +rung via claude\n\z/, result.out)
+    assert_match(/\[keryx\] 2 unread messages for rev-1.dev@athena/, sockets.posts.last.last)
     assert_empty JSON.parse(keryx('status', '-o', 'json').out)['not_rung']
   end
 
   def test_ring_names_addresses_and_says_when_nothing_is_pending
     assert_equal "Nothing to ring: no address has unread messages.\n", keryx('ring').out
-    assert_match(/no address ghost@athena/, keryx('ring', 'ghost').err)
-    assert_match(/on another machine/, keryx('ring', 'rev-1@zeus').err)
+    assert_match(/no address ghost.dev@athena/, keryx('ring', 'ghost.dev').err)
+    assert_match(/on another machine/, keryx('ring', 'rev-1.dev@zeus').err)
   end
 end

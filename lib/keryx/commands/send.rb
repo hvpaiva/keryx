@@ -14,13 +14,16 @@ module Keryx
                      description: "Send a message that needs no reply, such as a status update or a heads-up.\n\n" \
                                   'The text comes from the argument or from a file with --file, and from standard ' \
                                   'input when either is -. ' \
-                                  "Use ask instead when you need an answer.\n\n" \
+                                  "Use ask instead when you need an answer.\n\n#{ADDRESSING}\n\n" \
                                   '--re ID sends the message to the sender of request ID in your mailbox, in its ' \
                                   'thread, and takes no ADDRESS. It marks the request read and says you took it: ' \
                                   'keryx status shows the request as taken, and the stop hook no longer reminds you ' \
                                   'of it. The request stays open, and its sender keeps waiting, until you answer it ' \
                                   'with keryx reply. A request already answered or withdrawn is refused, and so is ' \
-                                  'an id that is not a request; keryx reply answers any message in its thread.',
+                                  'an id that is not a request; keryx reply answers any message in its thread, ' \
+                                  'except in a thread with an address from before team names, where it answers ' \
+                                  'only the request while it is open and is refused otherwise, on this machine and ' \
+                                  'from another.',
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md'],
                                 ['Say you took a request whose work goes on', 'send --re 01JB8Y2Q "On it, PR by 3pm"']]
@@ -56,7 +59,7 @@ module Keryx
 
       # The request is marked read once the message is posted, so a message that fails leaves it as it was.
       def take(request, text)
-        app.postman.post(sender: app.me, recipient: app.address(request.from), kind: 'message', body: text,
+        app.postman.post(sender: app.me, recipient: Address.parse(request.from), kind: 'message', body: text,
                          reply_to: request).tap { app.store.mark_read(app.me, request.id) }
       end
 

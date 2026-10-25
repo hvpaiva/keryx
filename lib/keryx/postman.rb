@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
+require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'forwarder'
 require_relative 'identity'
 require_relative 'message'
@@ -11,8 +13,11 @@ require_relative 'ulid'
 module Keryx
   class Postman
     Posted = Data.define(:message, :bell, :forward)
+    FLAT_SENDER = '%<address>s is an address from before team names: it finishes its open requests and starts no ' \
+                  "new work; join MEMBER.TEAM for new work, and 'keryx retire %<address>s' once none is open"
+    SESSION_LEFT = 'mail to %<address>s is refused: its session left; write to %<stable>s'
 
-    def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {})
+    def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
       @store = store
       @bell = bell
       @forwarder = forwarder
@@ -20,6 +25,7 @@ module Keryx
       @clock = clock
       @person = person
       @measure = measure
+      @live = live
     end
 
     def self.check_body(body)
@@ -32,17 +38,39 @@ module Keryx
                    'write long content to a file and send its path'
     end
 
+    # A session address takes mail only while its session is bound to the address and runs.
+    def self.session_left(store, address, live)
+      return if address.session.nil? || (store.occupant(address.name) && live.call(address.name))
+
+      format(SESSION_LEFT, address:, stable: address.stable)
+    end
+
+    # leave and join end or move a binding in a hold of the occupants lock, so mail to a session address is written in
+    # the hold that finds its session still bound, and none of them comes between the check and the write.
+    def self.bound(store, address, live)
+      store.with_occupants_lock do
+        left = session_left(store, address, live)
+        raise Error, left if left
+
+        yield
+      end
+    end
+
     # A claim is asked in the same hold of the occupants lock as the write for the id the message goes under, and one
-    # that gives none leaves the message unwritten; the bell and the forward come after the hold.
+    # that gives none leaves the message unwritten; a session address here is checked again in that hold. The bell and
+    # the forward come after the hold.
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
       check_recipient(recipient)
+      check_flat(sender, recipient, reply_to)
       body = Postman.check_body(body)
       context = @measure.call(sender)
       letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
+      check_thread(letter.call(id))
       return post_away(recipient.host, letter, id, claim) unless recipient.local?(@host)
 
-      @store.create_address(recipient.name, role: Identity::HUMAN_ROLE) unless @store.address?(recipient.name)
-      message, stored = write(letter, id, claim) { @store.deliver(recipient.name, it) }
+      name = recipient.key
+      @store.create_address(name, role: Identity::HUMAN_ROLE) unless @store.address?(name)
+      message, stored = held(claim, recipient) { write(letter, id, claim) { @store.deliver(name, it) } }
       return unless message
 
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
@@ -53,13 +81,14 @@ module Keryx
     # The withdrawal goes where the request is, since the request may name this machine by a name it no longer has.
     def withdraw(request, holder:, body:)
       now = @clock.call
+      from, to = [request.from, request.to].map { Address.parse(it) }
       message = Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
                             thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil,
-                            body: Postman.check_body(body), context: @measure.call(request.from.split('@').first))
-      return forward(message, request.to.split('@').last) unless holder
+                            body: Postman.check_body(body), context: @measure.call(from.name))
+      return forward(message, to.host) unless holder
 
       @store.deliver(holder, message)
-      bell = announce(holder, message) unless holder == request.from.split('@').first
+      bell = announce(to.name, message) unless holder == from.key
       Posted.new(message:, bell:, forward: nil)
     end
 
@@ -71,18 +100,23 @@ module Keryx
       Bell::Result.new(status: Bell::FAILED, channel: nil, detail: e.message, at: @clock.call)
     end
 
+    def held(claim, recipient = nil, &)
+      return Postman.bound(@store, recipient, @live, &) if recipient&.session
+      return yield unless claim
+
+      @store.with_occupants_lock(&)
+    end
+
     # The message and what writing it gave, or nil when the claim gave no id.
     def write(letter, id, claim)
       return letter.call(id).then { [it, yield(it)] } unless claim
 
-      @store.with_occupants_lock do
-        claimed = claim.call
-        letter.call(claimed).then { [it, yield(it)] } if claimed
-      end
+      claimed = claim.call
+      letter.call(claimed).then { [it, yield(it)] } if claimed
     end
 
     def post_away(host, letter, id, claim)
-      message, = write(letter, id, claim) { @store.outbox.queue(host, it) }
+      message, = held(claim) { write(letter, id, claim) { @store.outbox.queue(host, it) } }
       forwarded(message, host) if message
     end
 
@@ -106,16 +140,47 @@ module Keryx
     def compose(sender, recipient, kind:, body:, due_at:, reply_to:, id:, context:)
       now = @clock.call
       id ||= Ulid.generate(now)
-      Message.new(id:, kind:, from: "#{sender}@#{@host}", to: recipient.to_s, thread: reply_to&.thread || id,
+      Message.new(id:, kind:, from: from(sender, reply_to), to: recipient.to_s, thread: reply_to&.thread || id,
                   in_reply_to: reply_to&.id, created_at: now, due_at:, body:, context:)
+    end
+
+    # In a thread, any incarnation of the address a message went to writes as the address it went to, so a reply or a
+    # message from a session that join --force displaced still answers or takes the request.
+    def from(sender, reply_to)
+      own = Address.from_name(sender, host: @host)
+      to = reply_to && Address.parse(reply_to.to)
+      (to && to.host == own.host && to.key == own.key ? to : own).to_s
     end
 
     def check_recipient(recipient)
       return unless recipient.local?(@host)
-      raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.name)
-      return if @store.address?(recipient.name) || recipient.name == @person
+      raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.key)
+      raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}" unless
+        @store.address?(recipient.key) || recipient.key == @person
 
-      raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}"
+      left = Postman.session_left(@store, recipient, @live)
+      raise Error, left if left
+    end
+
+    # An address from before team names only finishes its threads. keryx's own notices still reach one that a live
+    # session holds, since they carry no work and that session must not go blind before it moves.
+    def check_flat(sender, recipient, thread)
+      return if thread
+
+      from = Address.from_name(sender, host: @host)
+      raise Error, format(FLAT_SENDER, address: from) if from.flat?
+      return unless recipient.flat?
+      return if sender == Identity::SYSTEM && recipient.local?(@host) && @live.call(recipient.key)
+
+      raise Error, format(FlatRule::RECIPIENT, address: recipient)
+    end
+
+    # In a thread, an address from before team names sends and takes here only what another machine would take.
+    def check_thread(message)
+      return unless message.in_reply_to
+
+      refusal = FlatRule.refusal(@store, message, host: @host)
+      raise Error, refusal if refusal
     end
   end
 end

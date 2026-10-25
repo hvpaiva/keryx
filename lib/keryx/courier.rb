@@ -3,6 +3,8 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'identity'
+require_relative 'postman'
 require_relative 'tokens'
 require_relative 'ulid'
 
@@ -10,7 +12,7 @@ module Keryx
   class Courier
     Round = Data.define(:forwarded, :rung, :overdue, :context, :errors)
     Notice = Data.define(:name, :recipient, :stage, :context, :ceiling)
-    NAME = 'keryx'
+    NAME = Identity::SYSTEM
     OVERDUE_MARK = 'overdue'
     CONTEXT_MARK = 'context'
     CONTEXT_CLAIM = 'context-id'
@@ -60,9 +62,9 @@ module Keryx
       now = @clock.call
       roster.open_requests.filter_map do |_holder, stored|
         request = stored.message
-        sender = Address.parse(request.from, local_host: @host)
-        next unless request.overdue?(now) && sender.local?(@host) && @store.address?(sender.name)
-        next if @store.marked?(sender.name, request.id, OVERDUE_MARK)
+        sender = Address.parse(request.from)
+        next unless request.overdue?(now) && sender.local?(@host) && @store.address?(sender.key)
+        next if @store.marked?(sender.key, request.id, OVERDUE_MARK) || !reachable?(roster, sender)
 
         remind(sender, request)
       end
@@ -90,14 +92,28 @@ module Keryx
 
     # The director recorded at spawn, or else the sender of the oldest request the session still has to answer.
     def recipients(roster, name, occupant)
-      director = Address.new(name: occupant.director, host: @host) if occupant.director
-      director ||= oldest_request(roster, name)&.then { Address.parse(it.from, local_host: @host) }
-      [Address.new(name:, host: @host), director].compact.uniq
+      director = Address.from_name(occupant.director, host: @host) if occupant.director
+      director ||= oldest_request(roster, name)&.then { Address.parse(it.from) }
+      director &&= settled(roster, director)
+      [Address.from_name(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
     end
 
+    # A director that join --force displaced is told at its session address until that session leaves, and then at
+    # the address it was displaced from, whose holder took its work.
+    def settled(roster, address)
+      live = ->(name) { roster.live?(@store.reporting { @store.occupant(name) }) }
+      address.local?(@host) && Postman.session_left(@store, address, live) ? address.stable : address
+    end
+
+    # keryx's notices reach an address from before team names only while a session here holds it.
+    def reachable?(roster, address)
+      !address.flat? || (address.local?(@host) && roster.live?(@store.reporting { @store.occupant(address.key) }))
+    end
+
+    # Only the requests the incarnation lists, so neither the holder nor a displaced session takes the other's work.
     def oldest_request(roster, name)
       @open_requests ||= roster.open_requests
-      @open_requests.filter_map { |holder, stored| stored.message if holder == name }.min_by(&:id)
+      @store.listed(name, @open_requests).map(&:message).min_by(&:id)
     end
 
     # Once per recipient for each join and ceiling, and never nearing the ceiling once told it reached it. The first
@@ -115,7 +131,7 @@ module Keryx
 
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
     rescue Error, SystemCallError => e
-      @errors << "could not tell #{recipient} about the context of #{name}@#{@host}; #{e.message}"
+      @errors << "could not tell #{recipient} about the context of #{full(name)}; #{e.message}"
       nil
     end
 
@@ -155,7 +171,7 @@ module Keryx
       @store.claim(name, mark, CONTEXT_CLAIM, id) { Ulid.valid?(it) }
     rescue Store::Damaged => e
       @store.problems << e.message
-      @errors << "the #{stage} notice of #{name}@#{@host} to #{recipient} writes a fresh id over its damaged claim; " \
+      @errors << "the #{stage} notice of #{full(name)} to #{recipient} writes a fresh id over its damaged claim; " \
                  "#{e.message}"
       @store.reclaim(name, mark, CONTEXT_CLAIM, id)
     end
@@ -168,13 +184,15 @@ module Keryx
       Ulid.after(near)
     rescue Error => e
       @store.problems << e.message
-      @errors << "the ceiling notice of #{name}@#{@host} to #{recipient} takes a fresh id and may sort before the " \
+      @errors << "the ceiling notice of #{full(name)} to #{recipient} takes a fresh id and may sort before the " \
                  "notice near it; #{e.message}"
       nil
     end
 
+    def full(name) = Address.from_name(name, host: @host)
+
     def notice(name, context, ceiling, stage)
-      used = "#{name}@#{@host} has #{Tokens.short(context.used)} tokens of context in use, " \
+      used = "#{full(name)} has #{Tokens.short(context.used)} tokens of context in use, " \
              "#{context.share_of(ceiling)}% of its #{Tokens.short(ceiling)} ceiling."
       return "#{used} It reached its ceiling and should reach a stopping point now." if stage == :ceiling
 
@@ -184,7 +202,7 @@ module Keryx
     def remind(sender, request)
       @postman.post(sender: NAME, recipient: sender, kind: 'message', id: Ulid.derive(request.due_at, request.id),
                     body: "Request #{request.id} to #{request.to} passed its deadline without a reply.")
-      @store.mark_once(sender.name, request.id, OVERDUE_MARK)
+      @store.mark_once(sender.key, request.id, OVERDUE_MARK)
       request
     rescue Error, SystemCallError => e
       @errors << "could not tell #{sender} that #{request.id} is past its deadline; #{e.message}"

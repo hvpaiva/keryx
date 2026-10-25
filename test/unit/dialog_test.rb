@@ -4,7 +4,7 @@ require 'test_helper'
 
 class DialogTest < Minitest::Test
   EXTRA = 'Read docs/brief.md first, keep notes in docs/notes.md, and say what you found and what you could not check.'
-  PROMPT = Keryx::Harness.first_prompt('rev-1@athena', name: 'rev-1', role: 'reviewer', extra: EXTRA)
+  PROMPT = Keryx::Harness.first_prompt('rev-1.dev@athena', name: 'rev-1.dev', role: 'reviewer', extra: EXTRA)
   CORNER = "\u256d"
   BAR = "\u2500"
 

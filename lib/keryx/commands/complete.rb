@@ -76,16 +76,19 @@ module Keryx
         last.end_with?('=') && OPTION_NAME.match?(last.chomp('='))
       end
 
+      # The value of the last --as before the word being completed, or nil while that value is the word.
       def acting_as(words)
         name = nil
         words.each_with_index do |word, index|
           name = words[index + 1] if word == '--as'
           name = word.delete_prefix('--as=') if word.start_with?('--as=')
         end
-        name
+        name unless name.to_s.empty?
       end
 
-      def me = @as || app.me
+      # The incarnation the command acts as, with --as on the line resolved as the command resolves it, so a session
+      # address names the session join --force displaced rather than the holder.
+      def me = @as ? app.identity.current(as: @as) : app.me
 
       def flags(command)
         return GLOBAL_FLAGS unless command
@@ -97,7 +100,7 @@ module Keryx
 
       def value_candidates(option)
         case option
-        when '--as' then app.store.current_names
+        when '--as' then addresses
         when '-o', '--output' then OUTPUTS
         when '--harness' then Harness::KINDS
         when '--split' then Spawn::DIRECTIONS
@@ -111,16 +114,27 @@ module Keryx
         source && (index.zero? || name == 'ring') ? send(source) : []
       end
 
-      def addresses = app.store.current_names
+      # Every address with a team, and the bare members of the team the command acts in, which resolve to it.
+      def addresses
+        named = app.store.current_names.map { Address.from_key(it, host: app.host) }.reject(&:flat?)
+        team = own_team
+        named.select { it.team == team }.map(&:member) + named.map(&:key)
+      end
+
+      def own_team
+        own = (@as ? me : app.own_address)&.then { Address.from_name(it, host: app.host) }
+        own.team unless own.nil? || own.reserved?
+      end
 
       def my_messages
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }
       end
 
-      def my_requests = app.roster.open_requests.filter_map { |holder, stored| stored.message.id if holder == me }
+      def my_requests = app.store.listed(me, app.roster.open_requests).map { it.message.id }
 
       def my_open_requests
-        app.store.sent_requests(me).map { it.last.id } & app.roster.open_requests.map { it.last.message.id }
+        open = app.roster.open_requests.map { it.last.message.id }
+        app.store.sent_requests(me, by_id: false).map { it.last.id } & open
       end
 
       def shells = Completion::SHELLS
