@@ -49,19 +49,28 @@ class ResolverTest < Minitest::Test
     assert_equal 'rev-1 matches rev-1.alpha@box1 and rev-1.beta@box1; name the team, as rev-1.alpha', error.message
   end
 
-  def test_no_match_says_how_to_name_the_team
-    error = assert_raises(Keryx::Error) { resolve('rev-1', sender: 'person.local') }
-    assert_equal 'no address rev-1.TEAM on box1; name the team, as rev-1.TEAM', error.message
+  def test_no_match_is_an_address_from_before_team_names
+    assert_equal 'rev-1@box1', resolve('rev-1', sender: 'person.local')
   end
 
-  def test_a_retired_address_and_one_from_before_team_names_are_no_match
+  def test_a_current_address_from_before_team_names_comes_before_a_team_for_a_sender_with_no_team
     store.create_address('rev-1.alpha')
-    store.retire('rev-1.alpha', by: 'person.local@box1', now: Time.now)
-    FileUtils.mkdir_p(tmp('state', 'addresses', 'rev-1'))
-    File.write(tmp('state', 'addresses', 'rev-1', 'address.json'),
-               '{"name":"rev-1","created_at":"2026-10-23T00:00:00Z"}')
+    store.create_address('rev-1')
 
-    assert_raises(Keryx::Error) { resolve('rev-1', sender: 'person.local') }
+    [nil, 'person.local', 'orq'].each { assert_equal 'rev-1@box1', resolve('rev-1', sender: it), it.inspect }
+
+    assert_equal 'rev-1.beta@box1', resolve('rev-1', sender: 'orq.beta')
+  end
+
+  def test_a_retired_address_from_before_team_names_leaves_the_name_to_the_one_team_with_it
+    store.create_address('rev-1.alpha')
+    store.create_address('rev-1')
+    store.retire('rev-1', by: 'person.local@box1', now: Time.now)
+
+    assert_equal 'rev-1.alpha@box1', resolve('rev-1', sender: 'orq')
+    store.retire('rev-1.alpha', by: 'person.local@box1', now: Time.now)
+
+    assert_equal 'rev-1@box1', resolve('rev-1', sender: 'orq')
   end
 
   def test_an_address_without_a_team_is_taken_whole

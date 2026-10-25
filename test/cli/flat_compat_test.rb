@@ -152,4 +152,79 @@ class FlatCompatTest < Minitest::Test
     assert_equal [0, ''], [rung.status, rung.err]
     assert_equal '/tmp/cc-222.sock', sockets.posts.last.first
   end
+
+  def test_an_unjoined_session_joins_a_new_flat_address_by_its_bare_name
+    alive << 111
+    joined = keryx('join', 'cp-rev-3', env: claude(111))
+
+    assert_equal [0, ''], [joined.status, joined.err]
+    assert_match(/\AJoined cp-rev-3@athena as a claude session/, joined.out)
+  end
+
+  def test_a_flat_sender_names_a_flat_address_by_its_bare_name_before_a_team_one
+    orq = held('orq', 111)
+    unheld('nomos')
+    join_claude('nomos.dev', 222)
+    sent = keryx('send', 'nomos', 'hello', env: orq)
+    retired = keryx('retire', 'nomos', env: orq)
+    moved = keryx('send', 'nomos', 'moved', env: orq)
+    none = keryx('send', 'plat', 'hello', env: orq)
+
+    assert_equal([[0, '']] * 3, [sent, retired, moved].map { [it.status, it.err] })
+    assert_equal([['hello'], ['moved']], %w[nomos nomos.dev].map { |name| store.mailbox(name).map { it.message.body } })
+    assert_equal "error: no address plat@athena; 'keryx who' lists the addresses on athena\n", none.err
+  end
+
+  def test_a_team_sender_names_its_own_team_by_a_bare_name_and_a_flat_address_in_full
+    rev = join_claude('rev-1.dev', 222)
+    unheld('orq')
+    bare = keryx('send', 'orq', 'hello', env: rev)
+    full = keryx('send', 'orq@athena', 'hello', env: rev)
+
+    assert_equal "error: no address orq.dev@athena; 'keryx who' lists the addresses on athena\n", bare.err
+    assert_equal [0, ''], [full.status, full.err]
+  end
+
+  # As the page of a person does: --as with the bare name from a process with no session and no USER.
+  def test_a_page_acts_as_a_flat_address_by_its_bare_name_with_no_session_and_no_user
+    unheld('hvpaiva')
+    rev = join_claude('rev-1.dev', 222)
+    keryx('ask', 'hvpaiva@athena', 'Approve the plan?', env: rev)
+    page = ->(*argv, input: '') { keryx('--as', 'hvpaiva', *argv, env: { 'USER' => nil }, input:) }
+    whoami, inbox, status, who = [%w[whoami], %w[inbox --all], %w[status], %w[who]].map do |argv|
+      JSON.parse(page.call(*argv, '-o', 'json').out)
+    end
+    id = inbox.first['id']
+
+    assert_equal ['hvpaiva@athena', [['Approve the plan?', 'hvpaiva@athena']]],
+                 [whoami['address'], inbox.map { it.values_at('body', 'to') }]
+    assert_equal([id], status['open_requests'].select { it['to'] == 'hvpaiva@athena' }.map { it['id'] })
+    assert_includes who['addresses'].map { it['address'] }, 'hvpaiva@athena'
+    assert_equal 'Approve the plan?', JSON.parse(page.call('read', id, '-o', 'json').out)['body']
+  end
+
+  def test_a_page_answers_and_writes_as_a_flat_address_with_its_text_on_standard_input
+    unheld('hvpaiva')
+    rev = join_claude('rev-1.dev', 222)
+    keryx('ask', 'hvpaiva@athena', 'Approve the plan?', env: rev)
+    id = JSON.parse(keryx('inbox', '-o', 'json', '--as', 'hvpaiva').out).first['id']
+    page = ->(*argv, text) { keryx(*argv, '--file', '-', env: { 'USER' => nil }, input: text) }
+    sent = [page.call('--as', 'hvpaiva', 'reply', id, 'Approved'),
+            page.call('--as', 'hvpaiva', 'send', 'rev-1.dev@athena', 'FYI'),
+            page.call('--as', 'hvpaiva@athena', 'ask', 'rev-1', '--within', '30m', 'Status?')]
+
+    assert_equal([[0, true]] * 3, sent.map { [it.status, it.out.match?(/\b[0-9A-HJKMNP-TV-Z]{26}\b/)] })
+    assert_equal([%w[hvpaiva@athena message], %w[hvpaiva@athena reply], %w[hvpaiva@athena request]],
+                 store.mailbox('rev-1.dev').map { [it.message.from, it.message.kind] }.sort)
+  end
+
+  def test_completion_lists_flat_addresses_beside_team_ones
+    orq = held('orq', 111)
+    join_claude('rev-1.dev', 222)
+
+    assert_equal %w[orq rev-1.dev], complete_words('send', '', env: orq)
+    assert_equal %w[orq rev-1.dev], complete_words('--as', '')
+  end
+
+  def complete_words(*words, env: {}) = keryx('__complete', *words, env:).out.lines(chomp: true)
 end
