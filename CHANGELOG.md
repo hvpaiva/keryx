@@ -17,8 +17,9 @@ All notable changes to this project are documented here. The format follows
   at a terminal and `keryx.system` is keryx's own notices.
 - Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
   session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
-  opens by id and answers the requests it took before. `who`, `status` and `whoami` show both, and
-  their JSON gives `member`, `team`, `host` and `session_address`.
+  opens by id and answers the requests it took before. `who` and `status` list a displaced session
+  at its session address beside the address, `whoami` gives the session address of the session
+  that runs it, and their JSON gives `member`, `team`, `host` and `session_address`.
 - Message format 2, for team and session addresses. Addresses from before team names finish their
   open threads in format 1 and start no new work, and a machine that runs an older keryx refuses
   format 2 for good, with the reason in the sender's error, or in `keryx status` for a message
