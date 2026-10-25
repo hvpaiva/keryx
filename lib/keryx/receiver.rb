@@ -22,7 +22,8 @@ module Keryx
       @store = store
       @bell = bell
       @host = host
-      @person = person
+      # The name of the person at this terminal, or its names, which mail may go to before the person has an address.
+      @people = Array(person)
       @live = live
     end
 
@@ -102,7 +103,7 @@ module Keryx
       return "#{message.to} is not on #{@host}" unless to.local?(@host)
       return "#{message.from} is on #{@host} and cannot arrive from another machine" if from.local?(@host)
       return retired(message, to) if @store.retired?(to.key)
-      return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
+      return "no address #{message.to}" unless @store.address?(to.key) || @people.include?(to.key)
 
       Postman.session_left(@store, to, @live)
     end

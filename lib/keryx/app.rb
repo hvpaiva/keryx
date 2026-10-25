@@ -71,11 +71,11 @@ module Keryx
     def forwarder = @forwarder ||= Forwarder.new(store:, remote:, clock:)
 
     def postman
-      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name,
+      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.people,
                                measure: ->(name) { context_of(name) }, live:)
     end
 
-    def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name, live:)
+    def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.people, live:)
 
     # Whether the session of the incarnation NAME runs.
     def live = ->(name) { roster.live?(store.reporting { store.occupant(name) }) }
@@ -107,8 +107,7 @@ module Keryx
     def own_address
       return me if @as
 
-      person = identity.human_name
-      identity.held || (person if !caller.agent? && store.address?(person))
+      identity.held || (identity.terminal unless caller.agent?)
     end
 
     # The occupant this session records, with the harness process it runs in so that the bell can tell it apart.
