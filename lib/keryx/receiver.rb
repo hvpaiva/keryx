@@ -87,9 +87,18 @@ module Keryx
     # refusal, so the sender keeps the message and sends it again.
     def deliver(to, message)
       @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
-      return @store.deliver(to.key, message) unless to.session
+      return @store.deliver(to.key, message) unless bound?(message, to)
 
       Postman.bound(@store, to, @live) { @store.deliver(to.key, message) }
+    end
+
+    # Mail to a session address waits for its session, but the withdrawal of a request the mailbox holds is written with
+    # neither the check nor the lock, as Postman#withdraw writes one here, so its sender stops waiting; once the session
+    # left, the holder of the address reads it.
+    def bound?(message, to) = !to.session.nil? && !withdraws_held?(message, to)
+
+    def withdraws_held?(message, to)
+      message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }
     end
 
     def ring(name, message)
@@ -105,12 +114,12 @@ module Keryx
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || @people.include?(to.key)
 
-      Postman.session_left(@store, to, @live)
+      Postman.session_left(@store, to, @live) if bound?(message, to)
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
     def retired(message, to)
-      return if message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }
+      return if withdraws_held?(message, to)
 
       format(Retirement::RETIRED, to)
     end
