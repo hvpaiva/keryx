@@ -92,10 +92,14 @@ module Keryx
       Postman.bound(@store, to, @live) { @store.deliver(to.key, message) }
     end
 
-    # Mail to a session address waits for its session, but the withdrawal of a request the mailbox holds is written with
-    # neither the check nor the lock, as Postman#withdraw writes one here, so its sender stops waiting; once the session
-    # left, the holder of the address reads it.
-    def bound?(message, to) = !to.session.nil? && !withdraws_held?(message, to)
+    # Mail to a session address waits for its session, but two kinds are written with neither the check nor the lock,
+    # and once the session left, the holder of the address reads them: the withdrawal of a request the mailbox holds,
+    # as Postman#withdraw writes one here, so its sender stops waiting, and a notice from keryx on the sending machine,
+    # which can tell only its own sessions apart. The sender's address is the one the message gives, since keryx
+    # trusts SSH between machines, and such a message could reach the holder at the stable address all the same.
+    def bound?(message, to) = !to.session.nil? && !notice?(message) && !withdraws_held?(message, to)
+
+    def notice?(message) = Address.parse(message.from).key == Identity::SYSTEM
 
     def withdraws_held?(message, to)
       message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }

@@ -65,8 +65,8 @@ from here. Because no ordinary mailbox operation has to change two files togethe
 and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
 decision, which takes `outcomes.lock`, as the forwarding section explains, writing a context
 notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
-session address, which takes it too unless it is the withdrawal of a request that mailbox holds, as
-the section on delivery explains. A change of occupants
+session address, which takes it too unless it is the withdrawal of a request that mailbox holds or a
+notice from keryx on another machine, as the section on delivery explains. A change of occupants
 takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
@@ -303,7 +303,11 @@ it into the mailbox that holds its request, and `Receiver` writes one from anoth
 that mailbox holds the request, both with neither the check nor the lock, whether or not the session
 is still there and whether or not the address was retired since. Once the session left, the holder
 of the address reads it, as it reads all mail to a session that left, and the bell finds no session
-to ring. An address from before team
+to ring. A notice from keryx on another machine, such as the ceiling notice to a director there, is
+written the same way, since the courier that sends it cannot tell whether the session it goes to
+still runs. `Receiver` takes the sender's address from the message, as keryx trusts SSH between
+machines, so a message that names `keryx.system` gets in this way, but it could reach the holder at
+the stable address all the same. An address from before team
 names works as it did then, beside team addresses. It is created by join, spawn and the first mail
 to the person it names, sends and receives new work here and from another machine, and is written
 as a keryx from before team names wrote it, so that keryx still reads its record and the format 1
@@ -334,7 +338,8 @@ own host, one for an address it lacks (but not the address its own terminal acts
 `USER` in the SSH session, which it creates as it stores the message), one for a retired address,
 with a detail that says it is retired, so the sender's `keryx status` shows why, and one for a session
 address whose session left, with a detail that names the stable address. The withdrawal of a request
-the mailbox holds is refused for neither, as the section on delivery says. It stores the rest under
+the mailbox holds is refused for neither, and a notice from keryx is not refused for a session that
+left, as the section on delivery says. It stores the rest under
 their ids, rings the local session and prints a receipt for each. The sender then records the outcome and moves the message to
 `cur/` or `refused/` by the outcome that stayed. The outcome is written before the move and its
 first decision stays, so an attempt that fails or hears otherwise after another one settled the
@@ -499,10 +504,9 @@ the ones to its session address, so neither it nor the holder takes the sender o
 spawned from a displaced session is recorded as `KEY/SESSION` and told there while that session is bound and runs,
 and at the stable address once it left, since the holder took its work; a director taken from the oldest request
 falls back the same way when it is on this machine. One on another machine is told at the address it wrote from, since
-only a session here can be checked, and once that session has left, the other machine refuses the notice, as other
-mail to it, so neither that session nor the holder there is told. The courier then reports that it could not tell it
-and tries again in each round, or, when the notice waited in the outbox, counts it as told and `keryx status` shows it
-refused once it arrives. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
+only a session here can be checked, and that machine, which can check its own sessions, takes a notice from keryx at a
+session address whatever the state of its session, as the section on delivery says: the session reads it while it is
+bound and runs, and the holder there once it left, whether the notice went at once or waited in the outbox. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
 `receipts/`, so a session that joins again or gets another ceiling can be told again; a recipient the post failed
 for is tried again alone in the next round. A session first seen at or past the ceiling is told only that it
 reached it, and the comparison uses whole numbers.
