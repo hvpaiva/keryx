@@ -159,8 +159,10 @@ module Keryx
     # A session that joined the address while the figure was read is not the session the figure belongs to.
     def same_join?(current, occupant) = current && JOIN.all? { current.public_send(it) == occupant.public_send(it) }
 
+    # Keyed on the join itself, so two joins that share an instant and a ceiling are two.
     def context_mark(occupant, stage, recipient)
-      Ulid.derive(occupant.joined_at, "context #{stage} #{occupant.ceiling} #{recipient}")
+      join = [*JOIN.map { occupant.public_send(it) }, occupant.session].join(' ')
+      Ulid.derive(occupant.joined_at, "context #{stage} #{recipient} #{join}")
     end
 
     # Asked in the post's hold of the occupants lock, and none for a notice no longer due. A ceiling's id sorts after
