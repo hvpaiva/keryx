@@ -52,6 +52,16 @@ class MigrationTest < Minitest::Test
     Dir[tmp('state', 'addresses', name, 'mail', '*.json')].map { JSON.parse(File.read(it))['keryx'] }
   end
 
+  def test_who_and_status_give_a_flat_address_no_team_and_no_session_address
+    held('orq', 111)
+    unheld('person')
+    fields = %w[address member team host session_address]
+    rows = %w[who status].map { |command| JSON.parse(keryx(command, '--all', '-o', 'json').out)['addresses'] }
+
+    assert_equal([[['orq@athena', 'orq', nil, 'athena', nil], ['person@athena', 'person', nil, 'athena', nil]]] * 2,
+                 rows.map { |records| records.map { it.values_at(*fields) } })
+  end
+
   def test_new_mail_to_a_flat_address_is_refused_with_the_spelling_to_use
     orq = join_claude('orq.dev', 111)
     unheld('person')

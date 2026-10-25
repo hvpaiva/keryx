@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/activity_view'
+require_relative '../cli/address_view'
 require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/message_view'
@@ -109,11 +110,10 @@ module Keryx
       end
 
       def address_record(entry, waiting)
-        { 'address' => app.full(entry.name), 'role' => entry.role, 'session' => entry.session,
-          'last_activity' => CLI::ActivityView.record(app, entry),
+        { 'address' => app.full(entry.name), **CLI::AddressView.record(app, entry.name, entry.occupant),
+          'role' => entry.role, 'session' => entry.session, 'last_activity' => CLI::ActivityView.record(app, entry),
           'context' => CLI::ContextView.record(app, entry), 'ceiling' => entry.occupant&.ceiling,
-          'unread' => entry.unread,
-          'waiting' => waiting.fetch(entry.name, 0) }
+          'unread' => entry.unread, 'waiting' => waiting.fetch(entry.name, 0) }
       end
 
       def request_record(stored)

@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../cli/address_view'
 require_relative '../cli/command'
 
 module Keryx
@@ -20,18 +21,13 @@ module Keryx
         name = app.me
         record = app.store.address(name)
         occupant = app.store.occupant(name)
-        data = { 'address' => app.full(name), 'session_address' => session_address(name, occupant),
-                 'role' => record&.role, 'unread' => app.store.unread(name).size, 'session' => occupant&.record }
+        data = { 'address' => app.full(name), **CLI::AddressView.record(app, name, occupant), 'role' => record&.role,
+                 'unread' => app.store.unread(name).size, 'session' => occupant&.record }
         json? ? print_json(data) : show(data, occupant)
         nil
       end
 
       private
-
-      def session_address(name, occupant)
-        address = Address.from_name(name, host: app.host)
-        address.with(session: occupant.session).to_s if occupant&.session && !address.flat?
-      end
 
       def show(data, occupant)
         terminal.puts(terminal.paint(:address, data['address']))

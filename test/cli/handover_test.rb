@@ -130,6 +130,20 @@ class HandoverTest < Minitest::Test
     assert_equal ['orq.dev@athena', 'rev-1.dev@athena', old_address], addresses(status)
   end
 
+  def test_who_status_and_whoami_spell_out_member_team_host_and_session_address_in_json
+    take_over
+    fields = %w[address member team host session_address]
+    rows = %w[who status].map { |command| JSON.parse(keryx(command, '-o', 'json').out)['addresses'] }
+    sessions = %w[orq.dev rev-1.dev].map { store.occupant(it).session }
+    expected = [['orq.dev@athena', 'orq', 'dev', 'athena', "orq.dev@athena/#{sessions.first}"],
+                ['rev-1.dev@athena', 'rev-1', 'dev', 'athena', "rev-1.dev@athena/#{sessions.last}"],
+                [old_address, 'rev-1', 'dev', 'athena', old_address]]
+
+    assert_equal([expected] * 2, rows.map { |records| records.map { it.values_at(*fields) } })
+    assert_equal expected.last, JSON.parse(keryx('whoami', '-o', 'json', env: @old).out).values_at(*fields)
+    assert_equal 'live', rows.first.last['session']
+  end
+
   def test_a_refresh_keeps_the_session_and_each_join_draws_a_new_one
     keryx('whoami', env: @old.merge('CLAUDE_CODE_MESSAGING_SOCKET' => '/tmp/cc-222-new.sock'))
     refreshed = store.occupant('rev-1.dev')
