@@ -110,13 +110,10 @@ module Keryx
       !address.flat? || (address.local?(@host) && roster.live?(@store.reporting { @store.occupant(address.key) }))
     end
 
-    # The address's key holds the requests of all its incarnations, and those the incarnation NAME sees are its own.
+    # Only the requests the incarnation lists, so neither the holder nor a displaced session takes the other's work.
     def oldest_request(roster, name)
       @open_requests ||= roster.open_requests
-      key = Address.from_name(name, host: @host).key
-      own = @store.sees(name)
-      @open_requests.filter_map { |holder, stored| stored.message if holder == key && own.call(stored.message) }
-                    .min_by(&:id)
+      @store.listed(name, @open_requests).map(&:message).min_by(&:id)
     end
 
     # Once per recipient for each join and ceiling, and never nearing the ceiling once told it reached it. The first

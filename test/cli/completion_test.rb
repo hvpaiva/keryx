@@ -93,6 +93,28 @@ class CompletionTest < Minitest::Test
     assert_equal theirs, complete('read', '--as=rev-1', '')
   end
 
+  # Each incarnation has a request in its mailbox and one it asked, which only it lists.
+  def test_ids_complete_for_the_incarnation_that_as_names
+    orq = join_claude('orq.dev', 111)
+    join_claude('rev-1.dev', 222)
+    session = store.occupant('rev-1.dev').session
+    alive << 333
+    keryx('join', 'rev-1.dev', '--force', env: claude(333))
+    asked = ->(to, env) { keryx('ask', to, 'Review it', env:).out[/\((\w{26})\)/, 1].tap { clock.advance(1) } }
+    incarnations = { "rev-1.dev@athena/#{session}" => claude(222), 'rev-1.dev' => claude(333) }.to_h do |as, env|
+      [as, [asked.call(as, orq), asked.call('orq', env)]]
+    end
+
+    commands = [%w[read], %w[reply], %w[send --re], %w[wait], %w[withdraw]]
+
+    incarnations.each do |as, (received, sent)|
+      listed = commands.map { complete('--as', as, *it, '') }
+
+      assert_equal [[received], [received], [received], [sent], [sent]], listed, as
+    end
+    assert_equal [incarnations.values.first.first], complete('read', "--as=rev-1.dev/#{session}", '')
+  end
+
   def test_words_bash_splits_at_an_equals_sign_complete_as_one
     join_claude('rev-1.dev', 222)
     keryx('send', 'rev-1.dev', 'for rev-1')

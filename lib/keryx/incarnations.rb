@@ -44,10 +44,19 @@ module Keryx
       ->(message) { targets.include?(session_of.call(message)) }
     end
 
-    # The requests sent from here by the address of NAME that the incarnation NAME opens by id, with where each is.
-    def sent_requests(name)
+    # Of HELD, pairs of the address that holds a message and the message, the stored messages the incarnation NAME
+    # lists. The address's key holds the mail of every incarnation.
+    def listed(name, held)
       key, = split(name)
-      sent = sees(name, by_id: true, side: :from)
+      seen = sees(name)
+      held.filter_map { |holder, stored| stored if holder == key && seen.call(stored.message) }
+    end
+
+    # The requests sent from here by the address of NAME that the incarnation NAME opens by id, or lists when BY_ID is
+    # false, with where each is.
+    def sent_requests(name, by_id: true)
+      key, = split(name)
+      sent = sees(name, by_id:, side: :from)
       all_messages.filter_map do |holder, stored|
         request = stored.message
         [holder, request] if request.request? && Store.sender_here(holder, request) == key && sent.call(request)

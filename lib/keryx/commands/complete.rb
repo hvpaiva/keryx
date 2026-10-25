@@ -85,7 +85,9 @@ module Keryx
         name
       end
 
-      def me = @as ? app.address(@as, flat: true).key : app.me
+      # The incarnation the command acts as, with --as on the line resolved as the command resolves it, so a session
+      # address names the session join --force displaced rather than the holder.
+      def me = @as ? app.identity.current(as: @as) : app.me
 
       def flags(command)
         return GLOBAL_FLAGS unless command
@@ -127,10 +129,11 @@ module Keryx
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }
       end
 
-      def my_requests = app.roster.open_requests.filter_map { |holder, stored| stored.message.id if holder == me }
+      def my_requests = app.store.listed(me, app.roster.open_requests).map { it.message.id }
 
       def my_open_requests
-        app.store.sent_requests(me).map { it.last.id } & app.roster.open_requests.map { it.last.message.id }
+        open = app.roster.open_requests.map { it.last.message.id }
+        app.store.sent_requests(me, by_id: false).map { it.last.id } & open
       end
 
       def shells = Completion::SHELLS
