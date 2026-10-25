@@ -74,6 +74,18 @@ class RetireTest < Minitest::Test
     assert_equal 2, keryx('retire').status
   end
 
+  def test_retire_takes_the_address_itself_and_refuses_one_session_of_it
+    session = store.occupant('rev-1.dev').session
+    live = keryx('retire', "rev-1.dev@athena/#{session}")
+    keryx('leave', env: @rev)
+    left = keryx('retire', "rev-1.dev/#{session}")
+    refusal = "error: rev-1.dev@athena/#{session} is one session of rev-1.dev@athena, and retire takes only the " \
+              "address itself\n"
+
+    assert_equal([[1, refusal]] * 2, [live, left].map { [it.status, it.err] })
+    refute store.retired?('rev-1.dev')
+  end
+
   def test_retire_keeps_the_files_and_says_where_they_are
     keryx('send', 'rev-1.dev', 'heads-up', env: @orq)
     alive.delete(222)

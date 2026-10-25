@@ -14,7 +14,9 @@ module Keryx
                                     'answer or one it sent waits for a reply. The refusal names each request and ' \
                                     "the command that settles it, such as 'keryx reply ID --as ADDRESS'. A " \
                                     'session that join --force displaced from the address holds it too until it ' \
-                                    "leaves.\n\n#{ADDRESSING}\n\n" \
+                                    "leaves.\n\n#{ADDRESS_FORMS} retire takes only the address itself, and " \
+                                    'refuses ADDRESS/SESSION, one session of it, with the address to give ' \
+                                    "instead.\n\n" \
                                     'Once retired, the address is gone from keryx who and keryx status, even with ' \
                                     '--all, mail to it is refused, from this machine and from others, and no ' \
                                     'command acts as it with --as. Its files stay where they were, under ' \
@@ -40,6 +42,9 @@ module Keryx
 
       def local_name(text)
         address = app.address(text, flat: true)
+        if address.session
+          raise Error, "#{address} is one session of #{address.stable}, and retire takes only the address itself"
+        end
         return address.key if address.local?(app.host)
 
         raise Error, "retire runs on the machine that holds the address; run 'keryx retire #{address.key}' on " \

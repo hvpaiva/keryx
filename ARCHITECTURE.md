@@ -186,7 +186,9 @@ stable address as well, which holds the work it took before; it never opens anot
 The holder sees everything else, including the mail to a session that left. In a thread, any
 incarnation of the address a message went to writes as that address, so a displaced session's reply
 still settles a request sent to the stable address. A join drops the displaced records whose session
-no longer runs, and retire refuses while a displaced session runs.
+no longer runs, and retire refuses while a displaced session runs. retire takes only the stable
+address, since retiring ends the address for every session, and refuses a session address with the
+stable one to give instead.
 
 ## Delivery
 
