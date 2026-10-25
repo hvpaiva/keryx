@@ -24,6 +24,7 @@ outbox/HOST/cur/               messages the other machine took
 outbox/HOST/refused/           messages the other machine refused
 outbox/HOST/receipts/          forwarding attempts and outcomes, one file each per message
 outbox/HOST/outcomes.lock      locked while a command replaces an outcome that holds no decision
+outbox/HOST/thread.lock        locked while a command queues a message of a thread for HOST
 ```
 
 KEY is the address without its host, `MEMBER.TEAM` for a team address or the bare `NAME` of an
@@ -63,8 +64,9 @@ of former names: only this machine writes its outbox, and a message from another
 its recipient's host, so a request in a mailbox whose sender and recipient share a host was sent
 from here. Because no ordinary mailbox operation has to change two files together, none takes a lock
 and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
-decision, which takes `outcomes.lock`, as the forwarding section explains, writing a context
-notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
+decision, which takes `outcomes.lock`, as the forwarding section explains, writing a message of a
+thread for another machine, which takes `thread.lock` in that machine's outbox, as the same section
+explains, writing a context notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
 session address, which takes it too unless it is the withdrawal of a request that mailbox holds or a
 notice from keryx on another machine, as the section on delivery explains. A change of occupants
 takes a lock too, as the next section explains.
@@ -348,13 +350,18 @@ Only an outcome file that holds no decision is written again, under `outcomes.lo
 repair keeps the first. Without a receipt the message stays in `new/`, and another file in
 `receipts/` counts the attempts.
 
-The forwarder sends a host's queue in id order, the order its messages were written in to the
-millisecond, and the receiver takes the batch in that order. Once a message of a thread fails there,
-on a write error or a lock another command keeps, the receiver answers failed for each later message
-of that thread in the batch without writing it, so they all wait for the next round and arrive in
-order, and a reply never ends a thread ahead of a message written before it. Two messages of a
-thread written in the same millisecond go in the order of the random part of their ids, and a clock
-set back between two writes can swap them too, so either can still put a reply first.
+The forwarder sends a host's queue in id order, and the receiver takes the batch in that order. A
+message of a thread for another host is queued in a hold of `outbox/HOST/thread.lock`, under an id
+that sorts after the last message of its thread still in `new/`, so the messages of a thread go in
+the order they were written even within one millisecond or across a clock set back. Only `new/`
+counts, since a message that left it arrived or was refused, and the next one goes after it
+whatever its id; reading `cur/` too would read every message ever forwarded for each one written.
+A message that starts a thread, such as a request or a notice, takes no lock. Once a message of a
+thread fails there, on a write error or a lock another command keeps, the receiver answers failed
+for each later message of that thread in the batch without writing it, so they all wait for the
+next round and arrive in order, and a reply never ends a thread ahead of a message written before
+it. Mail written on this machine is not ordered that way, so a reply written here in the
+millisecond of an earlier message of its thread can list before it in the recipient's inbox.
 
 The outbox counts with the mailboxes when keryx decides what is answered or withdrawn, so the machine that
 answers closes a request as soon as the reply is written, and the sender's machine once the reply arrives; a

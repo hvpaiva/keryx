@@ -10,6 +10,22 @@ class OutboxTest < Minitest::Test
 
   def outbox = store.outbox
 
+  # Only the messages of the same thread still waiting in new/ count.
+  def test_a_message_of_a_thread_gets_the_last_id_of_its_thread_still_queued
+    first = build_message(to: 'port.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW + 2))
+    sent = build_message(to: 'port.dev@zeus', thread: first.thread, id: Keryx::Ulid.generate(NOW + 3))
+    other = build_message(to: 'port.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW + 9))
+    [first, sent, other].each { outbox.queue('zeus', it) }
+    outbox.settle('zeus', sent.id, :forwarded)
+    seen = []
+    queued = [first.thread, Keryx::Ulid.generate(NOW + 20)].map do |thread|
+      outbox.queue_in_thread('zeus', thread) { (seen << it).then { build_message(to: 'port.dev@zeus', thread:) } }
+    end
+
+    assert_equal [first.id, nil], seen
+    assert_empty queued.map(&:id) - outbox.queued('zeus').map(&:id)
+  end
+
   def test_the_outbox_queues_once_and_settles_each_message
     first = build_message(to: 'port.dev@zeus', kind: 'request', id: Keryx::Ulid.generate(NOW))
     second = build_message(to: 'port.dev@zeus', id: Keryx::Ulid.generate(NOW + 1))
