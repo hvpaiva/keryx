@@ -14,13 +14,22 @@ module Keryx
       Example = Data.define(:comment, :line)
       FORMATS = %w[table json].freeze
       JSON_ESCAPED = /[\x7F#{Text::INVISIBLE}]/
+      # How Address spells the member and the team of an address.
+      NAME_SPELLING = 'MEMBER and TEAM each start with a lowercase letter and run up to 32 lowercase letters, ' \
+                      'digits and hyphens.'
+      SESSION_SPELLING = 'SESSION is 6 characters of lowercase Crockford base32.'
       # How the commands that take an address read it.
       ADDRESS_FORMS = 'ADDRESS is MEMBER.TEAM@HOST, MEMBER.TEAM for an address on this machine, or MEMBER alone ' \
                       "for a member of the sender's own team. A sender with no team, such as a person at a " \
-                      'terminal, names MEMBER alone only when exactly one team on this machine has that member.'
+                      'terminal, names MEMBER alone only when exactly one team on this machine has that member. ' \
+                      "#{NAME_SPELLING} HOST starts with a lowercase letter or a digit and runs up to 63 lowercase " \
+                      'letters, digits and hyphens, with no dots. Two teams are reserved scopes: NAME.local is a ' \
+                      "person at a terminal, and keryx.system is keryx's own notices. A short name never names an " \
+                      'address from before team names, which has no team; such an address finishes its threads ' \
+                      'and takes no new work.'.freeze
       # The same, for the commands that also reach one session of an address.
       ADDRESSING = "#{ADDRESS_FORMS} ADDRESS/SESSION reaches only that session of the address, and is refused once " \
-                   'the session leaves.'.freeze
+                   "the session leaves. #{SESSION_SPELLING}".freeze
 
       class << self
         attr_reader :spec

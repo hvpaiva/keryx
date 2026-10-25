@@ -19,7 +19,14 @@ module Keryx
                     'A Codex session is rung only while herdr shows it in its pane, by its thread or its own ' \
                     "process, because Codex's shared server keeps a closed thread loaded for 30 minutes and runs " \
                     'whatever is queued for it with no one watching. A Codex session outside a herdr pane gets no ' \
-                    'bell, and its mail waits in the mailbox.'
+                    "bell, and its mail waits in the mailbox.\n\n" \
+                    '--as ADDRESS, or KERYX_AS, makes a command act as an address on this machine instead of the ' \
+                    'one this session holds, and the address must exist and not be retired. MEMBER alone takes the ' \
+                    'team of the address this session holds, or else the one team on this machine with that ' \
+                    'member. An address from before team names is taken only written in full, as MEMBER@HOST, and ' \
+                    'never by a short name. ADDRESS/SESSION acts as that session of the address while it is bound ' \
+                    'to it. What a command sends with --as carries no context reading, since the session that runs ' \
+                    'the command need not be the one that holds the address.'
       SIGINT_STATUS = 130
       DEBUG_VARIABLE = 'KERYX_DEBUG'
       COLOR_VARIABLE = 'KERYX_COLOR'

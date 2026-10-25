@@ -50,11 +50,11 @@ module Keryx
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
                                    "after spawn gave up; 'keryx join --help' explains both.",
-                      examples: [['Start a reviewer in Claude Code with its first request',
-                                  'spawn rev-1 --harness claude --role reviewer "Review PR #448"'],
-                                 ['Start Codex in the agents tab with a brief from a file and a deadline',
+                      examples: [['Start a reviewer of team alpha in Claude Code with its first request',
+                                  'spawn rev-1.alpha --harness claude --role reviewer "Review PR #448"'],
+                                 ["Start Codex for this session's team in the agents tab, with a brief and a deadline",
                                   'spawn impl --harness codex --tab agents --file brief.md --within 1h'],
-                                 ['Choose the model and pass the harness flags of its own',
+                                 ["Start one of this session's team with a model and harness flags of its own",
                                   'spawn docs --harness claude --model haiku "Check the links in docs/" -- ' \
                                   '--add-dir ../site']]
 

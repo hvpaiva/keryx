@@ -1,14 +1,15 @@
 # frozen_string_literal: true
 
 require_relative '../spawner'
+require_relative 'command'
 
 module Keryx
   module CLI
     # The paragraphs of spawn's help that describe what Spawner does.
     module SpawnHelp
       NAMING = 'ADDRESS is MEMBER.TEAM, or MEMBER alone for a member of the team of the address spawn runs as, or ' \
-               'else of the one team on this machine with that member. herdr names the agent MEMBER_TEAM, cut to ' \
-               '32 characters, since its agent names take no dot.'
+               "else of the one team on this machine with that member. #{Command::NAME_SPELLING} herdr names the " \
+               'agent MEMBER_TEAM, cut to 32 characters, since its agent names take no dot.'.freeze
       PLACEMENT = 'spawn runs in a herdr pane. Of the panes in this tab, or with --tab in every tab labelled LABEL, ' \
                   'it splits the one that leaves the new pane the most room along --split, provided the terminal in ' \
                   "the new pane gets at least #{Spawner::MIN_COLUMNS} columns and #{Spawner::MIN_ROWS} rows inside " \

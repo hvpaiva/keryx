@@ -12,7 +12,9 @@ module Keryx
                                   "addresses given.\n\n" \
                                   'Use it after a bell was deferred or failed, as keryx status reports, once the ' \
                                   'session is free again. Each address gets one bell that counts its unread ' \
-                                  "messages.\n\n#{ADDRESSING}",
+                                  "messages.\n\n#{ADDRESSING}\n\n" \
+                                  'ring works on this machine only, since only this machine rings its sessions; ' \
+                                  'run it on the machine that has the address.',
                      examples: [['Retry every pending bell', 'ring'], ['Retry one address', 'ring rev-1']]
 
       def call(arguments)

@@ -20,8 +20,9 @@ module Keryx
       define 'join', section: 'Session Commands', arguments: 'ADDRESS', min: 1, max: 1,
                      summary: 'Claim an address for this agent session',
                      description: "Claim an address for the agent session that runs this command.\n\n" \
-                                  'ADDRESS is MEMBER.TEAM. MEMBER alone takes the team of the address this session ' \
-                                  'holds, or else the one team on this machine with that member. The local scope ' \
+                                  "ADDRESS is MEMBER.TEAM. #{NAME_SPELLING} MEMBER alone takes the team of the " \
+                                  'address this session holds, or else the one team on this machine with that ' \
+                                  'member. The local scope ' \
                                   'is a person at a terminal and the system scope is keryx itself, so join takes ' \
                                   'only USER.local, the address a terminal here acts as, for a session that ' \
                                   "answers for that person.\n\n" \
@@ -30,7 +31,8 @@ module Keryx
                                   'the address finds the messages waiting. A session holds one address at a time, ' \
                                   "so joining another releases the first.\n\n" \
                                   'Each join gives the session an id of its own, and ADDRESS@HOST/SESSION reaches ' \
-                                  'that session alone. --force takes the address from a session that still runs, ' \
+                                  "that session alone. #{SESSION_SPELLING} --force takes the address from a " \
+                                  'session that still runs, ' \
                                   'and that session stays reachable at its session address, with the work it ' \
                                   "took before, until it leaves.\n\n" \
                                   'A retired address is refused unless --revive is given, which takes it back with ' \
