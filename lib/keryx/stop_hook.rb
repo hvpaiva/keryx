@@ -93,13 +93,10 @@ module Keryx
       reason(name, *pending.values_at(UNREAD_MARK, UNANSWERED_MARK))
     end
 
-    # Of the requests to the address, those the incarnation NAME lists.
+    # Of the read requests to the address, those the incarnation NAME lists.
     def unanswered_requests(name)
-      key = name.split('/', 2).first
-      listed = @store.sees(name)
-      Roster.new(store: @store, herdr: @herdr).open_requests.filter_map do |holder, stored|
-        stored.message if holder == key && stored.state == :read && listed.call(stored.message)
-      end
+      open = Roster.new(store: @store, herdr: @herdr).open_requests
+      @store.listed(name, open).filter_map { it.message if it.state == :read }
     end
 
     def reason(name, unread, unanswered)

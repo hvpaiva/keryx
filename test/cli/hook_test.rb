@@ -89,12 +89,15 @@ class HookTest < Minitest::Test
     assert_empty given
   end
 
-  def test_a_request_read_but_not_answered_blocks_once
+  # Once while it is unread, and once more once it is read and has no reply.
+  def test_a_request_is_reminded_once_unread_and_once_more_read_without_a_reply
     keryx('ask', 'rev-1.dev', 'Review PR #448', env: @orq)
     id = last_id(@rev)
+    unread = stop(@rev).out
     keryx('read', env: @rev)
     decision = JSON.parse(stop(@rev).out)
 
+    assert_match(/has 1 unread message \(#{id}\)/, unread)
     assert_match(/1 request read but not answered \(#{id} from orq.dev@athena\)\. .* answer every request with/,
                  decision['reason'])
     assert_empty stop(@rev).out

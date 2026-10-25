@@ -62,7 +62,7 @@ module Keryx
       body = Postman.check_body(body)
       context = @measure.call(sender)
       letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
-      return post_away(recipient.host, letter, id, claim) unless recipient.local?(@host)
+      return post_away(recipient.host, letter, id, claim, reply_to) unless recipient.local?(@host)
 
       name = recipient.key
       @store.create_address(name, role: Identity::HUMAN_ROLE) unless @store.address?(name)
@@ -76,13 +76,11 @@ module Keryx
 
     # The withdrawal goes where the request is, since the request may name this machine by a name it no longer has.
     def withdraw(request, holder:, body:)
-      now = @clock.call
       from, to = [request.from, request.to].map { Address.parse(it) }
-      message = Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
-                            thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil,
-                            body: Postman.check_body(body), context: @measure.call(from.name))
-      return forward(message, to.host) unless holder
+      letter = withdrawal(request, Postman.check_body(body), @measure.call(from.name))
+      return in_thread(to.host, request.thread, letter) unless holder
 
+      message = letter.call(nil)
       @store.deliver(holder, message)
       bell = announce(to.name, message) unless holder == from.key
       Posted.new(message:, bell:, forward: nil)
@@ -111,13 +109,28 @@ module Keryx
       letter.call(claimed).then { [it, yield(it)] } if claimed
     end
 
-    def post_away(host, letter, id, claim)
+    # The withdrawal of REQUEST, under the id it is given or else one drawn from the clock.
+    def withdrawal(request, body, context)
+      now = @clock.call
+      lambda do |id|
+        Message.new(id: id || Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
+                    thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil, body:, context:)
+      end
+    end
+
+    def post_away(host, letter, id, claim, reply_to)
+      return in_thread(host, reply_to.thread, letter) if reply_to && !id && !claim
+
       message, = held(claim) { write(letter, id, claim) { @store.outbox.queue(host, it) } }
       forwarded(message, host) if message
     end
 
-    def forward(message, host)
-      @store.outbox.queue(host, message)
+    # A message of a thread for another machine takes an id after the last one of its thread still waiting there, so
+    # the forwarder sends them in the order they were written, whatever the clock says.
+    def in_thread(host, thread, letter)
+      message = @store.outbox.queue_in_thread(host, thread) do |last|
+        letter.call([Ulid.generate(@clock.call), Ulid.after(last)].compact.max)
+      end
       forwarded(message, host)
     end
 

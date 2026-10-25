@@ -18,7 +18,9 @@ All notable changes to this project are documented here. The format follows
   at a terminal and `keryx.system` is keryx's own notices.
 - Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
   session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
-  opens by id and answers the requests it took before. `who` and `status` list a displaced session
+  opens by id and answers the requests it took before. Mail to a session address whose session left
+  is refused with the stable address to write to, except the withdrawal of a request it holds, from
+  this machine or another, and keryx's notices from another machine, which the holder reads. `who` and `status` list a displaced session
   at its session address beside the address, `whoami` gives the session address of the session
   that runs it, and their JSON gives `member`, `team`, `host` and `session_address`.
 - Message format 2, for team and session addresses. Addresses from before team names, `NAME@HOST`,
@@ -40,9 +42,11 @@ All notable changes to this project are documented here. The format follows
 - Mail between machines over SSH, with an outbox that holds it while the other machine is
   unreachable, and `keryx courier`, which forwards it, rings again for bells that did not reach a
   session and tells senders about missed deadlines.
-- Thread order between machines. The outbox sends a machine's messages in id order, and when the
-  other machine cannot store one, the later messages of its thread in the same delivery wait with
-  it and arrive after it, so a reply does not overtake an earlier message of its thread that waits.
+- Thread order between machines. A message of a thread for another machine takes an id after the
+  last one of its thread waiting in the outbox, whatever the clock says, and the outbox sends a
+  machine's messages in id order. When the other machine cannot store one, the later messages of
+  its thread in the same delivery wait with it and arrive after it, so a reply does not overtake an
+  earlier message of its thread.
 - `~/.config/keryx/config`, whose `host` line names the machine unless `KERYX_HOST` is set.
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.

@@ -87,9 +87,22 @@ module Keryx
     # refusal, so the sender keeps the message and sends it again.
     def deliver(to, message)
       @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
-      return @store.deliver(to.key, message) unless to.session
+      return @store.deliver(to.key, message) unless bound?(message, to)
 
       Postman.bound(@store, to, @live) { @store.deliver(to.key, message) }
+    end
+
+    # Mail to a session address waits for its session, but two kinds are written with neither the check nor the lock,
+    # and once the session left, the holder of the address reads them: the withdrawal of a request the mailbox holds,
+    # as Postman#withdraw writes one here, so its sender stops waiting, and a notice from keryx on the sending machine,
+    # which can tell only its own sessions apart. The sender's address is the one the message gives, since keryx
+    # trusts SSH between machines, and such a message could reach the holder at the stable address all the same.
+    def bound?(message, to) = !to.session.nil? && !notice?(message) && !withdraws_held?(message, to)
+
+    def notice?(message) = Address.parse(message.from).key == Identity::SYSTEM
+
+    def withdraws_held?(message, to)
+      message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }
     end
 
     def ring(name, message)
@@ -105,12 +118,12 @@ module Keryx
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || @people.include?(to.key)
 
-      Postman.session_left(@store, to, @live)
+      Postman.session_left(@store, to, @live) if bound?(message, to)
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
     def retired(message, to)
-      return if message.withdrawal? && @store.stored(to.key).any? { message.withdraws?(it.message) }
+      return if withdraws_held?(message, to)
 
       format(Retirement::RETIRED, to)
     end
