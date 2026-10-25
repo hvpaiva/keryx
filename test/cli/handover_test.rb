@@ -112,6 +112,18 @@ class HandoverTest < Minitest::Test
     assert_equal %w[orq.dev@athena rev-1.dev@athena], addresses(keryx('who').out)
   end
 
+  def test_ring_refuses_the_session_address_of_a_session_that_left
+    take_over
+    keryx('send', old_address, 'For the old session', env: @orq)
+    rung = keryx('ring', old_address)
+    keryx('leave', env: @old)
+    refused = keryx('ring', "rev-1.dev/#{@session}")
+
+    assert_equal "#{old_address}   1 unread   rung via claude\n", rung.out
+    assert_equal [1, "error: mail to #{old_address} is refused: its session left; write to rev-1.dev@athena\n"],
+                 [refused.status, refused.err]
+  end
+
   def test_leave_releases_the_displaced_session_and_leave_as_waits_until_it_ended
     take_over
     refused = keryx('leave', '--as', "rev-1.dev/#{@session}")

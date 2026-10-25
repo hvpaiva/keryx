@@ -273,7 +273,8 @@ each message, and `keryx status` reads the receipts to list what did not ring.
 
 Mail to a session address is delivered only while that session is bound to the address and runs
 (`Postman.session_left`), here and in `Receiver` for mail from another machine; once it left, the
-sender is told to write to the stable address. leave and join end or move a binding in a hold of
+sender is told to write to the stable address, and `keryx ring` refuses that session address in the
+same words. leave and join end or move a binding in a hold of
 `occupants.lock`, so the check is made again in such a hold and the message is written in the same
 one (`Postman.bound`): a session that leaves after a sender first checked it gets no new mail, and
 the mail written before it left stays for the holder. A receiver that finds the lock kept answers

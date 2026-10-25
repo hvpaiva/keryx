@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../postman'
 
 module Keryx
   module Commands
@@ -32,6 +33,9 @@ module Keryx
           address = app.address(text, flat: true)
           raise Error, "#{address} is on another machine" unless address.local?(app.host)
           raise Error, "no address #{address}" unless app.store.address?(address.key)
+
+          left = Postman.session_left(app.store, address, app.live)
+          raise Error, left if left
 
           address.name
         end
