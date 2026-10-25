@@ -5,6 +5,7 @@ require_relative 'bell'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'postman'
+require_relative 'retirement'
 require_relative 'tokens'
 require_relative 'ulid'
 
@@ -115,8 +116,8 @@ module Keryx
     # one copy however many couriers or rounds post it. Only the courier that writes the mark reports it.
     def tell(name, recipient, occupant, context, stage)
       mark = context_mark(occupant, stage, recipient)
-      return if @store.marked?(name, mark, CONTEXT_MARK) || superseded?(name, recipient, occupant, stage, CONTEXT_MARK)
-      return unless same_join?(@store.occupant(name), occupant)
+      return if held_back?(name, recipient, occupant, stage, mark)
+      return retired(name, recipient, mark) if recipient.local?(@host) && @store.retired?(recipient.key)
 
       body = notice(name, context, occupant.ceiling, stage)
       claim = -> { notice_id(name, recipient, occupant, stage) }
@@ -126,6 +127,22 @@ module Keryx
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
     rescue Error, SystemCallError => e
       @errors << "could not tell #{recipient} about the context of #{full(name)}; #{e.message}"
+      nil
+    end
+
+    # Told already, kept back by the ceiling told before it, or about a join that no longer holds the address.
+    def held_back?(name, recipient, occupant, stage, mark)
+      @store.marked?(name, mark, CONTEXT_MARK) || superseded?(name, recipient, occupant, stage, CONTEXT_MARK) ||
+        !same_join?(@store.occupant(name), occupant)
+    end
+
+    # A recipient here that is retired takes no mail, and trying again would report it in every round, so the notice
+    # counts as told, and the courier that marks it says once that it did not tell it.
+    def retired(name, recipient, mark)
+      return unless @store.mark_once(name, mark, CONTEXT_MARK)
+
+      @errors << "did not tell #{recipient} about the context of #{full(name)}; " \
+                 "#{format(Retirement::RETIRED, recipient)}"
       nil
     end
 

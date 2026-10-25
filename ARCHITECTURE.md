@@ -506,10 +506,12 @@ and at the stable address once it left, since the holder took its work; a direct
 falls back the same way when it is on this machine. One on another machine is told at the address it wrote from, since
 only a session here can be checked, and that machine, which can check its own sessions, takes a notice from keryx at a
 session address whatever the state of its session, as the section on delivery says: the session reads it while it is
-bound and runs, and the holder there once it left, whether the notice went at once or waited in the outbox. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
-`receipts/`, so a session that joins again or gets another ceiling can be told again; a recipient the post failed
-for is tried again alone in the next round. A session first seen at or past the ceiling is told only that it
-reached it, and the comparison uses whole numbers.
+bound and runs, and the holder there once it left, whether the notice went at once or waited in the outbox. Each
+notice goes once to each recipient for a join and a ceiling, marked in the session's `receipts/`, so a session that
+joins again or gets another ceiling can be told again; a recipient the post failed for is tried again alone in the
+next round. A recipient here that is retired takes no mail, so its notice is marked as told rather than tried in
+every round, and the round that marks it says once that it did not tell it. A session first seen at or past the
+ceiling is told only that it reached it, and the comparison uses whole numbers.
 
 The courier claims a notice's id in `receipts/` in the same hold of the occupants lock as the mailbox or outbox
 write. The first courier writes an id with the current time, and every other courier or later round reads that id
