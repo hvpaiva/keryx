@@ -120,8 +120,9 @@ module Keryx
 
     def resolver = @resolver ||= Resolver.new(store:, host:)
 
-    # A name typed on the command line, resolved for the address this command acts as.
-    def address(text) = resolver.resolve(text, sender: -> { own_address })
+    # A name typed on the command line, resolved for the address this command acts as. FLAT takes a full address from
+    # before team names, which only finishes its threads.
+    def address(text, flat: false) = resolver.resolve(text, sender: -> { own_address }, flat:)
 
     def full(name) = Address.from_name(name, host:).to_s
 

@@ -6,15 +6,19 @@ require_relative 'error'
 module Keryx
   # Turns the name a user typed into a full address before anything is stored. Resolving grants nothing.
   class Resolver
+    FLAT = '%<address>s has no team: an address is MEMBER.TEAM@HOST, such as %<member>s.TEAM@%<host>s, and a person ' \
+           'at a terminal is %<member>s.local@%<host>s'
+
     def initialize(store:, host:)
       @store = store
       @host = host
     end
 
-    # SENDER is the store name the command acts as, or nil, or a block that gives it, asked only for a bare member.
-    def resolve(text, sender:)
+    # SENDER is the store name the command acts as, or nil, or a block that gives it, asked only for a bare member. FLAT
+    # allows a full address from before team names.
+    def resolve(text, sender:, flat: false)
       text = text.to_s
-      return Address.parse(text) if text.include?('@')
+      return full(text, flat) if text.include?('@')
 
       base, session = text.split('/', 2)
       address = base.include?('.') ? Address.from_key(base, host: @host) : member(base, sender)
@@ -22,6 +26,13 @@ module Keryx
     end
 
     private
+
+    def full(text, flat)
+      address = Address.parse(text)
+      return address if flat || !address.flat?
+
+      raise Error, format(FLAT, address:, member: address.member, host: address.host)
+    end
 
     def member(name, sender)
       Address.validate_name(name)

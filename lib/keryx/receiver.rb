@@ -4,6 +4,7 @@ require 'json'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'identity'
 require_relative 'message'
 require_relative 'postman'
@@ -117,6 +118,11 @@ module Keryx
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
+      session_left(message, to) || FlatRule.refusal(@store, message, host: @host)
+    end
+
+    # Only the mail that bound? holds for its session is refused once that session left.
+    def session_left(message, to)
       Postman.session_left(@store, to, @live) if bound?(message, to)
     end
 

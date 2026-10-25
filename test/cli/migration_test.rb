@@ -37,16 +37,18 @@ class MigrationTest < Minitest::Test
                  rows.map { |records| records.map { it.values_at(*fields) } })
   end
 
-  def test_new_mail_from_a_team_address_reaches_a_flat_address_in_the_new_format
+  def test_new_mail_to_a_flat_address_is_refused_with_the_spelling_to_use
     orq = join_claude('orq.dev', 111)
     unheld('person')
-    sent = [%w[send person@athena hello], %w[ask person@athena hello]].map { keryx(*it, env: orq) }
+    refusals = [%w[send person@athena hello], %w[ask person@athena hello]].map { keryx(*it, env: orq) }
 
-    assert_equal([[0, '']] * 2, sent.map { [it.status, it.err] })
-    assert_equal [2, 2], stored_formats('person')
+    assert_equal([[1, 'error: person@athena has no team: an address is MEMBER.TEAM@HOST, such as person.TEAM@athena, ' \
+                      "and a person at a terminal is person.local@athena\n"]] * 2,
+                 refusals.map { [it.status, it.err] })
+    assert_empty store.mailbox('person')
   end
 
-  def test_a_session_on_a_flat_address_answers_in_its_threads_in_the_old_format
+  def test_a_session_on_a_flat_address_finishes_its_threads_in_the_old_format
     unheld('orq')
     rev = held('rev-1', 222)
     request = flat_request(from: 'orq@athena', to: 'rev-1@athena')
@@ -61,16 +63,18 @@ class MigrationTest < Minitest::Test
     assert_equal [1, 1], stored_formats('orq')
   end
 
-  def test_a_session_on_a_flat_address_starts_new_work_with_a_team_address
+  def test_a_session_on_a_flat_address_starts_no_new_work
     join_claude('orq.dev', 111)
     rev = held('rev-1', 222)
-    sent = [%w[ask orq.dev hello], %w[send orq.dev hello]].map { keryx(*it, env: rev) }
+    refusals = [%w[ask orq.dev hello], %w[send orq.dev hello]].map { keryx(*it, env: rev) }
+    refusal = 'error: rev-1@athena is an address from before team names: it finishes its open requests and starts ' \
+              "no new work; join MEMBER.TEAM for new work, and 'keryx retire rev-1@athena' once none is open\n"
 
-    assert_equal([[0, '']] * 2, sent.map { [it.status, it.err] })
-    assert_equal(['rev-1@athena'] * 2, store.mailbox('orq.dev').map { it.message.from })
+    assert_equal([refusal] * 2, refusals.map(&:err))
+    assert_empty store.mailbox('orq.dev')
   end
 
-  def test_keryx_notices_reach_a_flat_address_nobody_holds_from_the_sender_keryx_had_then
+  def test_keryx_notices_reach_a_flat_address_only_while_a_session_here_holds_it
     path = tmp('home', '.claude', 'projects', '-work', 'session-300.jsonl')
     FileUtils.mkdir_p(File.dirname(path))
     File.write(path, File.read(File.join(FIXTURES, 'claude-transcript.jsonl')).gsub('"session-1"', '"session-300"'))
@@ -81,9 +85,10 @@ class MigrationTest < Minitest::Test
     store.bind(impl, store.occupant(impl).with(director: 'orq'))
     courier = keryx('courier', '--once')
 
-    assert_equal '', courier.err
-    assert_equal([['keryx@athena']] * 2, %w[impl orq].map { |name| store.mailbox(name).map { it.message.from } })
-    assert_equal([[1], [1]], %w[impl orq].map { stored_formats(it) })
+    assert_equal ["told impl@athena that impl@athena is at 121k 97% of 125k, near its context ceiling\n", ''],
+                 [courier.out, courier.err]
+    assert_equal(['keryx.system@athena'], store.mailbox('impl').map { it.message.from })
+    assert_empty store.mailbox('orq')
   end
 
   def received_on_zeus(*messages)
@@ -92,32 +97,55 @@ class MigrationTest < Minitest::Test
     receipts.map { it.values_at('status', 'detail') }
   end
 
-  def test_another_machine_takes_new_mail_to_and_from_a_flat_address
-    flat_threads_on_zeus
+  def test_another_machine_takes_only_the_messages_that_finish_a_flat_addresss_threads
+    asked, received = flat_threads_on_zeus
     Keryx::Store.new(tmp('zeus')).create_address('rev.dev')
-    receipts = received_on_zeus(flat_request(from: 'orq@athena', to: 'port@zeus'),
-                                build_message(from: 'orq@athena', to: 'port@zeus'),
-                                build_message(from: 'orq.dev@athena', to: 'port@zeus', kind: 'request'),
-                                build_message(from: 'orq@athena', to: 'rev.dev@zeus', kind: 'request'))
+    answer = lambda do |kind|
+      build_message(from: asked.to, to: asked.from, kind:, in_reply_to: asked.id, thread: asked.thread)
+    end
+    receipts = received_on_zeus(flat_request(from: 'orq@athena', to: 'port@zeus'), answer.call('message'),
+                                answer.call('reply'),
+                                build_message(from: 'orq@athena', to: 'port@zeus', kind: 'withdrawal',
+                                              in_reply_to: received.id, thread: received.thread),
+                                build_message(from: 'orq.dev@athena', to: 'port@zeus'),
+                                build_message(from: 'orq@athena', to: 'rev.dev@zeus'))
 
-    assert_equal([['delivered', nil]] * 4, receipts)
+    assert_equal([['refused', flat_refusal('port@zeus')], ['delivered', nil], ['delivered', nil], ['delivered', nil],
+                  ['refused', flat_refusal('port@zeus')], ['refused', flat_refusal('orq@athena', sends: true)]],
+                 receipts)
   end
 
-  # A reply answers any message of its thread, and one in a thread that is over or that zeus never had still arrives.
-  def test_another_machine_takes_mail_to_a_flat_address_in_any_thread
+  def test_another_machine_refuses_mail_to_a_flat_address_in_a_thread_it_never_had
     asked, received = flat_threads_on_zeus
-    reply = build_message(from: asked.to, to: asked.from, kind: 'reply', in_reply_to: asked.id, thread: asked.thread)
     invented = Keryx::Ulid.generate
-    receipts = received_on_zeus(reply, reply,
-                                build_message(from: asked.to, to: asked.from, kind: 'reply', in_reply_to: asked.id,
-                                              thread: asked.thread),
-                                build_message(from: received.from, to: received.to, kind: 'withdrawal',
-                                              in_reply_to: received.id, thread: received.thread),
-                                build_message(from: 'orq@athena', to: 'port@zeus', kind: 'reply', in_reply_to: invented,
-                                              thread: invented))
+    in_thread = lambda do |kind, of, from: 'orq@athena'|
+      build_message(from:, to: 'port@zeus', kind:, in_reply_to: of, thread: of, body: 'New unrelated work')
+    end
+    receipts = received_on_zeus(in_thread.call('request', invented), in_thread.call('reply', invented),
+                                in_thread.call('message', invented), in_thread.call('request', received.id),
+                                in_thread.call('reply', asked.id, from: 'rev.dev@athena'))
 
-    assert_equal([['delivered', nil], ['duplicate', nil]] + ([['delivered', nil]] * 3), receipts)
-    assert_equal 5, Keryx::Store.new(tmp('zeus')).stored('port').size
+    assert_equal([['refused', flat_refusal('port@zeus')]] * 5, receipts)
+    assert_equal([received.id], Keryx::Store.new(tmp('zeus')).stored('port').map { it.message.id })
+  end
+
+  # Here a reply from orq@athena closes the request port@zeus asked, and one from port@zeus the request it received.
+  def test_another_machine_gives_a_flat_address_nothing_new_in_a_thread_that_is_over
+    asked, received = flat_threads_on_zeus
+    zeus = Keryx::Store.new(tmp('zeus'))
+    zeus.outbox.queue('athena', build_message(from: received.to, to: received.from, kind: 'reply',
+                                              in_reply_to: received.id, thread: received.thread))
+    answer = lambda do |kind|
+      build_message(from: asked.to, to: asked.from, kind:, in_reply_to: asked.id, thread: asked.thread)
+    end
+    reply = answer.call('reply')
+    receipts = received_on_zeus(reply, reply, answer.call('message'), answer.call('reply'),
+                                build_message(from: received.from, to: received.to, kind: 'withdrawal',
+                                              in_reply_to: received.id, thread: received.thread))
+
+    assert_equal([['delivered', nil], ['duplicate', nil]] +
+                 [asked, asked, received].map { ['refused', flat_refusal('port@zeus', over: it.id)] }, receipts)
+    assert_equal([received.id, reply.id].sort, zeus.stored('port').map { it.message.id }.sort)
   end
 
   def test_an_old_keryx_elsewhere_refuses_format_2_for_good_and_says_why

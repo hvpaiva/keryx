@@ -44,7 +44,7 @@ module Keryx
       private
 
       def local_name(text)
-        address = app.address(text)
+        address = app.address(text, flat: true)
         if address.session
           raise Error, "#{address} is one session of #{address.stable}, and retire takes only the address itself"
         end

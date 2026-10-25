@@ -3,6 +3,7 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'forwarder'
 require_relative 'identity'
 require_relative 'message'
@@ -12,6 +13,8 @@ require_relative 'ulid'
 module Keryx
   class Postman
     Posted = Data.define(:message, :bell, :forward)
+    FLAT_SENDER = '%<address>s is an address from before team names: it finishes its open requests and starts no ' \
+                  "new work; join MEMBER.TEAM for new work, and 'keryx retire %<address>s' once none is open"
     SESSION_LEFT = 'mail to %<address>s is refused: its session left; write to %<stable>s'
 
     def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
@@ -58,9 +61,11 @@ module Keryx
     # the forward come after the hold.
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
       check_recipient(recipient)
+      check_flat(sender, recipient, reply_to)
       body = Postman.check_body(body)
       context = @measure.call(sender)
       letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
+      check_thread(letter.call(id))
       return post_away(recipient.host, letter, id, claim, reply_to) unless recipient.local?(@host)
 
       name = recipient.key
@@ -168,6 +173,27 @@ module Keryx
 
       left = Postman.session_left(@store, recipient, @live)
       raise Error, left if left
+    end
+
+    # An address from before team names only finishes its threads. keryx's own notices still reach one that a live
+    # session holds, since they carry no work and that session must not go blind before it moves.
+    def check_flat(sender, recipient, thread)
+      return if thread
+
+      from = Address.from_name(sender, host: @host)
+      raise Error, format(FLAT_SENDER, address: from) if from.flat?
+      return unless recipient.flat?
+      return if sender == Identity::SYSTEM && recipient.local?(@host) && @live.call(recipient.key)
+
+      raise Error, format(FlatRule::RECIPIENT, address: recipient)
+    end
+
+    # In a thread, an address from before team names sends and takes here only what another machine would take.
+    def check_thread(message)
+      return unless message.in_reply_to
+
+      refusal = FlatRule.refusal(@store, message, host: @host)
+      raise Error, refusal if refusal
     end
   end
 end
