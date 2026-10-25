@@ -301,9 +301,11 @@ exception, as with a retired address, so that its sender stops waiting. `Postman
 into the mailbox that holds its request with neither the check nor the lock, whether or not the
 session is still there, and once the session left the bell finds no session to ring. A withdrawal
 from another machine is no exception. `Receiver` refuses it once the session left, as it refuses
-other mail, unless the address was retired since, and then a retired mailbox takes it as the section
-on retire says. `keryx withdraw` then fails, or `keryx status` shows the withdrawal refused when it
-waited in the outbox, and the request stays open on the sender's machine. An address from before team
+other mail, and a retire since changes nothing. Its check for a retired address lets through the
+withdrawal of a request the mailbox holds, but the write that follows finds no session bound, as
+the section on retire says of mail to a session address, so the withdrawal is refused all the same.
+`keryx withdraw` then fails, or `keryx status` shows the withdrawal refused when it waited in the
+outbox, and the request stays open on the sender's machine. An address from before team
 names finishes its threads and starts no new work, so it sends and receives only replies,
 withdrawals and messages in an open thread. `FlatRule` holds the rule, for what `Postman` writes here
 and for what `Receiver` takes from another machine: in a thread, a message to or from such an address
