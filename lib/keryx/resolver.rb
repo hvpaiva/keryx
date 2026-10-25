@@ -32,16 +32,12 @@ module Keryx
       only(name)
     end
 
-    # A sender with no team of its own names an address from before team names that is current here, else a member that
-    # only one team on this host has, else an address from before team names, which join and spawn create.
+    # A sender with no team of its own names a member that only one team on this host has.
     def only(name)
-      flat = Address.new(member: name, host: @host)
-      current = @store.current_names
-      return flat if current.include?(name)
-
-      matches = current.map { Address.from_key(it, host: @host) }.select { it.team && it.member == name }
+      matches = @store.current_names.map { Address.from_key(it, host: @host) }.select { it.team && it.member == name }
       return matches.first if matches.one?
-      return flat if matches.empty?
+
+      raise Error, "no address #{name}.TEAM on #{@host}; name the team, as #{name}.TEAM" if matches.empty?
 
       listed = "#{matches[0...-1].join(', ')} and #{matches.last}"
       raise Error, "#{name} matches #{listed}; name the team, as #{matches.first.key}"

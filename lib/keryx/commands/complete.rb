@@ -114,11 +114,11 @@ module Keryx
         source && (index.zero? || name == 'ring') ? send(source) : []
       end
 
-      # Every address, and the bare members of the team the command acts in, which resolve to it.
+      # Every address with a team, and the bare members of the team the command acts in, which resolve to it.
       def addresses
-        named = app.store.current_names.map { Address.from_key(it, host: app.host) }
+        named = app.store.current_names.map { Address.from_key(it, host: app.host) }.reject(&:flat?)
         team = own_team
-        (named.select { it.team == team }.map(&:member) + named.map(&:key)).uniq
+        named.select { it.team == team }.map(&:member) + named.map(&:key)
       end
 
       def own_team
