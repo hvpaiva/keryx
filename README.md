@@ -96,8 +96,9 @@ $ keryx reply 01M5JBZ1 "Approved with two nits"
 Replied to orq.dev@athena (01M5JBZ1SSH67Z4YW088H3BRV0). The bell rang through claude.
 ```
 
-From a plain terminal you act as `$USER.local`, so `keryx send rev-1.dev "..."` and `keryx inbox`
-work without joining anything.
+From a plain terminal you act as an address of the local scope named after `$USER`, such as
+`john-doe.local` for `john_doe`, and `keryx whoami` gives its exact spelling. There
+`keryx send rev-1.dev "..."` and `keryx inbox` work without joining anything.
 
 ## See what is pending
 
