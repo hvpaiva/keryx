@@ -275,11 +275,14 @@ sender is told to write to the stable address. leave and join end or move a bind
 `occupants.lock`, so the check is made again in such a hold and the message is written in the same
 one (`Postman.bound`): a session that leaves after a sender first checked it gets no new mail, and
 the mail written before it left stays for the holder. A receiver that finds the lock kept answers
-that it failed, so the sender keeps the message and sends it again. An address from before team names finishes its
-threads and starts no new work, so it sends and receives only replies, withdrawals and messages in an
-open thread, and the receiver applies the same rule. keryx's own notices still reach such an address
-while a live session here holds it, so that session does not go blind before it moves to a team
-address, and the courier skips one that nobody holds.
+that it failed, so the sender keeps the message and sends it again. An address from before team
+names finishes its threads and starts no new work, so it sends and receives only replies,
+withdrawals and messages in an open thread. The receiver applies the same rule, and takes such a
+message from another machine only when it answers, takes or withdraws a request this machine holds,
+in a mailbox or in the outbox, so a request, or a message in a thread the address never had, is
+refused. keryx's own notices still reach such an address while a live session here holds it, so that
+session does not go blind before it moves to a team address, and the courier skips one that nobody
+holds.
 
 ## Between machines
 

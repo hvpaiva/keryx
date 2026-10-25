@@ -87,13 +87,19 @@ module Keryx
       Postman.session_left(@store, to, @live) || flat(message, from, to)
     end
 
-    # An address from before team names only finishes its threads, whichever format carried the message.
+    # An address from before team names only finishes its threads, whichever format carried the message, so what
+    # reaches it or comes from it answers, takes or withdraws a request this store holds, and never starts one.
     def flat(message, from, to)
       address = [from, to].find(&:flat?)
-      return unless address && message.in_reply_to.nil?
+      return unless address && !finishes?(message)
 
-      "#{address} is an address from before team names: it takes only replies, withdrawals and messages in its open " \
-        'threads'
+      format(Postman::FLAT_RECIPIENT, address:)
+    end
+
+    # The thread need not be open: a message sent again under its id still finishes the one it finished before.
+    def finishes?(message)
+      request = message.in_reply_to && @store.locate(message.in_reply_to)&.last&.message
+      request && %i[answers? takes? withdraws?].any? { message.public_send(it, request) }
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.
