@@ -65,7 +65,9 @@ module Keryx
 
       # A session address goes with its session; the address itself keeps its mailbox.
       def afterwards(name)
-        name.include?('/') ? 'Mail to it is refused from now on.' : 'Its mailbox keeps receiving.'
+        return 'Its mailbox keeps receiving.' unless name.include?('/')
+
+        'Mail to it is refused from now on; a withdrawal written here still reaches it.'
       end
     end
   end

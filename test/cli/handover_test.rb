@@ -130,7 +130,8 @@ class HandoverTest < Minitest::Test
     left = keryx('leave', env: @old)
 
     assert_match(/\Aerror: #{old_address} is held by another live claude session \(pid 222\)/, refused.err)
-    assert_equal "Left #{old_address}. Mail to it is refused from now on.\n", left.out
+    assert_equal "Left #{old_address}. Mail to it is refused from now on; a withdrawal written here still " \
+                 "reaches it.\n", left.out
     assert_equal 'rev-1.dev@athena', JSON.parse(keryx('whoami', '-o', 'json', env: @new).out)['address']
   end
 
@@ -193,6 +194,17 @@ class HandoverTest < Minitest::Test
 
     assert_match(/no request #{id} sent by rev-1.dev@athena/, by_holder.err)
     assert_equal [0, ''], [withdrawn.status, withdrawn.err]
+  end
+
+  def test_a_withdrawal_written_here_still_reaches_a_session_address_once_its_session_left
+    take_over
+    keryx('ask', "rev-1.dev/#{@session}", 'Still wanted?', env: @orq)
+    id = unread(@old).last['id']
+    keryx('leave', env: @old)
+    withdrawn = keryx('withdraw', id, env: @orq)
+
+    assert_equal [0, ''], [withdrawn.status, withdrawn.err]
+    assert_equal [id], store.mailbox('rev-1.dev').map(&:message).select(&:withdrawal?).map(&:in_reply_to)
   end
 
   def test_retire_waits_for_the_displaced_session_to_end
