@@ -119,6 +119,20 @@ class RetireTest < Minitest::Test
     assert_empty store.mailbox('rev-1.dev')
   end
 
+  # The request landed as the address was retired, after retire found nothing waiting on it.
+  def test_a_withdrawal_from_here_still_settles_a_request_that_reached_the_retired_address
+    retired
+    request = build_message(from: 'orq.dev@athena', to: 'rev-1.dev@athena', kind: 'request',
+                            id: Keryx::Ulid.generate(NOW))
+    store.deliver('rev-1.dev', request)
+    clock.advance(1)
+    withdrawn = keryx('withdraw', request.id, env: @orq)
+
+    assert_equal [0, ''], [withdrawn.status, withdrawn.err]
+    assert_equal(%w[request withdrawal], store.stored('rev-1.dev').map { it.message.kind })
+    assert_empty JSON.parse(keryx('status', '-o', 'json', env: @orq).out)['open_requests']
+  end
+
   # The reply to a request the address sent is in its own mailbox, which status still reads.
   def test_a_request_it_sent_and_had_answered_stays_answered
     id = asked('orq.dev', 'Which branch?', env: @rev)

@@ -8,7 +8,7 @@ module Keryx
     class Retire < CLI::Command
       define 'retire', section: 'Session Commands', arguments: 'ADDRESS', min: 1, max: 1,
                        summary: 'Retire an address that nobody holds and nobody waits on',
-                       description: "Retire an address whose work is done, so that nothing reaches it any more.\n\n" \
+                       description: "Retire an address whose work is done, so that it takes no new mail.\n\n" \
                                     'keryx refuses while a live session holds the address, which that session ' \
                                     "releases with 'keryx leave', and while a request sent to it waits for its " \
                                     'answer or one it sent waits for a reply. The refusal names each request and ' \
@@ -18,8 +18,11 @@ module Keryx
                                     'refuses ADDRESS/SESSION, one session of it, with the address to give ' \
                                     "instead.\n\n" \
                                     'Once retired, the address is gone from keryx who and keryx status, even with ' \
-                                    '--all, mail to it is refused, from this machine and from others, and no ' \
-                                    'command acts as it with --as. Its files stay where they were, under ' \
+                                    '--all, new mail to it is refused, from this machine and from others, and no ' \
+                                    'command acts as it with --as. A request that reached it as it was retired ' \
+                                    'stays open for its sender, and the withdrawal of that request still reaches ' \
+                                    'it, from here or from another machine, so its sender stops waiting. Its ' \
+                                    'files stay where they were, under ' \
                                     'addresses/MEMBER.TEAM in the keryx state directory, and ' \
                                     "'keryx join MEMBER.TEAM --revive' " \
                                     "brings it back with its mailbox as it was.\n\n" \

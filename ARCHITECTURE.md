@@ -140,8 +140,8 @@ session restarted in the old holder's herdr pane would otherwise find the addres
 pane rule, and it goes first, so a retire cut short leaves an address nobody holds rather than a
 retired one with an occupant. The address a plain terminal acts as cannot be retired, since every
 command from that terminal would create it again, and an address on another machine is retired
-there, since only that machine sees its session and its mail. `Postman` and `Receiver` refuse a
-retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
+there, since only that machine sees its session and its mail. `Postman` and `Receiver` refuse new
+mail to a retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
 `--revive`, which removes `retired.json` in the hold where it binds the session. Delivery takes no
 lock, so a message whose sender checked the address just before `retired.json` landed still lands
 in its mailbox. That stays visible: a request among such messages shows open in its sender's

@@ -39,8 +39,9 @@ All notable changes to this project are documented here. The format follows
   `keryx spawn` passes its directory to the sessions it starts.
 - `who`, `whoami` and `status`, and `ring` to retry bells that did not reach a session.
 - `keryx retire`, which retires an address that no live session holds and no open request waits
-  on. It leaves `who` and `status`, mail to it is refused from this machine and from others, and
-  its files stay until `keryx join --revive` takes it back.
+  on. It leaves `who` and `status`, new mail to it is refused from this machine and from others,
+  though the withdrawal of a request that reached it as it was retired still settles that request,
+  and its files stay until `keryx join --revive` takes it back.
 - A short view in `who` and `status`, which leave out the addresses nobody holds and nobody writes
   to and say how many they left out, with `--all` to list every address.
 - The context each session uses in `who` and `status`, and the sender's on each message it sends,
