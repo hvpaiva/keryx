@@ -20,13 +20,16 @@ class SpawnedTest < Minitest::Test
   end
 
   def test_the_record_lasts_until_it_is_forgotten_and_a_damaged_one_is_none
-    store.record_spawned('impl.dev', spawned)
+    [spawned.with(director: 'orq.dev/k3m9qz'), spawned].each do |record|
+      store.record_spawned('impl.dev', record)
 
-    assert_equal spawned, store.spawned('impl.dev')
+      assert_equal record, store.spawned('impl.dev')
+    end
     store.forget_spawned('impl.dev')
 
     assert_nil store.spawned('impl.dev')
-    [spawned.record.merge('director' => 'Orq@x'), spawned.record.merge('herdr_pane' => 2), []].each do |record|
+    [spawned.record.merge('director' => 'Orq@x'), spawned.record.merge('director' => 'orq/k3m9qz'),
+     spawned.record.merge('herdr_pane' => 2), []].each do |record|
       File.write(tmp('state', 'addresses', 'impl.dev', 'spawned.json'), JSON.generate(record))
 
       assert_nil store.spawned('impl.dev'), record.inspect

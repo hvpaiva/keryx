@@ -214,4 +214,17 @@ class SpawnDialogTest < Minitest::Test
   ensure
     File.chmod(0o700, tmp('state', 'addresses', 'orq.dev', 'mail'))
   end
+
+  def test_a_session_join_force_displaced_gets_the_dialog_at_its_session_address
+    alive << 111 << 444
+    keryx('join', 'orq.dev', env: claude(111))
+    session = store.occupant('orq.dev').session
+    keryx('join', 'orq.dev', '--force', env: claude(444))
+    stops_at(Screens.captured.fetch('cursor-120'))
+    result = spawn('rev-1.dev', '--harness', 'cursor', '--timeout', '5s', env: claude(111))
+
+    assert_equal [3, 1, ["orq.dev@athena/#{session}"]], [result.status, notices(result),
+                                                         from_keryx("orq.dev/#{session}").map(&:to)]
+    assert_equal [[], '/tmp/cc-111.sock'], [from_keryx('orq.dev'), sockets.posts.last.first]
+  end
 end

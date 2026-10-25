@@ -242,7 +242,7 @@ module Keryx
       end
 
       def tell(name, body)
-        app.postman.post(sender: Identity::SYSTEM, recipient: Address.from_key(name, host: app.host), kind: 'message',
+        app.postman.post(sender: Identity::SYSTEM, recipient: Address.from_name(name, host: app.host), kind: 'message',
                          body:)
       end
 

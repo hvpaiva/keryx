@@ -40,7 +40,7 @@ module Keryx
 
     def self.ceiling(value) = value.is_a?(Integer) && value.positive? ? value : nil
 
-    def self.director(value) = Address.key?(value) ? value : nil
+    def self.director(value) = Address.name?(value) ? value : nil
 
     def self.session(value) = Address::SESSION.match?(value.to_s) ? value : nil
 

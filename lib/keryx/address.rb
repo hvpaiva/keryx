@@ -62,6 +62,13 @@ module Keryx
 
     def self.key?(text) = KEY.match?(text.to_s)
 
+    # KEY, or KEY/SESSION when the key has a team, as from_name takes it.
+    def self.name?(text)
+      key, session = text.to_s.split('/', 2)
+      parts = KEY.match(key) or return false
+      session.nil? || (!parts[:team].nil? && SESSION.match?(session))
+    end
+
     def self.valid?(text)
       parse(text)
       true

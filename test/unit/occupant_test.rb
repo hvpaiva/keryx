@@ -56,9 +56,11 @@ class OccupantTest < Minitest::Test
   end
 
   def test_a_ceiling_and_a_director_round_trip_and_anything_else_reads_as_none
-    occupant = build_occupant(ceiling: 125_000, director: 'orq.dev')
+    occupants = [build_occupant(ceiling: 125_000, director: 'orq.dev'), build_occupant(director: 'orq.dev/k3m9qz')]
 
-    assert_equal occupant, Keryx::Occupant.from_record(JSON.parse(JSON.generate(occupant.record)))
+    occupants.each do |occupant|
+      assert_equal occupant, Keryx::Occupant.from_record(JSON.parse(JSON.generate(occupant.record)))
+    end
     read = Keryx::Occupant.from_record(build_occupant.record.merge('ceiling' => '125k', 'director' => 'Orq@x'))
 
     assert_equal [nil, nil], [read.ceiling, read.director]

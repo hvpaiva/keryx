@@ -4,6 +4,7 @@ require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
 require_relative 'identity'
+require_relative 'postman'
 require_relative 'tokens'
 require_relative 'ulid'
 
@@ -91,9 +92,17 @@ module Keryx
 
     # The director recorded at spawn, or else the sender of the oldest request the session still has to answer.
     def recipients(roster, name, occupant)
-      director = Address.from_key(occupant.director, host: @host) if occupant.director
+      director = Address.from_name(occupant.director, host: @host) if occupant.director
       director ||= oldest_request(roster, name)&.then { Address.parse(it.from) }
+      director &&= settled(roster, director)
       [Address.from_name(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
+    end
+
+    # A director that join --force displaced is told at its session address until that session leaves, and then at
+    # the address it was displaced from, whose holder took its work.
+    def settled(roster, address)
+      live = ->(name) { roster.live?(@store.reporting { @store.occupant(name) }) }
+      address.local?(@host) && Postman.session_left(@store, address, live) ? address.stable : address
     end
 
     # keryx's notices reach an address from before team names only while a session here holds it.

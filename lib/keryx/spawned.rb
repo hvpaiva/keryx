@@ -11,7 +11,7 @@ module Keryx
     FIELDS = %w[director harness herdr_socket herdr_pane].freeze
 
     def self.from_record(data)
-      return unless data.is_a?(Hash) && FIELDS.all? { data[it].is_a?(String) } && Address.key?(data['director'])
+      return unless data.is_a?(Hash) && FIELDS.all? { data[it].is_a?(String) } && Address.name?(data['director'])
 
       new(**FIELDS.to_h { [it.to_sym, data[it]] })
     end
