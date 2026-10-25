@@ -24,8 +24,8 @@ module Keryx
                                   'address this session holds, or else the one team on this machine with that ' \
                                   'member. The local scope ' \
                                   'is a person at a terminal and the system scope is keryx itself, so join takes ' \
-                                  'only USER.local, the address a terminal here acts as, for a session that ' \
-                                  "answers for that person.\n\n" \
+                                  'only the local address of the person at this terminal, the one whoami shows, ' \
+                                  "for a session that answers for that person.\n\n" \
                                   'The address is created if it does not exist and outlives the session: when ' \
                                   'the session ends, its mailbox keeps receiving, and the next session to join ' \
                                   'the address finds the messages waiting. A session holds one address at a time, ' \

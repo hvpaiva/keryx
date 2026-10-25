@@ -13,7 +13,10 @@ module Keryx
                                     'An agent session acts as the address it joined, and whoami shows the session ' \
                                     'address that reaches it alone; a session that join --force displaced acts as ' \
                                     'its session address and shows the address it came from. A person at a ' \
-                                    'terminal acts as USER.local, created on first use, unless --as names another.',
+                                    'terminal acts as an address of the local scope named after USER, lowercased ' \
+                                    'and with other characters made hyphens, such as john-doe.local for john_doe, ' \
+                                    'unless --as names another. It is created on first use, and whoami shows its ' \
+                                    'exact spelling.',
                        examples: [['Check which address replies will go to', 'whoami']]
 
       def define_options(parser) = output_option(parser)
