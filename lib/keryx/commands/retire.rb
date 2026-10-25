@@ -25,8 +25,8 @@ module Keryx
                                     "brings it back with its mailbox as it was.\n\n" \
                                     'An address is retired on the machine that has it, since only that machine ' \
                                     'sees its session and its mail.',
-                       examples: [['Retire the address of a reviewer whose session ended', 'retire rev-1'],
-                                  ['Take it back later', 'join rev-1 --revive']]
+                       examples: [['Retire the address of a reviewer whose session ended', 'retire rev-1.alpha'],
+                                  ['Take it back later', 'join rev-1.alpha --revive']]
 
       def call(arguments)
         name = local_name(arguments.first)
