@@ -20,8 +20,7 @@ module Keryx
       @forwarder = forwarder
       @host = host
       @clock = clock
-      # The name of the person at this terminal, or its names, which mail may go to before the person has an address.
-      @people = Array(person)
+      @person = person
       @measure = measure
       @live = live
     end
@@ -165,7 +164,7 @@ module Keryx
       return unless recipient.local?(@host)
       raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.key)
       raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}" unless
-        @store.address?(recipient.key) || @people.include?(recipient.key)
+        @store.address?(recipient.key) || recipient.key == @person
 
       left = Postman.session_left(@store, recipient, @live)
       raise Error, left if left
