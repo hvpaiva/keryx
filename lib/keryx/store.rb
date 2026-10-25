@@ -26,7 +26,11 @@ module Keryx
 
     def name = team ? "#{member}.#{team}" : member
 
-    def record = { 'member' => member, 'team' => team, 'role' => role, 'created_at' => created_at.utc.iso8601 }
+    # An address from before team names is written as a keryx from before team names wrote it, so that keryx reads it.
+    def record
+      named = team ? { 'member' => member, 'team' => team } : { 'name' => member }
+      { **named, 'role' => role, 'created_at' => created_at.utc.iso8601 }
+    end
   end
   StoredMessage = Data.define(:message, :state)
 
@@ -87,7 +91,7 @@ module Keryx
       raise Error, "#{address_file(name)} is damaged"
     end
 
-    # Only an address with a team starts here, and none in the scope of keryx's own services.
+    # No address starts in the scope of keryx's own services.
     def create_address(name, role: nil, now: Time.now.utc)
       address = Address.from_key(name, host: nil)
       current = address(name)
@@ -266,7 +270,6 @@ module Keryx
     private
 
     def check_new(address)
-      raise Error, "#{address.key} has no team; an address is MEMBER.TEAM, such as #{address.key}.TEAM" if address.flat?
       return unless address.team == Address::SYSTEM
 
       raise Error, "#{address.key} is in the scope of keryx's own services, which no address joins"

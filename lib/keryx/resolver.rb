@@ -6,19 +6,15 @@ require_relative 'error'
 module Keryx
   # Turns the name a user typed into a full address before anything is stored. Resolving grants nothing.
   class Resolver
-    FLAT = '%<address>s has no team: an address is MEMBER.TEAM@HOST, such as %<member>s.TEAM@%<host>s, and a person ' \
-           'at a terminal is %<member>s.local@%<host>s'
-
     def initialize(store:, host:)
       @store = store
       @host = host
     end
 
-    # SENDER is the store name the command acts as, or nil, or a block that gives it, asked only for a bare member. FLAT
-    # allows a full address from before team names.
-    def resolve(text, sender:, flat: false)
+    # SENDER is the store name the command acts as, or nil, or a block that gives it, asked only for a bare member.
+    def resolve(text, sender:)
       text = text.to_s
-      return full(text, flat) if text.include?('@')
+      return Address.parse(text) if text.include?('@')
 
       base, session = text.split('/', 2)
       address = base.include?('.') ? Address.from_key(base, host: @host) : member(base, sender)
@@ -26,13 +22,6 @@ module Keryx
     end
 
     private
-
-    def full(text, flat)
-      address = Address.parse(text)
-      return address if flat || !address.flat?
-
-      raise Error, format(FLAT, address:, member: address.member, host: address.host)
-    end
 
     def member(name, sender)
       Address.validate_name(name)
@@ -43,12 +32,16 @@ module Keryx
       only(name)
     end
 
-    # A sender with no team of its own names a member that only one team on this host has.
+    # A sender with no team of its own names an address from before team names that is current here, else a member that
+    # only one team on this host has, else an address from before team names, which join and spawn create.
     def only(name)
-      matches = @store.current_names.map { Address.from_key(it, host: @host) }.select { it.team && it.member == name }
-      return matches.first if matches.one?
+      flat = Address.new(member: name, host: @host)
+      current = @store.current_names
+      return flat if current.include?(name)
 
-      raise Error, "no address #{name}.TEAM on #{@host}; name the team, as #{name}.TEAM" if matches.empty?
+      matches = current.map { Address.from_key(it, host: @host) }.select { it.team && it.member == name }
+      return matches.first if matches.one?
+      return flat if matches.empty?
 
       listed = "#{matches[0...-1].join(', ')} and #{matches.last}"
       raise Error, "#{name} matches #{listed}; name the team, as #{matches.first.key}"

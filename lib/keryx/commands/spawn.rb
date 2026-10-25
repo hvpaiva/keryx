@@ -243,8 +243,8 @@ module Keryx
       end
 
       def tell(name, body)
-        app.postman.post(sender: Identity::SYSTEM, recipient: Address.from_name(name, host: app.host), kind: 'message',
-                         body:)
+        recipient = Address.from_name(name, host: app.host)
+        app.postman.post(sender: Identity.system(recipient), recipient:, kind: 'message', body:)
       end
 
       def report(name, request)

@@ -184,15 +184,16 @@ An address is `MEMBER.TEAM@HOST`. Two team names are reserved scopes with no aut
 spawn's quotes of a dialog come from `keryx.system@HOST`. join takes `MEMBER.TEAM`, and of the local
 scope only the name this host's terminal acts as, so that a session can answer for that person; it
 refuses every system name. `Resolver` turns what a user types into a full address before anything is
-stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team, and a sender with no
-team of its own (local, system, or an address from before team names) reaches it only when exactly
-one team on this host has that member, else the error lists the matches or says there is none.
+stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team. A sender with no team of its own
+(local, system, an address from before team names, or none) takes `MEMBER@HOST`, an address from
+before team names, while it is current on this host, else the member of the one team here that has
+it, else `MEMBER@HOST` again, which join and spawn create and the other commands refuse as no
+address; several teams with that member are an error that lists them.
 Either short form takes `/SESSION` for a session address on this host, as `MEMBER.TEAM/SESSION` or
 `MEMBER/SESSION`. What holds an `@` is read whole, as `MEMBER.TEAM@HOST` with or without `/SESSION`,
-and `MEMBER@HOST` is an address from before team names, never a member of the sender's team: send
-and ask refuse it with the spelling to use, and since such an address has no session addresses,
-`MEMBER@HOST/SESSION` is refused wherever it is typed. `--as`, ring and retire resolve the same way,
-and also take an address from before team names, typed whole.
+and `MEMBER@HOST` is an address from before team names, never a member of the sender's team. Such
+an address has no session addresses, so `MEMBER@HOST/SESSION` is refused wherever it is typed.
+`--as`, ring and retire resolve the same way.
 
 Each join draws a session id, six characters of lowercase Crockford base32, redrawn while a bound
 session of the address has it, and a command that records the session's process again keeps it.
@@ -306,19 +307,14 @@ withdrawal of a request the mailbox holds, but the write that follows finds no s
 the section on retire says of mail to a session address, so the withdrawal is refused all the same.
 `keryx withdraw` then fails, or `keryx status` shows the withdrawal refused when it waited in the
 outbox, and the request stays open on the sender's machine. An address from before team
-names finishes its threads and starts no new work, so it sends and receives only replies,
-withdrawals and messages in an open thread. `FlatRule` holds the rule, for what `Postman` writes here
-and for what `Receiver` takes from another machine: in a thread, a message to or from such an address
-goes only when it answers, takes or withdraws a request still open, so a request, a message in a
-thread the address never had, a reply to a reply and a new message in a thread that is over are
-refused, here as on the other machine. The refusal names the recipient when it has no team, else the
-sender, and says the request is over when that is why. The receiver answers duplicate for a message
-the mailbox already holds, whatever became of its thread, so a sender that lost the receipt and sends
-it again stops. Every message between an address here and one elsewhere is kept in the mailbox here
-or in the outbox to that machine, and one between two addresses here in their mailboxes, so
-`FlatRule` looks for the request and for what answered or withdrew it there alone. keryx's own notices still reach such an address while a live session here holds it, so that
-session does not go blind before it moves to a team address, and the courier skips one that nobody
-holds.
+names works as it did then, beside team addresses. It is created by join, spawn and the first mail
+to the person it names, sends and receives new work here and from another machine, and is written
+as a keryx from before team names wrote it, so that keryx still reads its record and the format 1
+mail between two such addresses. keryx's notices reach it whether or not a session holds it, from
+`keryx@HOST` in format 1, and `join --force` takes it from a live session without a session
+address. A plain terminal acts as the person's address from before team names while it is current,
+so retiring that address is how the person moves to `USER.local`. Once every session that used such
+an address has moved, a later version can bring back the rule that one only finishes its threads.
 
 ## Between machines
 
@@ -366,8 +362,8 @@ schedule, rings again for bells that did not reach a session, and sends the dead
 `keryx.system@HOST`.
 
 Messages carry format 2 since team addresses. A message whose two addresses are both from before team names is
-still written in format 1, so a keryx from before team names takes the replies and withdrawals that finish old
-threads, and this keryx reads both. An older keryx answers a format 2 message with "not a keryx message", and
+still written in format 1, so a keryx from before team names takes the mail between two
+such addresses, and this keryx reads both. An older keryx answers a format 2 message with "not a keryx message", and
 the forwarder records that refusal as final, with the reason spelled out: that machine runs a keryx from before team
 addresses and must be upgraded. A refusal on the send itself is the sender's error, and the message is discarded,
 as every message refused on its send is. A message that waited in the outbox and is refused when the courier or a

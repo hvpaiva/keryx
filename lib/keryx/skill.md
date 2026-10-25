@@ -46,6 +46,8 @@ working on it.
   `herdr pane send-keys` only on their word.
 - Within your team, a bare member such as `orq` is enough; `MEMBER.TEAM` names a member of another
   team on this machine. A person at a terminal is `NAME.local`, and `keryx.system` is keryx itself.
+- An address from before team names, `NAME@HOST`, works as it did. If you hold one, a bare name
+  reaches such an address here before a member of a team.
 - If another session took your address with `join --force`, you keep your session address,
   `MEMBER.TEAM@HOST/SESSION`, until you leave: your inbox lists only mail to it, and you still open
   by id, reply to and finish the requests you took before.

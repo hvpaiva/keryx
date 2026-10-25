@@ -21,8 +21,9 @@ module Keryx
                      summary: 'Claim an address for this agent session',
                      description: "Claim an address for the agent session that runs this command.\n\n" \
                                   "ADDRESS is MEMBER.TEAM. #{NAME_SPELLING} MEMBER alone takes the team of the " \
-                                  'address this session holds, or else the one team on this machine with that ' \
-                                  'member. The local scope ' \
+                                  'address this session holds. A session with no team takes NAME, an address from ' \
+                                  'before team names, while it exists here and is not retired, or else the one ' \
+                                  'team on this machine with that member, or else creates NAME. The local scope ' \
                                   'is a person at a terminal and the system scope is keryx itself, so join takes ' \
                                   'only the local address of the person at this terminal, the one whoami shows, ' \
                                   "for a session that answers for that person.\n\n" \
@@ -125,16 +126,21 @@ module Keryx
       end
 
       # The session the address is taken from, when it still runs elsewhere, stays bound at its session address, which
-      # this returns. A session displaced earlier stays bound only while it runs.
+      # this returns. A session displaced earlier stays bound only while it runs. An address from before team names has
+      # no session addresses, so the session it is taken from simply loses it.
       def take(name, caller, occupant)
         app.store.outgoing(name).map { "#{name}/#{it}" }.each do |incarnation|
           app.store.unbind(incarnation) unless elsewhere?(incarnation, caller)
         end
-        displaced = displace(name) if elsewhere?(name, caller)
-        app.store.bind(name, directed(name, occupant.with(session: Address.draw_session(app.store.outgoing(name)))))
+        displaced = displace(name) if !flat?(name) && elsewhere?(name, caller)
+        app.store.bind(name, directed(name, occupant.with(session: (draw_session(name) unless flat?(name)))))
         app.store.forget_spawned(name)
         displaced
       end
+
+      def flat?(name) = Address.from_key(name, host: app.host).flat?
+
+      def draw_session(name) = Address.draw_session(app.store.outgoing(name))
 
       def elsewhere?(name, caller)
         occupant = app.store.reporting { app.store.occupant(name) }
@@ -143,7 +149,7 @@ module Keryx
 
       def displace(name)
         current = app.store.occupant(name)
-        current = current.with(session: Address.draw_session(app.store.outgoing(name))) unless current.session
+        current = current.with(session: draw_session(name)) unless current.session
         app.store.displace(name, current)
         "#{name}/#{current.session}"
       end

@@ -7,6 +7,7 @@ class SpawnDialogTest < Minitest::Test
   include Factory
   include CLIHelpers
   include SpawnHelpers
+  include FlatAddresses
 
   TRUST = ["\u26a0 Workspace Trust Required",
            'Cursor Agent can execute code and access files in this directory.',
@@ -53,6 +54,16 @@ class SpawnDialogTest < Minitest::Test
                  "it is answered; keryx never answers one. Its text follows.\n\n#{quoted(TRUST)}\n\nTake it to your " \
                  "human, and answer it with 'herdr pane send-keys' only on their word.", told.first.body
     assert_includes sockets.posts, ['/tmp/cc-111.sock', bell]
+  end
+
+  def test_a_spawner_on_an_address_from_before_team_names_is_told_by_the_sender_keryx_had_then
+    orq = held('orq', 111)
+    stops_at(Screens.captured.fetch('cursor-120'))
+    result = spawn('rev-1.dev', '--harness', 'cursor', '--timeout', '5s', 'Review it', env: orq)
+    told = store.unread('orq').select { it.from == 'keryx@athena' }
+
+    assert_equal [3, 1], [result.status, told.size]
+    assert_match(/\APane w1:p2, where spawn started rev-1.dev@athena, stops at a dialog/, told.first.body)
   end
 
   def test_the_notice_quotes_the_dialog_on_stderr_once
