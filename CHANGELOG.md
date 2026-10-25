@@ -12,9 +12,8 @@ All notable changes to this project are documented here. The format follows
   with `keryx leave --as ADDRESS` once the session holding one ended without leaving, for Claude
   Code, Codex and Cursor sessions and any agent in a herdr pane.
 - Team addresses, `MEMBER.TEAM@HOST`. A bare `MEMBER` names one of the sender's team and
-  `MEMBER.TEAM` one on this machine; a sender with no team names by a bare `NAME` an address from
-  before team names here while it is not retired, else the one team here with that member, and is
-  told the matches when several teams have it. Two scopes are reserved: `NAME.local` is a person
+  `MEMBER.TEAM` one on this machine; a sender with no team names a bare member only when one team
+  here has it, and is told the matches otherwise. Two scopes are reserved: `NAME.local` is a person
   at a terminal and `keryx.system` is keryx's own notices.
 - Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
   session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
@@ -23,11 +22,13 @@ All notable changes to this project are documented here. The format follows
   this machine or another, and keryx's notices from another machine, which the holder reads. `who` and `status` list a displaced session
   at its session address beside the address, `whoami` gives the session address of the session
   that runs it, and their JSON gives `member`, `team`, `host` and `session_address`.
-- Message format 2, for team and session addresses. Addresses from before team names, `NAME@HOST`,
-  keep working beside team addresses, and a plain terminal keeps acting as the person's one until
-  it is retired. Mail between two of them stays in format 1, as do keryx's notices to one, so a
-  machine that runs an older keryx takes it, and that machine refuses format 2 for good, with the reason in the sender's error, or in `keryx status` for a message
+- Message format 2, for team and session addresses. Addresses from before team names finish their
+  open threads in format 1 and start no new work, and a machine that runs an older keryx refuses
+  format 2 for good, with the reason in the sender's error, or in `keryx status` for a message
   that waited in the outbox.
+- An address from before team names, `NAME@HOST`, moves to a team when its session joins
+  `MEMBER.TEAM` for new work, finishes what is open at the old address with `--as NAME@HOST`, and
+  runs `keryx retire NAME@HOST` once nothing is open there.
 - Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks but around
   mail to a session address and the context notices, and each message stored once however often it
   arrives.

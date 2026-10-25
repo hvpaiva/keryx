@@ -21,9 +21,8 @@ module Keryx
                      summary: 'Claim an address for this agent session',
                      description: "Claim an address for the agent session that runs this command.\n\n" \
                                   "ADDRESS is MEMBER.TEAM. #{NAME_SPELLING} MEMBER alone takes the team of the " \
-                                  'address this session holds. A session with no team takes NAME, an address from ' \
-                                  'before team names, while it exists here and is not retired, or else the one ' \
-                                  'team on this machine with that member, or else creates NAME. The local scope ' \
+                                  'address this session holds, or else the one team on this machine with that ' \
+                                  'member. The local scope ' \
                                   'is a person at a terminal and the system scope is keryx itself, so join takes ' \
                                   'only the local address of the person at this terminal, the one whoami shows, ' \
                                   "for a session that answers for that person.\n\n" \

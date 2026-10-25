@@ -13,8 +13,10 @@ module Keryx
                                       "The recipient gets a withdrawal in the request's thread and its bell rings. " \
                                       'From then on the request is not open, so keryx status no longer lists it, ' \
                                       'the stop hook no longer reminds the recipient of it, and keryx wait returns ' \
-                                      'with the withdrawal. A reply that comes later is still delivered. TEXT says ' \
-                                      "why, and without it the withdrawal says that no reply is needed.\n\n" \
+                                      'with the withdrawal. A reply that comes later is still delivered, except in ' \
+                                      'a thread with an address from before team names, where it is refused on ' \
+                                      'this machine and from another. TEXT says why, and without it the ' \
+                                      "withdrawal says that no reply is needed.\n\n" \
                                       'A request this machine sent under a name it had before counts as sent by the ' \
                                       'address of the same name.',
                          examples: [['Withdraw a request that is no longer needed', 'withdraw 01JB8Y2Q'],
