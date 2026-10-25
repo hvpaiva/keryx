@@ -4,11 +4,11 @@ require 'json'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'identity'
 require_relative 'message'
 require_relative 'postman'
 require_relative 'retirement'
-require_relative 'roster'
 require_relative 'store'
 require_relative 'ulid'
 
@@ -85,30 +85,7 @@ module Keryx
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
-      Postman.session_left(@store, to, @live) || flat(message, from, to)
-    end
-
-    # An address from before team names only finishes its threads, whichever format carried the message, so what
-    # reaches it or comes from it answers, takes or withdraws a request this store holds, and never starts one.
-    def flat(message, from, to)
-      address = [from, to].find(&:flat?)
-      return unless address && !finishes?(message, from, to)
-
-      format(Postman::FLAT_RECIPIENT, address:)
-    end
-
-    # A message the mailbox already holds is a duplicate, whatever became of its thread, so a sender that lost the
-    # receipt and sends it again stops. A new one finishes only a request still open. Every message between an address
-    # here and one elsewhere is kept in the mailbox here or in the outbox to that machine, so the request and whatever
-    # answered or withdrew it are looked for there alone.
-    def finishes?(message, from, to)
-      mail = @store.stored(to.key).map(&:message)
-      return true if mail.any? { it.id == message.id }
-
-      thread = mail + @store.outbox.outgoing(from.host).reject { it.state == :refused }.map(&:message)
-      request = thread.find { it.id == message.in_reply_to } or return false
-      %i[answers? takes? withdraws?].any? { message.public_send(it, request) } &&
-        thread.none? { Roster.settles?(it, request) }
+      Postman.session_left(@store, to, @live) || FlatRule.refusal(@store, message, host: @host)
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.

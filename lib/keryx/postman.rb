@@ -3,6 +3,7 @@
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'forwarder'
 require_relative 'identity'
 require_relative 'message'
@@ -14,8 +15,6 @@ module Keryx
     Posted = Data.define(:message, :bell, :forward)
     FLAT_SENDER = '%<address>s is an address from before team names: it finishes its open requests and starts no ' \
                   "new work; join MEMBER.TEAM for new work, and 'keryx retire %<address>s' once none is open"
-    FLAT_RECIPIENT = '%<address>s is an address from before team names: it takes only replies, withdrawals and ' \
-                     'messages in its open threads'
     SESSION_LEFT = 'mail to %<address>s is refused: its session left; write to %<stable>s'
 
     def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
@@ -66,6 +65,7 @@ module Keryx
       body = Postman.check_body(body)
       context = @measure.call(sender)
       letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
+      check_thread(letter.call(id))
       return post_away(recipient.host, letter, id, claim) unless recipient.local?(@host)
 
       name = recipient.key
@@ -172,7 +172,15 @@ module Keryx
       return unless recipient.flat?
       return if sender == Identity::SYSTEM && recipient.local?(@host) && @live.call(recipient.key)
 
-      raise Error, format(FLAT_RECIPIENT, address: recipient)
+      raise Error, format(FlatRule::RECIPIENT, address: recipient)
+    end
+
+    # In a thread, an address from before team names sends and takes here only what another machine would take.
+    def check_thread(message)
+      return unless message.in_reply_to
+
+      refusal = FlatRule.refusal(@store, message, host: @host)
+      raise Error, refusal if refusal
     end
   end
 end
