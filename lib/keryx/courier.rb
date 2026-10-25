@@ -12,7 +12,6 @@ module Keryx
   class Courier
     Round = Data.define(:forwarded, :rung, :overdue, :context, :errors)
     Notice = Data.define(:name, :recipient, :stage, :context, :ceiling)
-    NAME = Identity::SYSTEM
     OVERDUE_MARK = 'overdue'
     CONTEXT_MARK = 'context'
     CONTEXT_CLAIM = 'context-id'
@@ -64,7 +63,7 @@ module Keryx
         request = stored.message
         sender = Address.parse(request.from)
         next unless request.overdue?(now) && sender.local?(@host) && @store.address?(sender.key)
-        next if @store.marked?(sender.key, request.id, OVERDUE_MARK) || !reachable?(roster, sender)
+        next if @store.marked?(sender.key, request.id, OVERDUE_MARK)
 
         remind(sender, request)
       end
@@ -95,7 +94,7 @@ module Keryx
       director = Address.from_name(occupant.director, host: @host) if occupant.director
       director ||= oldest_request(roster, name)&.then { Address.parse(it.from) }
       director &&= settled(roster, director)
-      [Address.from_name(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
+      [Address.from_name(name, host: @host), director].compact.uniq
     end
 
     # A director that join --force displaced is told at its session address until that session leaves, and then at
@@ -103,11 +102,6 @@ module Keryx
     def settled(roster, address)
       live = ->(name) { roster.live?(@store.reporting { @store.occupant(name) }) }
       address.local?(@host) && Postman.session_left(@store, address, live) ? address.stable : address
-    end
-
-    # keryx's notices reach an address from before team names only while a session here holds it.
-    def reachable?(roster, address)
-      !address.flat? || (address.local?(@host) && roster.live?(@store.reporting { @store.occupant(address.key) }))
     end
 
     # Only the requests the incarnation lists, so neither the holder nor a displaced session takes the other's work.
@@ -126,7 +120,7 @@ module Keryx
 
       body = notice(name, context, occupant.ceiling, stage)
       claim = -> { notice_id(name, recipient, occupant, stage) }
-      return unless @postman.post(sender: NAME, recipient:, kind: 'message', body:, claim:)
+      return unless @postman.post(sender: Identity.system(recipient), recipient:, kind: 'message', body:, claim:)
       return unless @store.mark_once(name, mark, CONTEXT_MARK)
 
       Notice.new(name:, recipient: recipient.to_s, stage:, context:, ceiling: occupant.ceiling)
@@ -200,7 +194,8 @@ module Keryx
     end
 
     def remind(sender, request)
-      @postman.post(sender: NAME, recipient: sender, kind: 'message', id: Ulid.derive(request.due_at, request.id),
+      @postman.post(sender: Identity.system(sender), recipient: sender, kind: 'message',
+                    id: Ulid.derive(request.due_at, request.id),
                     body: "Request #{request.id} to #{request.to} passed its deadline without a reply.")
       @store.mark_once(sender.key, request.id, OVERDUE_MARK)
       request

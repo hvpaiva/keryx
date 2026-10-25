@@ -64,19 +64,13 @@ class ResolverTest < Minitest::Test
     assert_raises(Keryx::Error) { resolve('rev-1', sender: 'person.local') }
   end
 
-  def test_an_address_without_a_team_is_refused_with_the_spelling_to_use
-    error = assert_raises(Keryx::Error) { resolve('hvpaiva@box1', sender: 'orq.alpha') }
-    assert_equal 'hvpaiva@box1 has no team: an address is MEMBER.TEAM@HOST, such as hvpaiva.TEAM@box1, and a ' \
-                 'person at a terminal is hvpaiva.local@box1', error.message
-  end
-
-  def test_an_address_without_a_team_is_taken_where_the_caller_allows_it
-    assert_equal 'orq@box1', resolve('orq@box1', flat: true)
-    assert_raises(Keryx::Error) { resolve('orq', flat: true) }
+  def test_an_address_without_a_team_is_taken_whole
+    assert_equal 'hvpaiva@box1', resolve('hvpaiva@box1', sender: 'orq.alpha')
+    assert_equal 'orq@zeus', resolve('orq@zeus')
   end
 
   def test_a_host_needs_the_full_address
-    assert_raises(Keryx::Error) { resolve('rev-1@zeus', sender: 'orq.alpha') }
+    assert_raises(Keryx::Error) { resolve('rev-1.alpha@Zeus', sender: 'orq.alpha') }
     assert_raises(Keryx::Error) { resolve('Rev-1', sender: 'orq.alpha') }
   end
 end

@@ -4,7 +4,6 @@ require 'json'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
-require_relative 'flat_rule'
 require_relative 'identity'
 require_relative 'message'
 require_relative 'postman'
@@ -105,7 +104,7 @@ module Keryx
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
-      Postman.session_left(@store, to, @live) || FlatRule.refusal(@store, message, host: @host)
+      Postman.session_left(@store, to, @live)
     end
 
     # A withdrawal still settles a request that arrived as the address was retired, so its sender stops waiting.

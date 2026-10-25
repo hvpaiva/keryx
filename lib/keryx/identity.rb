@@ -10,6 +10,11 @@ module Keryx
     NOT_JOINED = "this %s session holds no address; run 'keryx join MEMBER.TEAM' in it first"
     # The sender of what keryx itself posts: the courier's notices and spawn's quotes of a dialog.
     SYSTEM = "keryx.#{Address::SYSTEM}".freeze
+    # What keryx posts to an address from before team names comes from the sender it had then, so the message keeps the
+    # format a keryx from before team names reads.
+    FLAT_SYSTEM = 'keryx'
+
+    def self.system(recipient) = recipient.flat? ? FLAT_SYSTEM : SYSTEM
 
     def initialize(store:, caller:, env:, host: nil)
       @store = store
@@ -50,7 +55,7 @@ module Keryx
     private
 
     def existing(text)
-      address = Resolver.new(store: @store, host: @host).resolve(text, sender: held, flat: true)
+      address = Resolver.new(store: @store, host: @host).resolve(text, sender: held)
       raise Error, "#{address} is on another machine; --as names an address on #{@host}" unless address.local?(@host)
 
       name = address.key
