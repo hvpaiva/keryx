@@ -46,8 +46,20 @@ module Keryx
       format(SESSION_LEFT, address:, stable: address.stable)
     end
 
+    # leave and join end or move a binding in a hold of the occupants lock, so mail to a session address is written in
+    # the hold that finds its session still bound, and none of them comes between the check and the write.
+    def self.bound(store, address, live)
+      store.with_occupants_lock do
+        left = session_left(store, address, live)
+        raise Error, left if left
+
+        yield
+      end
+    end
+
     # A claim is asked in the same hold of the occupants lock as the write for the id the message goes under, and one
-    # that gives none leaves the message unwritten; the bell and the forward come after the hold.
+    # that gives none leaves the message unwritten; a session address here is checked again in that hold. The bell and
+    # the forward come after the hold.
     def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
       check_recipient(recipient)
       check_flat(sender, recipient, reply_to)
@@ -58,7 +70,7 @@ module Keryx
 
       name = recipient.key
       @store.create_address(name, role: Identity::HUMAN_ROLE) unless @store.address?(name)
-      message, stored = write(letter, id, claim) { @store.deliver(name, it) }
+      message, stored = held(claim, recipient) { write(letter, id, claim) { @store.deliver(name, it) } }
       return unless message
 
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
@@ -88,18 +100,23 @@ module Keryx
       Bell::Result.new(status: Bell::FAILED, channel: nil, detail: e.message, at: @clock.call)
     end
 
+    def held(claim, recipient = nil, &)
+      return Postman.bound(@store, recipient, @live, &) if recipient&.session
+      return yield unless claim
+
+      @store.with_occupants_lock(&)
+    end
+
     # The message and what writing it gave, or nil when the claim gave no id.
     def write(letter, id, claim)
       return letter.call(id).then { [it, yield(it)] } unless claim
 
-      @store.with_occupants_lock do
-        claimed = claim.call
-        letter.call(claimed).then { [it, yield(it)] } if claimed
-      end
+      claimed = claim.call
+      letter.call(claimed).then { [it, yield(it)] } if claimed
     end
 
     def post_away(host, letter, id, claim)
-      message, = write(letter, id, claim) { @store.outbox.queue(host, it) }
+      message, = held(claim) { write(letter, id, claim) { @store.outbox.queue(host, it) } }
       forwarded(message, host) if message
     end
 

@@ -50,9 +50,9 @@ class PostmanGuardTest < Minitest::Test
     end
   end
 
-  def postman
+  def postman(**)
     Keryx::Postman.new(store:, bell: WatchingBell.new(watch), forwarder:, host: 'athena', clock: -> { NOW },
-                       person: 'person.local')
+                       person: 'person.local', **)
   end
 
   def address(text) = Keryx::Resolver.new(store:, host: 'athena').resolve(text, sender: 'orq.dev')
@@ -107,6 +107,33 @@ class PostmanGuardTest < Minitest::Test
     assert_empty store.outbox.outgoing
     assert_empty remote.sent
     assert_equal({ claim: true }, held)
+  end
+
+  def test_a_post_to_a_session_address_writes_in_the_hold_that_checks_the_session_with_or_without_a_claim
+    store.bind('rev-1.dev', build_occupant(session: 'abc123'))
+    session = Keryx::Address.parse('rev-1.dev@athena/abc123')
+    bound = postman(live: ->(_name) { true })
+    bound.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello')
+    bound.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello', claim: claiming(Keryx::Ulid.generate))
+
+    assert_equal 2, store.unread('rev-1.dev').size
+    assert_equal({ write: true, bell: false, claim: true }, held)
+  end
+
+  # Measuring the sender's context comes after the checks and before the write, so a leave then comes between them.
+  def test_a_session_that_leaves_after_the_checks_of_a_post_gets_no_mail_and_asks_no_claim
+    session = Keryx::Address.parse('rev-1.dev@athena/abc123')
+    leave = ->(_name) { store.with_occupants_lock { store.unbind('rev-1.dev') } }
+    leaving = postman(live: ->(_name) { true }, measure: leave)
+    errors = [nil, claiming(Keryx::Ulid.generate)].map do |claim|
+      store.bind('rev-1.dev', build_occupant(session: 'abc123'))
+      assert_raises(Keryx::Error) { leaving.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello', claim:) }
+    end
+
+    assert_equal ['mail to rev-1.dev@athena/abc123 is refused: its session left; write to rev-1.dev@athena'] * 2,
+                 errors.map(&:message)
+    assert_empty store.mailbox('rev-1.dev')
+    assert_empty held
   end
 
   def test_a_claimed_post_the_other_machine_refuses_still_fails_and_is_not_kept

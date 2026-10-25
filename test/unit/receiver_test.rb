@@ -86,4 +86,32 @@ class ReceiverTest < Minitest::Test
 
     assert_equal 'failed', receive(incoming)['status']
   end
+
+  # The session leaves right after the first check saw it running, as a leave on this machine can.
+  def test_a_session_that_leaves_after_the_checks_gets_no_mail
+    store.bind('port.dev', build_occupant(session: 'abc123'))
+    live = ->(_name) { store.with_occupants_lock { store.unbind('port.dev') }.then { true } }
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local', live:)
+    receipt = receiver.receive(build_message(to: 'port.dev@zeus/abc123').to_json)
+
+    assert_equal ['refused', 'mail to port.dev@zeus/abc123 is refused: its session left; write to port.dev@zeus'],
+                 receipt.values_at('status', 'detail')
+    assert_empty store.mailbox('port.dev')
+  end
+
+  def test_mail_to_a_session_address_while_another_command_keeps_the_lock_answers_failed
+    store.bind('port.dev', build_occupant(session: 'abc123'))
+    now = NOW
+    waiting = Keryx::Store.new(tmp('zeus'), clock: -> { now }, sleeper: ->(seconds) { now += seconds })
+    receiver = Keryx::Receiver.new(store: waiting, bell: QuietBell.new, host: 'zeus', person: 'person.local',
+                                   live: ->(_name) { true })
+    receipt = File.open(tmp('zeus', 'occupants.lock'), File::RDWR | File::CREAT) do |file|
+      file.flock(File::LOCK_EX)
+      receiver.receive(build_message(to: 'port.dev@zeus/abc123').to_json)
+    end
+
+    assert_equal 'failed', receipt['status']
+    assert_match(/occupants\.lock stayed locked by another keryx command for 15s/, receipt['detail'])
+    assert_empty store.mailbox('port.dev')
+  end
 end

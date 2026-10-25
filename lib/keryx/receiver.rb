@@ -8,6 +8,7 @@ require_relative 'identity'
 require_relative 'message'
 require_relative 'postman'
 require_relative 'retirement'
+require_relative 'store'
 require_relative 'ulid'
 
 module Keryx
@@ -39,11 +40,10 @@ module Keryx
       refusal = refusal(message, to)
       return receipt(message.id, 'refused', detail: refusal) if refusal
 
-      @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
-      status = @store.deliver(to.key, message)
+      status = deliver(to, message)
       receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
     rescue Error => e
-      receipt(claimed_id(line), 'refused', detail: e.message)
+      receipt(claimed_id(line), e.is_a?(Store::Busy) ? 'failed' : 'refused', detail: e.message)
     rescue StandardError => e
       receipt(claimed_id(line), 'failed', detail: e.message)
     end
@@ -61,6 +61,15 @@ module Keryx
     end
 
     def too_large(id) = receipt(id, 'refused', detail: "the message is larger than #{FRAME_LIMIT} bytes")
+
+    # Mail to a session address is checked again in the hold that writes it. A lock another command keeps there is no
+    # refusal, so the sender keeps the message and sends it again.
+    def deliver(to, message)
+      @store.create_address(to.key, role: Identity::HUMAN_ROLE) unless @store.address?(to.key)
+      return @store.deliver(to.key, message) unless to.session
+
+      Postman.bound(@store, to, @live) { @store.deliver(to.key, message) }
+    end
 
     def ring(name, message)
       @bell.ring(name, [message]).record

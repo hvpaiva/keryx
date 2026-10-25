@@ -22,8 +22,8 @@ All notable changes to this project are documented here. The format follows
 - Message format 2, for team and session addresses. Addresses from before team names finish their
   open threads in format 1 and start no new work, and a machine that runs an older keryx refuses
   format 2 for good, with the reason in the sender's error and in `keryx status`.
-- Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks, and each
-  message stored once however often it arrives.
+- Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks but around
+  mail to a session address, and each message stored once however often it arrives.
 - `send`, `ask`, `inbox`, `read`, `reply` and `wait`, with request deadlines and threads. Agents
   can write to the person at the keyboard before that person has used keryx.
 - `keryx withdraw`, which closes a request its sender no longer needs answered, including one sent

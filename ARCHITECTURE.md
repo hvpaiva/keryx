@@ -59,8 +59,9 @@ of former names: only this machine writes its outbox, and a message from another
 its recipient's host, so a request in a mailbox whose sender and recipient share a host was sent
 from here. Because no ordinary mailbox operation has to change two files together, none takes a lock
 and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
-decision, which takes `outcomes.lock`, as the forwarding section explains, and writing a context
-notice, which takes `occupants.lock`, as the section on context explains. A change of occupants
+decision, which takes `outcomes.lock`, as the forwarding section explains, writing a context
+notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
+session address, which takes it too, as the section on delivery explains. A change of occupants
 takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
@@ -270,7 +271,11 @@ each message, and `keryx status` reads the receipts to list what did not ring.
 
 Mail to a session address is delivered only while that session is bound to the address and runs
 (`Postman.session_left`), here and in `Receiver` for mail from another machine; once it left, the
-sender is told to write to the stable address. An address from before team names finishes its
+sender is told to write to the stable address. leave and join end or move a binding in a hold of
+`occupants.lock`, so the check is made again in such a hold and the message is written in the same
+one (`Postman.bound`): a session that leaves after a sender first checked it gets no new mail, and
+the mail written before it left stays for the holder. A receiver that finds the lock kept answers
+that it failed, so the sender keeps the message and sends it again. An address from before team names finishes its
 threads and starts no new work, so it sends and receives only replies, withdrawals and messages in an
 open thread, and the receiver applies the same rule. keryx's own notices still reach such an address
 while a live session here holds it, so that session does not go blind before it moves to a team
