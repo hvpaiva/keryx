@@ -20,10 +20,7 @@ module Keryx
                                   'keryx status shows the request as taken, and the stop hook no longer reminds you ' \
                                   'of it. The request stays open, and its sender keeps waiting, until you answer it ' \
                                   'with keryx reply. A request already answered or withdrawn is refused, and so is ' \
-                                  'an id that is not a request; keryx reply answers any message in its thread, ' \
-                                  'except in a thread with an address from before team names, where it answers ' \
-                                  'only the request while it is open and is refused otherwise, on this machine and ' \
-                                  'from another.',
+                                  'an id that is not a request; keryx reply answers any message in its thread.',
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md'],
                                 ['Say you took a request whose work goes on', 'send --re 01JB8Y2Q "On it, PR by 3pm"']]
