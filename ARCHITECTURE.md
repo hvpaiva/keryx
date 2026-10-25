@@ -65,7 +65,8 @@ from here. Because no ordinary mailbox operation has to change two files togethe
 and a crash leaves nothing half done. The exceptions in mail are rewriting an outcome that holds no
 decision, which takes `outcomes.lock`, as the forwarding section explains, writing a context
 notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
-session address, which takes it too, as the section on delivery explains. A change of occupants
+session address, which takes it too unless it is a withdrawal written here, as the section on
+delivery explains. A change of occupants
 takes a lock too, as the next section explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
@@ -151,8 +152,9 @@ address takes no lock against retire, so a message whose sender checked the addr
 `retired.json` landed still lands in its mailbox. That stays visible: a request among such messages
 shows open in its sender's `keryx status`, and `keryx withdraw` settles it, since a withdrawal goes
 where its request is and `Receiver` takes into a retired mailbox the withdrawal of a request it
-holds. The writes that take `occupants.lock` anyway, a context notice and mail to a session address,
-as the section on the store says, take turns with retire, and mail to a session address then finds
+holds. The writes that take `occupants.lock` anyway, a context notice and mail to a session address
+other than a withdrawal written here, as the section on the store says, take turns with retire, and
+mail to a session address then finds
 no session bound, since retire unbinds every session of the address before it writes
 `retired.json`, so it is refused. spawn checks the address for
 the last time under the lock, right before it starts the harness, and refuses there an address
@@ -294,7 +296,14 @@ same words. leave and join end or move a binding in a hold of
 `occupants.lock`, so the check is made again in such a hold and the message is written in the same
 one (`Postman.bound`): a session that leaves after a sender first checked it gets no new mail, and
 the mail written before it left stays for the holder. A receiver that finds the lock kept answers
-that it failed, so the sender keeps the message and sends it again. An address from before team
+that it failed, so the sender keeps the message and sends it again. A withdrawal written here is the
+exception, as with a retired address, so that its sender stops waiting. `Postman.withdraw` writes it
+into the mailbox that holds its request with neither the check nor the lock, whether or not the
+session is still there, and once the session left the bell finds no session to ring. A withdrawal
+from another machine is no exception. `Receiver` refuses it once the session left, as it refuses
+other mail, unless the address was retired since, and then a retired mailbox takes it as the section
+on retire says. `keryx withdraw` then fails, or `keryx status` shows the withdrawal refused when it
+waited in the outbox, and the request stays open on the sender's machine. An address from before team
 names finishes its threads and starts no new work, so it sends and receives only replies,
 withdrawals and messages in an open thread. `FlatRule` holds the rule, for what `Postman` writes here
 and for what `Receiver` takes from another machine: in a thread, a message to or from such an address
@@ -326,8 +335,10 @@ A message for an address on another host goes to `outbox/HOST/`, written in `tmp
 `new/` like a delivery. `Forwarder` moves a message in `new/` that already has an outcome by it, and
 sends the rest through `Remote`, which runs `ssh HOST keryx __receive` with one message per line. On
 the other machine, `Receiver` refuses a message for another host, one that claims to come from its
-own host, one for an address it lacks, and one for a retired address, with a detail that says it is
-retired, so the sender's `keryx status` shows why. It stores the rest under their ids, rings the local
+own host, one for an address it lacks (but not the address its own terminal acts as, named after
+`USER` in the SSH session, which it creates as it stores the message), and one for a retired address,
+with a detail that says it is retired, so the sender's `keryx status` shows why. It stores the rest
+under their ids, rings the local
 session and prints a receipt for each. The sender then records the outcome and moves the message to
 `cur/` or `refused/` by the outcome that stayed. The outcome is written before the move and its
 first decision stays, so an attempt that fails or hears otherwise after another one settled the
@@ -491,7 +502,11 @@ oldest request the session has not answered when no director was recorded, from 
 the ones to its session address, so neither it nor the holder takes the sender of the other's work. A director that
 spawned from a displaced session is recorded as `KEY/SESSION` and told there while that session is bound and runs,
 and at the stable address once it left, since the holder took its work; a director taken from the oldest request
-falls back the same way. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
+falls back the same way when it is on this machine. One on another machine is told at the address it wrote from, since
+only a session here can be checked, and once that session has left, the other machine refuses the notice, as other
+mail to it, so neither that session nor the holder there is told. The courier then reports that it could not tell it
+and tries again in each round, or, when the notice waited in the outbox, counts it as told and `keryx status` shows it
+refused once it arrives. Each notice goes once to each recipient for a join and a ceiling, marked in the session's
 `receipts/`, so a session that joins again or gets another ceiling can be told again; a recipient the post failed
 for is tried again alone in the next round. A session first seen at or past the ceiling is told only that it
 reached it, and the comparison uses whole numbers.
