@@ -23,8 +23,10 @@ module Keryx
     ANSWERED = 'the session joins by itself once it is answered; keryx never answers one'
     # How a director answers a dialog keryx tells it about, whether or not its human lets it answer one itself.
     ANSWER = 'keryx never answers a dialog. If your human lets you answer the dialogs of the sessions you direct, ' \
-             "answer it with 'herdr pane send-keys %<pane>s KEY...'; otherwise take it to your human, and answer " \
-             'it only on their word.'
+             "answer it with 'herdr pane send-keys %<pane>s KEY...', except that an answer that grants something, " \
+             'such as trusting a hook, allowing a permission or changing a setting, still needs their word; ' \
+             'declining or continuing without trusting does not. Otherwise take it to your human, and answer it ' \
+             'only on their word.'
 
     # A harness that answers a dialog by itself after a while counts down on screen, as in "will automatically deny
     # this request in 0:28", so the count changes every second while the dialog stays the same. Iris reads it so too.

@@ -12,8 +12,10 @@ class CourierDialogTest < Minitest::Test
   PANE = 'w1:p2'
   FREE = "\u2022 Done.\n\n\u276f \n"
   ANSWER = 'keryx never answers a dialog. If your human lets you answer the dialogs of the sessions you direct, ' \
-           "answer it with 'herdr pane send-keys w1:p2 KEY...'; otherwise take it to your human, and answer it only " \
-           'on their word. keryx tells you again only when the pane shows a new dialog.'
+           "answer it with 'herdr pane send-keys w1:p2 KEY...', except that an answer that grants something, such " \
+           'as trusting a hook, allowing a permission or changing a setting, still needs their word; declining or ' \
+           'continuing without trusting does not. Otherwise take it to your human, and answer it only on their ' \
+           'word. keryx tells you again only when the pane shows a new dialog.'
 
   def member(director: 'orq.dev', pane: PANE, name: 'impl.dev')
     store.create_address(name)

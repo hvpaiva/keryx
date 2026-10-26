@@ -52,7 +52,9 @@ class SpawnDialogTest < Minitest::Test
     assert_equal 'Pane w1:p2, where spawn started rev-1.dev@athena, stops at a dialog, and the session joins once ' \
                  "it is answered. Its text follows.\n\n#{quoted(TRUST)}\n\nkeryx never answers a dialog. If your " \
                  'human lets you answer the dialogs of the sessions you direct, answer it with ' \
-                 "'herdr pane send-keys w1:p2 KEY...'; otherwise take it to your human, and answer it only on their " \
+                 "'herdr pane send-keys w1:p2 KEY...', except that an answer that grants something, such as " \
+                 'trusting a hook, allowing a permission or changing a setting, still needs their word; declining or ' \
+                 'continuing without trusting does not. Otherwise take it to your human, and answer it only on their ' \
                  'word.', told.first.body
     assert_includes sockets.posts, ['/tmp/cc-111.sock', bell]
   end
