@@ -53,7 +53,8 @@ class JSONSchemaTest < Minitest::Test
     assert_equal 1, who['schema']
     assert_equal [[*ADDRESS, 'harness', 'join'].sort], who['addresses'].map { keys(it) }.uniq
     assert_equal %w[used window], keys(who['addresses'].first['context'])
-    assert_equal Keryx::CLI::JoinView::FIELDS.sort, keys(who['addresses'].first['join'])
+    assert_equal %w[cwd harness herdr_pane herdr_socket joined_at pid session_id started transcript],
+                 keys(who['addresses'].first['join'])
   end
 
   def test_status
