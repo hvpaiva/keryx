@@ -59,6 +59,13 @@ module Keryx
       end
     end
 
+    # The open requests that wait on NAME: those sent to it, then those it sent from here to another address.
+    def waiting(name, open = open_requests)
+      received = open.filter_map { |holder, stored| stored.message if holder == name }
+      sent = open.filter_map { |holder, stored| stored.message if Store.sender_here(holder, stored.message) == name }
+      [received, sent - received]
+    end
+
     def settlement(request) = @store.all_messages.map { it.last.message }.find { Roster.settles?(it, request) }
 
     def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
