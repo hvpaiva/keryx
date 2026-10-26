@@ -190,10 +190,12 @@ message sent to it.
 
 An address is `MEMBER.TEAM@HOST`. Two team names are reserved scopes with no authority of their own:
 `local` is a person at a terminal, and `system` is keryx's own services, so the courier's notices and
-spawn's quotes of a dialog come from `keryx.system@HOST`. join takes `MEMBER.TEAM`, and of the local
-scope only the name this host's terminal acts as, so that a session can answer for that person; it
-refuses every system name. `Resolver` turns what a user types into a full address before anything is
-stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team, and a sender with no
+spawn's quotes of a dialog come from `keryx.system@HOST`. join takes `MEMBER.TEAM`, and join and
+spawn refuse every name in a reserved scope, the person's own included, since a person acts as theirs
+from a terminal without joining. A session that an older keryx let join a local name holds nothing:
+`Identity#held` skips a reserved name for an agent, so the session acts as no address until it joins
+a team one, and that join releases the old binding. `Resolver` turns what a user types into a full
+address before anything is stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team, and a sender with no
 team of its own (local or system) reaches it only when exactly
 one team on this host has that member, else the error lists the matches or says there is none.
 Either short form takes `/SESSION` for a session address on this host, as `MEMBER.TEAM/SESSION` or

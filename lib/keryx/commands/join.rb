@@ -23,10 +23,9 @@ module Keryx
                      description: "Claim an address for the agent session that runs this command.\n\n" \
                                   "ADDRESS is MEMBER.TEAM. #{NAME_SPELLING} MEMBER alone takes the team of the " \
                                   'address this session holds, or else the one team on this machine with that ' \
-                                  'member. The local scope ' \
-                                  'is a person at a terminal and the system scope is keryx itself, so join takes ' \
-                                  'only the local address of the person at this terminal, the one whoami shows, ' \
-                                  "for a session that answers for that person.\n\n" \
+                                  'member. join refuses every address in a reserved scope: NAME.local is a person ' \
+                                  'at a terminal, which acts as it without joining, and keryx.system is keryx ' \
+                                  "itself.\n\n" \
                                   'The address is created if it does not exist and outlives the session: when ' \
                                   'the session ends, its mailbox keeps receiving, and the next session to join ' \
                                   'the address finds the messages waiting. A session holds one address at a time, ' \
@@ -58,18 +57,18 @@ module Keryx
         raise UsageError, "invalid role #{role.inspect}: up to 40 letters, digits, spaces, dots, hyphens or underscores"
       end
 
-      # The store name of the address TEXT names, for a session acting as SENDER. A person's own address may be held by
-      # a session that relays for them; no other address in a reserved scope may be.
+      # The store name of the address TEXT names, for a session acting as SENDER. No session holds an address in a
+      # reserved scope, the person's own included, since a person acts as theirs from a terminal without joining.
       def self.resolve(app, text, sender)
         address = app.resolver.resolve(text, sender:)
         raise Error, "#{address} is on another machine; a session holds an address on #{app.host}" unless
           address.local?(app.host)
         raise UsageError, "#{address} names one session; give the address without /#{address.session}" if
           address.session
-        return address.key unless address.reserved? && address.key != app.identity.human_name
+        return address.key unless address.reserved?
 
-        raise Error, "#{address} is in a reserved scope: #{Address::LOCAL} is a person at a terminal, as " \
-                     "#{app.full(app.identity.human_name)}, and #{Address::SYSTEM} is keryx's own services"
+        raise Error, "#{address} is in a reserved scope: NAME.#{Address::LOCAL} is a person at a terminal, which " \
+                     "acts as it without joining, and keryx.#{Address::SYSTEM} is keryx's own services"
       end
 
       def self.refuse_retired(app, name, advice)

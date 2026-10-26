@@ -30,8 +30,11 @@ module Keryx
 
     # The key of the address this session holds, or KEY/SESSION when join --force took the address from it while it
     # ran. The holder is matched first, so a session that took over in the pane of the one it displaced is the holder.
+    # An agent holds no address in a reserved scope, even one an older keryx let it join.
     def held
       @store.address_names.each do |name|
+        next if @caller.agent? && reserved?(name)
+
         found = @store.incarnations(name).find do |incarnation|
           occupant = @store.reporting { @store.occupant(incarnation) }
           occupant && @caller.holds?(occupant)
@@ -48,6 +51,8 @@ module Keryx
     end
 
     private
+
+    def reserved?(name) = Address.from_key(name, host: @host).reserved?
 
     def existing(text)
       address = Resolver.new(store: @store, host: @host).resolve(text, sender: held)

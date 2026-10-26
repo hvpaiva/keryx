@@ -3,9 +3,10 @@
 ## An agent cannot send
 
 keryx refuses to send from an agent session that holds no address, with
-`this claude session holds no address; run 'keryx join NAME' in it first`. The session joins an
-address with `keryx join NAME`, which the skill tells agents to do first. Acting as the person at
-the keyboard needs `--as` explicitly.
+`this claude session holds no address; run 'keryx join MEMBER.TEAM' in it first`. The session joins a
+team address with `keryx join MEMBER.TEAM`, which the skill tells agents to do first. An agent
+session cannot join the person at the keyboard's `NAME.local` address; the person acts as it from a
+plain terminal, with no join.
 
 ## Claude Code asks you to approve each bell
 
