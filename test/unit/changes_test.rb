@@ -104,6 +104,24 @@ class ChangesTest < Minitest::Test
     assert_predicate File.lstat(tmp('state', 'changed')), :file?
   end
 
+  def test_a_lock_held_past_the_wait_fails_and_keeps_the_note
+    signal
+    first = mtime
+    waiting = Keryx::Changes.new(tmp('state'), clock: -> { @now }, within: 0.05)
+    File.open(tmp('state', 'changed')) do |held|
+      held.flock(File::LOCK_EX)
+      error = assert_raises(Keryx::Error) { waiting.tap(&:note).signal }
+
+      assert_match(/changed stayed locked by another keryx command for 0.05s/, error.message)
+    end
+
+    assert_equal first, mtime
+    assert_predicate waiting, :pending?
+    waiting.signal
+
+    assert_operator mtime, :>, first
+  end
+
   def test_a_named_pipe_in_place_of_the_file_is_not_a_regular_file
     File.mkfifo(tmp('state', 'changed'))
 

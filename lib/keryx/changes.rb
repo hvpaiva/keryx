@@ -16,13 +16,17 @@ module Keryx
     STEP = Rational(1, 1000)
     # A filesystem that keeps whole seconds, or even ones, rounds STEP away; the mtime then moves by these instead.
     COARSE_STEPS = [1, 2].freeze
+    # A signal holds the lock for microseconds, so one held longer belongs to a process stopped while it held it.
+    LOCK_SECONDS = 1
+    LOCK_POLL_SECONDS = 0.01
 
     attr_reader :path
 
-    def initialize(root, clock: -> { Time.now.utc })
+    def initialize(root, clock: -> { Time.now.utc }, within: LOCK_SECONDS)
       @root = root
       @path = File.join(root, FILE)
       @clock = clock
+      @within = within
       @pending = false
     end
 
@@ -39,13 +43,26 @@ module Keryx
       open_lock(path) do |file|
         raise Error, "#{path} is not a regular file" unless file.stat.file?
 
-        file.flock(File::LOCK_EX)
+        take(file)
         advance(file)
       end
       @pending = false
     end
 
     private
+
+    # The wait runs on the real clock with Kernel#sleep, since the app's sleeper signals first and the store's clock
+    # can stand still.
+    def take(file)
+      deadline = Process.clock_gettime(Process::CLOCK_MONOTONIC) + @within
+      until file.flock(File::LOCK_EX | File::LOCK_NB)
+        if Process.clock_gettime(Process::CLOCK_MONOTONIC) >= deadline
+          raise Error, "#{path} stayed locked by another keryx command for #{@within}s"
+        end
+
+        sleep(LOCK_POLL_SECONDS)
+      end
+    end
 
     # Under the lock no other process moves the mtime between the read and the write, so it only ever moves forward.
     def advance(file)
