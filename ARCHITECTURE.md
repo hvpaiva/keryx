@@ -162,8 +162,9 @@ mail to a retired recipient, `Identity` refuses it to `--as`, spawn refuses it, 
 `--revive`, which removes `retired.json` in the hold where it binds the session. `keryx history
 ADDRESS` still lists the mail of a retired address, read and unread, and with `--sent` what it sent.
 It acts as no address, so the refusal of `--as` does not apply, `Identity` never creates the person's
-address for it, and it marks nothing read. It refuses an address that is not retired, which
-`inbox --all --as` lists. Delivery to an
+address for it, and it marks nothing read. It refuses a team address that is not retired, which
+`inbox --all --as` lists, and reads the folder of an address from before team names, `NAME@HOST`,
+retired or not, since no other command reads that folder. Delivery to an
 address takes no lock against retire, so a message whose sender checked the address just before
 `retired.json` landed still lands in its mailbox. That stays visible: a request among such messages
 shows open in its sender's `keryx status`, and `keryx withdraw` settles it, since a withdrawal goes
