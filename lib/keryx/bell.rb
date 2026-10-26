@@ -175,7 +175,7 @@ module Keryx
     end
 
     def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
-    private_class_method :composer, :follow_ups, :cut_off, :sighting, :phrase, :footer, :option, :option?, :words,
+    private_class_method :follow_ups, :cut_off, :sighting, :phrase, :footer, :option, :option?, :words,
                          :quote, :spot, :lines
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,

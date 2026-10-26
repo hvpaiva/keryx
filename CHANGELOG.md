@@ -91,6 +91,11 @@ All notable changes to this project are documented here. The format follows
 - A DIRECTOR column in `who`, and `director` in its JSON, with the address `keryx spawn` recorded
   as the director of the session it started, or none when it recorded none, the session's own
   address or an address retired here.
+- `keryx courier` tells that director when the session's herdr pane shows a dialog, such as a
+  permission or folder trust question, with the pane and the dialog's text, at any time after the
+  join. Each dialog is told once, a new one in the same pane is told again, and so is the same one
+  after a read showed the pane without it; a moved selection or a countdown makes no new dialog,
+  and a menu that says no action is required is told to no one.
 - Shell completion for bash, zsh and fish.
 - `keryx send --re ID`, which sends a message to the sender of a request in its thread and shows the
   request as taken in `status`, open until the reply, with no reminder from the stop hook.

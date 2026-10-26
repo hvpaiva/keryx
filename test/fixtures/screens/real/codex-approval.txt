@@ -1,0 +1,19 @@
+\u203a Create an empty file named probe.txt here with the shell command touch probe.txt. You must run it.
+
+\u2022 Running touch probe.txt
+
+
+  Would you like to run the following command?
+
+  Environment: local
+
+  Reason: The sandbox is read-only. Allow running touch probe.txt outside it to create the file here?
+
+  $ touch probe.txt
+
+
+\u203a 1. Yes, proceed (y)
+  2. Yes, and don't ask again for commands that start with `touch probe.txt` (p)
+  3. No, and tell Codex what to do differently (esc)
+
+  Press enter to confirm or esc to cancel

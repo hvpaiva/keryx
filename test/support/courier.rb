@@ -40,6 +40,9 @@ module CourierHelpers
 
   def courier = @courier ||= build_courier
 
+  # The herdr the roster and the courier read, so a test shows a pane to both.
+  def fake_herdr = @fake_herdr ||= FakeHerdr.new
+
   def impl(ceiling: 125_000, **fields)
     store.create_address('impl.dev')
     build_occupant(session_id: 'session-impl', ceiling:, **fields).tap { store.bind('impl.dev', it) }
@@ -49,13 +52,12 @@ module CourierHelpers
 
   def build_courier(clock: -> { LATER }, measure: meter, box: store, mail: postman)
     Keryx::Courier.new(
-      store: box, bell: QuietBell.new, postman: mail, host: 'athena', clock:,
+      store: box, bell: QuietBell.new, postman: mail, host: 'athena', clock:, herdr: fake_herdr,
       meter: -> { measure.tap { meters << it } },
       forwarder: Keryx::Forwarder.new(store: box, remote: nil, clock: -> { LATER }),
       roster: lambda do
-        herdr = FakeHerdr.new
-        lookout = Keryx::Lookout.new(herdr:, processes: CLIHelpers::FakeProcesses.new([]))
-        Keryx::Roster.new(store: box, herdr:, lookout:).tap { rosters << it }
+        lookout = Keryx::Lookout.new(herdr: fake_herdr, processes: CLIHelpers::FakeProcesses.new([]))
+        Keryx::Roster.new(store: box, herdr: fake_herdr, lookout:).tap { rosters << it }
       end
     )
   end

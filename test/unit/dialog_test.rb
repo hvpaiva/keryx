@@ -108,4 +108,33 @@ class DialogTest < Minitest::Test
                  excerpt("  Hooks need review\n\u203a 1. Review hooks\n", 'nothing on the screen ends with this')
     assert_equal ['Hooks need review', '1. Review hooks'], excerpt("Hooks need review\n1. Review hooks\n", '')
   end
+
+  def shown(read) = Keryx::Dialog.shown(read)
+
+  def test_a_joined_session_s_dialog_is_quoted_from_its_box_top_or_rule_else_from_below_its_composer
+    review = shown(Screens.real('claude-review'))
+    approval = shown(Screens.real('codex-approval'))
+
+    assert_equal ["\u2190 \u2612 Limpar /tmp \u2612 Core dumps \u2714 Submit \u2192", 'Review your answers'],
+                 review.first(2)
+    assert_includes review, "\u2192 Sim, apague"
+    assert_equal ["\u2022 Running touch probe.txt", 'Press enter to confirm or esc to cancel'],
+                 approval.values_at(0, -1)
+    assert_within_caps(review)
+  end
+
+  def test_a_joined_session_with_no_dialog_or_a_menu_that_needs_no_answer_has_none
+    assert_nil shown(Screens::CLAUDE_IDLE)
+    assert_nil shown(Screens.session('codex-working-transcript'))
+    assert_nil shown(Screens.session('codex-extra-thought-transcribed'))
+  end
+
+  def test_a_moved_selection_or_a_counting_timer_keeps_the_key_and_another_dialog_changes_it
+    quote = ["\u203a 1. Yes", '2. No', 'Codex will automatically deny this request in 0:28']
+    moved = ['1. Yes', "\u203a 2. No", 'Codex will automatically deny this request in 0:27']
+
+    assert_equal Keryx::Dialog.key(quote), Keryx::Dialog.key(moved)
+    refute_equal Keryx::Dialog.key(quote), Keryx::Dialog.key(['1. Yes', '2. No', 'Run sleep 0:27'])
+    refute_equal Keryx::Dialog.key(['Run sleep 28']), Keryx::Dialog.key(['Run sleep 27'])
+  end
 end

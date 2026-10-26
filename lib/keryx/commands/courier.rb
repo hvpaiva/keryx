@@ -22,6 +22,14 @@ module Keryx
                                      'session gets it when the bell rings and a Codex session after its next tool ' \
                                      'call, and keryx types it into a working Cursor session, which queues it ' \
                                      "until its turn ends.\n\n" \
+                                     'It reads the herdr pane of each running session that keryx spawn recorded a ' \
+                                     'director for, other than its own address, and when the pane shows a dialog, ' \
+                                     'such as a permission or folder trust question, it sends the director a ' \
+                                     'message with the pane and the dialog\'s text. Each dialog is told once; a new ' \
+                                     'one in the same pane is told again, and so is the same one once a read showed ' \
+                                     'the pane without it. A moved selection or a countdown makes no new dialog, ' \
+                                     'and a menu that says no action is required is not told. keryx never answers ' \
+                                     "a dialog. keryx who shows the director of each session.\n\n" \
                                      'Run it on each machine as a user service, so mail for a machine that was ' \
                                      'asleep or off the network goes out when it is back. It prints one line for ' \
                                      "each thing it does, the config file's warnings before its first round, and " \
@@ -56,8 +64,13 @@ module Keryx
         round.forwarded.each { |host, results| report_host(host, results, waiting) }
         round.rung.each { |name, bell| say("rang #{app.full(name)}: #{bell.status} #{bell.detail}".strip) }
         round.overdue.each { say("told #{it.from} that #{it.id} to #{it.to} is past its deadline") }
-        round.context.each { say(context_line(it)) }
+        report_notices(round)
         round.errors.each { say(it) }
+      end
+
+      def report_notices(round)
+        round.context.each { say(context_line(it)) }
+        round.dialogs.each { say(dialog_line(it)) }
       end
 
       def report_host(host, results, waiting)
@@ -71,6 +84,10 @@ module Keryx
         line = queued.empty? ? nil : "#{queued.size} message(s) wait for #{host}: #{queued.first.detail}"
         say(line) if line && waiting[host] != line
         waiting[host] = line
+      end
+
+      def dialog_line(told)
+        "told #{told.recipient} that #{app.full(told.name)} stops at a dialog in pane #{told.pane}"
       end
 
       def context_line(notice)

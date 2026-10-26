@@ -2,6 +2,7 @@
 
 require_relative 'address'
 require_relative 'bell'
+require_relative 'dialog_notice'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'postman'
@@ -11,7 +12,7 @@ require_relative 'ulid'
 
 module Keryx
   class Courier
-    Round = Data.define(:forwarded, :rung, :overdue, :context, :errors)
+    Round = Data.define(:forwarded, :rung, :overdue, :context, :dialogs, :errors)
     Notice = Data.define(:name, :recipient, :stage, :context, :ceiling)
     NAME = Identity::SYSTEM
     OVERDUE_MARK = 'overdue'
@@ -23,12 +24,26 @@ module Keryx
     # The director spawn recorded, which the courier tells when the session stops at a dialog, or nil when spawn
     # recorded none, the session's own address or an address retired here.
     def self.director(store, name, occupant)
-      director = occupant&.director or return
-      key = director.split('/', 2).first
-      director unless key == name.split('/', 2).first || store.retired?(key)
+      director = directed(name, occupant) or return
+      director unless store.retired?(director.split('/', 2).first)
     end
 
-    def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:)
+    # The director spawn recorded, unless it is the session's own address, as when an orchestrator spawned its
+    # successor under its own name.
+    def self.directed(name, occupant)
+      director = occupant&.director or return
+      director unless director.split('/', 2).first == name.split('/', 2).first
+    end
+
+    # A session that joined the address while the figure was read is not the session the figure belongs to.
+    def self.same_join?(current, occupant)
+      current && JOIN.all? { current.public_send(it) == occupant.public_send(it) }
+    end
+
+    # The join itself, so two joins that share an instant and a ceiling are two.
+    def self.join_of(occupant) = [*JOIN.map { occupant.public_send(it) }, occupant.session].join(' ')
+
+    def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:, herdr:)
       @store = store
       @forwarder = forwarder
       @bell = bell
@@ -37,6 +52,7 @@ module Keryx
       @host = host
       @clock = clock
       @meter = meter
+      @herdr = herdr
     end
 
     def round
@@ -45,7 +61,7 @@ module Keryx
       @errors = []
       @open_requests = nil
       Round.new(forwarded: forward, rung: ring_again(roster), overdue: remind_overdue(roster),
-                context: tell_context(roster), errors: @errors)
+                context: tell_context(roster), dialogs: tell_dialogs(roster), errors: @errors)
     end
 
     private
@@ -87,6 +103,19 @@ module Keryx
         recipients(roster, entry.name, entry.occupant).filter_map do |recipient|
           tell(entry.name, recipient, entry.occupant, context, stage)
         end
+      end
+    end
+
+    # Only a session that runs in a herdr pane is read, and only when spawn recorded a director for it other than
+    # itself, so the dialogs of a session with none stay with whoever watches its pane.
+    def tell_dialogs(roster)
+      notice = DialogNotice.new(store: @store, herdr: @herdr, postman: @postman, host: @host, clock: @clock,
+                                errors: @errors)
+      roster.entries.filter_map do |entry|
+        director = Courier.directed(entry.name, entry.occupant)
+        next unless director && !entry.ended? && entry.occupant.herdr?
+
+        notice.tell(entry.name, entry.occupant, settled(roster, Address.from_name(director, host: @host)))
       end
     end
 
@@ -165,13 +194,10 @@ module Keryx
       stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), kind)
     end
 
-    # A session that joined the address while the figure was read is not the session the figure belongs to.
-    def same_join?(current, occupant) = current && JOIN.all? { current.public_send(it) == occupant.public_send(it) }
+    def same_join?(current, occupant) = Courier.same_join?(current, occupant)
 
-    # Keyed on the join itself, so two joins that share an instant and a ceiling are two.
     def context_mark(occupant, stage, recipient)
-      join = [*JOIN.map { occupant.public_send(it) }, occupant.session].join(' ')
-      Ulid.derive(occupant.joined_at, "context #{stage} #{recipient} #{join}")
+      Ulid.derive(occupant.joined_at, "context #{stage} #{recipient} #{Courier.join_of(occupant)}")
     end
 
     # Asked in the post's hold of the occupants lock, and none for a notice no longer due. A ceiling's id sorts after
