@@ -37,6 +37,13 @@ module Keryx
                                  ['Remove its mail', 'purge rev-1.alpha'],
                                  ['List the retired addresses, with when each last had mail', 'history']]
 
+      # What a purged mailbox holds, by the counts of Roster.purged_counts, for join --revive and history to say.
+      def self.contents(answers, rest)
+        parts = [("#{answers} answer(s) to requests it sent, which purge keeps" if answers.positive?),
+                 ("#{rest} message(s) that a purge cut short left or that arrived after it" if rest.positive?)]
+        parts.compact.join(', and ')
+      end
+
       def define_options(parser)
         parser.on('--dry-run', 'Say what purge would remove, and remove nothing') { options[:dry_run] = true }
       end
@@ -91,7 +98,7 @@ module Keryx
       # One read of every mailbox gives both the requests that wait on NAME and the answers purge keeps.
       def checked_plan(name, record)
         all = app.store.all_messages
-        plan = app.store.purge_plan(name, answers(name, all))
+        plan = app.store.purge_plan(name, Roster.answers_kept(name, all))
         refuse_purged(name, record) if record.purged? && plan.empty?
         refuse_waiting(name, *app.roster.waiting(name, app.roster.open_requests(all)))
         refuse_queued(name)
@@ -150,21 +157,13 @@ module Keryx
 
       def sent_by?(message, name) = Address.parse(message.from).key == name
 
-      # The messages of the mailbox of NAME that settle a request held outside it, here or in the outbox: the answers
-      # to the requests it sent, without which those requests would read open again.
-      def answers(name, all)
-        mine, others = all.partition { |holder, _stored| holder == name }.map { |held| held.map { it.last.message } }
-        requests = others.select(&:request?).to_h { [it.id, it] }
-        mine.select { |message| requests[message.in_reply_to]&.then { Roster.settles?(message, it) } }.to_set(&:id)
-      end
-
       def report(name, record, plan)
         address = terminal.paint(:address, app.full(name))
         if options[:dry_run]
           terminal.puts("Purging #{address} would remove #{removed(plan)}#{kept(plan, 'keep')}. Nothing was removed.")
         elsif record.purged?
           terminal.puts("Finished purging #{address}, purged at #{record.purge_stamp}, removing #{removed(plan)}, " \
-                        'which a purge cut short left.')
+                        'which a purge cut short left or which arrived after it.')
         else
           terminal.puts("Purged #{address}, removing #{removed(plan)}#{kept(plan, 'keeping')}. Its name stays " \
                         "retired; 'keryx join #{name} --revive' takes it back without that mail.")

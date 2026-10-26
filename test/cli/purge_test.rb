@@ -212,7 +212,8 @@ class PurgeTest < Minitest::Test
     result = purged
 
     assert_equal "Finished purging rev-1.dev@athena, purged at #{cut} by person.local@athena, removing 1 message, 0 " \
-                 "read marks, #{count} and 0 files being written, which a purge cut short left.\n", result.out
+                 "read marks, #{count} and 0 files being written, which a purge cut short left or which arrived " \
+                 "after it.\n", result.out
     assert_equal mark, JSON.parse(File.read(box('retired.json')))
     again = keryx('purge', 'rev-1.dev', env: @orq)
 

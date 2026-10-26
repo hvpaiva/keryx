@@ -69,6 +69,23 @@ module Keryx
 
     def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
 
+    # The ids of the messages in the mailbox of NAME, among ALL, that settle a request held outside it, here or in the
+    # outbox: the answers to the requests it sent, which keryx purge keeps, since those requests would read open again
+    # without them.
+    def self.answers_kept(name, all)
+      mine, others = all.partition { |holder, _stored| holder == name }.map { |held| held.map { it.last.message } }
+      requests = others.select(&:request?).to_h { [it.id, it] }
+      mine.select { |message| requests[message.in_reply_to]&.then { settles?(message, it) } }.to_set(&:id)
+    end
+
+    # How many messages the mailbox of NAME holds that purge keeps, and how many it would remove: those a purge cut
+    # short left, or that arrived after it.
+    def self.purged_counts(name, all)
+      kept = answers_kept(name, all)
+      held = all.filter_map { |holder, stored| stored.message.id if holder == name }
+      held.partition { kept.include?(it) }.map(&:size)
+    end
+
     def self.open?(request, responses) = answerable?(request) && responses.none? { settles?(it, request) }
 
     # A request with an address from before team names at either end is over, since nothing can answer or withdraw it

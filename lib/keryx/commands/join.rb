@@ -2,6 +2,7 @@
 
 require_relative '../cli/command'
 require_relative '../tokens'
+require_relative 'purge'
 
 module Keryx
   module Commands
@@ -193,11 +194,11 @@ module Keryx
       end
 
       def report_purge(name, record)
-        kept = app.store.stored(name).size
-        rest = if kept.zero? then 'so its mailbox starts empty'
-               else "and its mailbox holds only the #{kept} message(s) purge kept"
+        answers, rest = Roster.purged_counts(name, app.store.all_messages)
+        held = if (answers + rest).zero? then 'so its mailbox starts empty'
+               else "and its mailbox holds #{'only ' if rest.zero?}#{Purge.contents(answers, rest)}"
                end
-        terminal.puts("Its mail was purged at #{record.purge_stamp}, #{rest}.")
+        terminal.puts("Its mail was purged at #{record.purge_stamp}, #{held}.")
       end
     end
   end

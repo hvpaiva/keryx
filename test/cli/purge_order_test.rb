@@ -2,8 +2,9 @@
 
 require 'test_helper'
 
-# What the hold and the order of keryx purge protect. The tests follow rev-60's probes of #49: one fails when the
-# checks leave the hold, the other when the mark follows the removal.
+# What the hold and the order of keryx purge protect, and what its lines say of a folder a purge cut short. The first
+# two tests follow rev-60's probes of #49: one fails when the checks leave the hold, the other when the mark follows
+# the removal.
 class PurgeOrderTest < Minitest::Test
   include TempDir
   include Factory
@@ -20,6 +21,14 @@ class PurgeOrderTest < Minitest::Test
     keryx('send', 'rev-1.dev', 'heads-up', env: @orq)
     alive.delete(222)
     keryx('retire', 'rev-1.dev')
+  end
+
+  def stamp = clock.now.utc.strftime('%Y-%m-%d %H:%M:%S UTC')
+
+  # The mark a purge writes before it removes anything, with nothing removed yet.
+  def cut_short
+    mark = store.retired('rev-1.dev').with(purged_at: clock.now, purged_by: 'person.local@athena')
+    File.write(tmp('state', 'addresses', 'rev-1.dev', 'retired.json'), JSON.generate(mark.record))
   end
 
   # DURING runs once in the store, as purge asks for the occupants lock and before it holds it, while the block runs
@@ -69,5 +78,33 @@ class PurgeOrderTest < Minitest::Test
     assert_match(/\AFinished purging rev-1.dev@athena/, keryx('purge', 'rev-1.dev', env: @orq).out)
   ensure
     FileUtils.define_singleton_method(:rm_r, original)
+  end
+
+  def test_history_counts_the_kept_answer_apart_from_what_a_purge_cut_short_left
+    cut_short
+
+    assert_includes keryx('history', 'rev-1.dev').out,
+                    "rev-1.dev@athena was purged at #{stamp} by person.local@athena; history lists 1 answer(s) to " \
+                    'requests it sent, which purge keeps, and 1 message(s) that a purge cut short left or that ' \
+                    "arrived after it, which 'keryx purge rev-1.dev' removes.\n"
+  end
+
+  def test_join_revive_counts_the_kept_answer_apart_from_what_a_purge_cut_short_left
+    cut_short
+    alive << 333
+
+    assert_includes keryx('join', 'rev-1.dev', '--revive', env: claude(333)).out,
+                    "Its mail was purged at #{stamp} by person.local@athena, and its mailbox holds 1 answer(s) to " \
+                    'requests it sent, which purge keeps, and 1 message(s) that a purge cut short left or that ' \
+                    "arrived after it.\n"
+  end
+
+  def test_join_revive_after_a_whole_purge_says_the_mailbox_holds_only_the_kept_answer
+    keryx('purge', 'rev-1.dev', env: @orq)
+    alive << 333
+
+    assert_includes keryx('join', 'rev-1.dev', '--revive', env: claude(333)).out,
+                    "Its mail was purged at #{stamp} by orq.dev@athena, and its mailbox holds only 1 answer(s) to " \
+                    "requests it sent, which purge keeps.\n"
   end
 end

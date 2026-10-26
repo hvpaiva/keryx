@@ -7,6 +7,7 @@ require_relative '../cli/mailbox_view'
 require_relative '../cli/message_view'
 require_relative '../cli/sent_list'
 require_relative '../cli/table'
+require_relative 'purge'
 
 module Keryx
   module Commands
@@ -168,8 +169,14 @@ module Keryx
         record = app.store.reporting { app.store.retired(address.key) }
         return unless record&.purged?
 
-        terminal.puts("#{address} was purged at #{record.purge_stamp}; history lists only the answers to the " \
-                      'requests it sent, which purge keeps.')
+        answers, rest = Roster.purged_counts(address.key, app.store.all_messages)
+        terminal.puts("#{address} was purged at #{record.purge_stamp}; #{purged_listing(address, answers, rest)}.")
+      end
+
+      def purged_listing(address, answers, rest)
+        return 'history lists only the answers to the requests it sent, which purge keeps' if rest.zero?
+
+        "history lists #{Purge.contents(answers, rest)}, which 'keryx purge #{address.key}' removes"
       end
     end
   end
