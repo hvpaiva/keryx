@@ -81,6 +81,23 @@ class ReservedScopeTest < Minitest::Test
     assert_equal [1, other], outcome('--as', 'other.local', 'whoami', env: rev)
   end
 
+  def test_send_on_as_the_person_works_from_a_plain_terminal_and_is_refused_to_an_agent
+    rev = join_claude('rev-1.dev', 111)
+    store.create_address('person.local', role: 'human')
+    keryx('--as', 'person.local', 'ask', 'rev-1.dev', 'Approve the release?')
+    id = last_id(rev)
+    clock.advance(1)
+    mail = -> { JSON.parse(keryx('inbox', '--all', '-o', 'json', env: rev).out) }
+
+    assert_equal [1, AS_PERSON], outcome('--as', 'person.local', 'send', '--on', id, 'From an agent', env: rev)
+    assert_equal(%w[request], mail.call.map { it['kind'] })
+    added = keryx('--as', 'person.local', 'send', '--on', id, 'Also the release notes')
+
+    assert_equal 0, added.status, added.err
+    assert_equal ['message', id, id, 'person.local@athena', 'Also the release notes'],
+                 mail.call.last.values_at('kind', 'thread', 'in_reply_to', 'from', 'body')
+  end
+
   def test_an_agent_herdr_reports_in_a_pane_without_harness_variables_is_refused_too
     store.create_address('person.local', role: 'human')
     herdr.put(SOCKET, 'w1:p1', agent('w1:p1', 'claude', 'idle'))
