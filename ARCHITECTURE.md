@@ -11,7 +11,7 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 ```text
 addresses/KEY/address.json     the address: its role and when it was created
 addresses/KEY/occupant.json    the session holding it, while one does
-addresses/KEY/spawned.json     the director spawn recorded for the session it started, until a session joins
+addresses/KEY/spawned.json     the director, harness and herdr pane of the session spawn started, until a session joins
 addresses/KEY/retired.json     when the address was retired and by which address, until join --revive
 addresses/KEY/outgoing/        sessions join --force displaced, one SESSION.json each, while they stay bound
 addresses/KEY/tmp/             messages being written
@@ -599,8 +599,12 @@ as, the harness, and the herdr socket and pane it starts it in. The first join o
 occupants lock and removes it, and takes the director only when the joining session runs that harness in that pane,
 so the session spawn started takes it however late it joins, and no later session can. spawn writes it without the
 lock, which would hold spawn past its timeout; only another session's join, which spawn reports as a conflict, can
-come between the write and the join. A spawn with no address to run as removes what an earlier spawn left. A command
-that records the session's process again keeps the ceiling and the director, and a new join starts without them.
+come between the write and the join, and then who shows the record beside that session as the store keeps it. A
+record that does not parse, lacks a field or cannot be opened is none, to join and to who, and the next join removes
+it. `who -o json` gives the record as `spawned` on the address's own entry, never a session address's, so a launcher
+finds the pane of a session that a dialog stops before its join, whether spawn still waits or gave up. A spawn with
+no address to run as removes what an earlier spawn left. A command that records the session's process again keeps
+the ceiling and the director, and a new join starts without them.
 
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
 of the ceiling, and again once it reaches the ceiling, it tells the session and its director, or the sender of the
