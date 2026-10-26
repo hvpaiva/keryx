@@ -50,7 +50,9 @@ class ExpectTest < Minitest::Test
 
   def test_a_session_of_another_pane_or_harness_takes_no_director_and_its_join_removes_the_record
     [['w1:p4', claude(500)], ['w1:p3', { 'CODEX_THREAD_ID' => 'thread-500' }]].each do |pane, session|
-      expecting
+      expected = expecting
+
+      assert_equal [0, RECORD], [expected.status, waiting], expected.err
       seat_joins(pane:, session:)
 
       assert_equal [nil, nil], entry.values_at('director', 'spawned'), pane
@@ -205,8 +207,10 @@ class ExpectTest < Minitest::Test
   end
 
   def test_a_spawn_of_the_address_replaces_what_expect_recorded
-    expecting
+    expected = expecting
     session_runs
+
+    assert_equal [0, RECORD], [expected.status, waiting], expected.err
 
     assert_equal 3, spawn('rev-1.dev', '--harness', 'codex', '--timeout', '5s', env: orq).status
     assert_equal %w[orq.dev codex], waiting.values_at('director', 'harness')
