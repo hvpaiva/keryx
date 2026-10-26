@@ -553,9 +553,10 @@ know the field ignores it, and one that cannot read a stamp delivers the message
 parses the global options, finds the command, parses its options with `OptionParser`, checks the
 number of arguments and calls it. A command that passes arguments to another program, as spawn does,
 gets everything after the first `--` unparsed. Every error becomes a message on standard error and
-one of the exit statuses `keryx --help` lists. An unexpected error, any but a `Keryx::Error`,
-exits 1 with its class and message, and with its backtrace only when `KERYX_DEBUG` is set. Help
-lists the commands of each section in the order of `Commands::ALL`.
+one of the exit statuses `keryx --help` lists. An unexpected error, a `StandardError` that is not a
+`Keryx::Error`, exits 1 with its class and message, and with its backtrace only when `KERYX_DEBUG`
+is set. An interrupt exits 130, Interrupted in that list, after writing only a newline to standard
+error. Help lists the commands of each section in the order of `Commands::ALL`.
 
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
