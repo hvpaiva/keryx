@@ -96,7 +96,7 @@ module Keryx
 
       receipt
     rescue Error => e
-      @problems << "#{e.message}; it is ignored until keryx writes it again"
+      @problems << ignored(e)
       nil
     end
 

@@ -107,7 +107,9 @@ refuses a link on the way with an error that names it, and the three lock files 
 `O_NOFOLLOW`, so a link in place of one is refused and its target never made. The final name never
 followed a link: a file is written under a fresh name with `O_EXCL`, then renamed or hard linked
 into place. Removing a file is not checked, so a linked folder on the way still leads a removal
-outside the store.
+outside the store. A bell first writes and removes a mark in its mailbox's `receipts/`, so one whose
+receipt could not be written is not rung, and the courier reports that mailbox once and goes on
+with the others, rather than ringing the same message on every round.
 
 ## Identity
 

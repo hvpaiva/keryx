@@ -190,6 +190,7 @@ module Keryx
     end
 
     def ring(name, messages)
+      @store.try_receipts(name, messages.first.id)
       result = attempt(@store.occupant(name), text(messages))
       messages.each { @store.write_receipt(name, it.id, 'bell', result.record) }
       result

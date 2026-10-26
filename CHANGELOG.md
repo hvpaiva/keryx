@@ -156,7 +156,8 @@ All notable changes to this project are documented here. The format follows
   a link is skipped as not a regular file, and a linked folder, an address folder among them, is
   skipped with a warning that names it, so a link planted in the store never makes a file elsewhere
   read as mail. It writes nothing through one either: a write under a linked folder, and a lock
-  file that is a link, is refused with an error that names the link. The store's root and the
-  config file may still be links.
+  file that is a link, is refused with an error that names the link, and a bell whose receipt
+  cannot be written is not rung, while the courier goes on with the other addresses. The store's
+  root and the config file may still be links.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

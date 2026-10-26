@@ -145,7 +145,6 @@ class OutboxTest < Minitest::Test
     assert_nil outbox.outcome('zeus', message.id)
     linked = tmp('state', 'outbox', 'zeus')
 
-    assert_equal ["skipped #{linked}: a symbolic link",
-                  "#{linked} is a symbolic link; it is ignored until keryx writes it again"], store.problems.uniq
+    assert_equal ["skipped #{linked}: a symbolic link"], store.problems.uniq
   end
 end

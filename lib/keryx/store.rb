@@ -263,6 +263,10 @@ module Keryx
       nil
     end
 
+    # Writes and removes a mark in the receipts of NAME, so a bell whose receipt could not be written fails here, before
+    # it rings, and is never rung again for want of a receipt.
+    def try_receipts(name, id) = prepare_mark(name, id, 'bell').then { FileUtils.rm_f(pending_mark(name, id, 'bell')) }
+
     # Preparing writes and renames in the receipts as keeping does, so a mark that could not be kept fails here.
     def prepare_mark(name, id, kind) = write_atomic(pending_mark(name, id, kind), '')
 

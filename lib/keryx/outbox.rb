@@ -105,7 +105,7 @@ module Keryx
       bad.each { @problems << "#{path} has a bad #{it}; keryx reads the outcome without it" }
       data.except(*bad)
     rescue Error => e
-      @problems << "#{e.message}; it is ignored until keryx writes it again"
+      @problems << ignored(e)
       nil
     end
 

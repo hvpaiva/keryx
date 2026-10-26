@@ -145,7 +145,6 @@ class ReceiptTest < Minitest::Test
     assert_raises(Keryx::Error) { store.claimed('rev-1.dev', id, 'claim') }
     store.report_damaged_claims('rev-1.dev', 'claim') { false }
 
-    assert_equal ["#{receipts} is a symbolic link; it is ignored until keryx writes it again",
-                  "skipped #{receipts}: a symbolic link"], store.problems
+    assert_equal ["skipped #{receipts}: a symbolic link"], store.problems.uniq
   end
 end

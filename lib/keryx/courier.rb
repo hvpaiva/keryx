@@ -81,9 +81,20 @@ module Keryx
       roster.entries.filter_map do |entry|
         next unless entry.ringable?
 
-        waiting = @store.unread(entry.name).reject { rung?(entry.name, it) }
-        [entry.name, @bell.ring(entry.name, waiting)] unless waiting.empty?
+        rung = ring_waiting(entry.name)
+        [entry.name, rung] if rung
       end.to_h
+    end
+
+    # A mailbox whose receipts keryx cannot read or write is a problem, taken once for the courier's life, and its bell
+    # waits, so the round goes on to the other addresses and no message is rung again for want of a receipt.
+    def ring_waiting(name)
+      waiting = @store.unread(name).reject { rung?(name, it) }
+      @bell.ring(name, waiting) unless waiting.empty?
+    rescue Error, SystemCallError => e
+      reason = e.message.sub(/ @ \w+ - /, ': ')
+      @store.problems << "did not ring #{full(name)}, whose bells keryx cannot record; #{reason}"
+      nil
     end
 
     def rung?(name, message)
