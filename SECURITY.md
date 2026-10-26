@@ -14,6 +14,14 @@ with `--as`, and post to a Claude Code session's peer socket. Between machines i
 whoever can log in as you on a machine can put mail in its mailboxes. Identities are labels for
 coordination, not credentials. Do not use keryx between users who do not trust each other.
 
+keryx refuses, at its own commands, an agent session that joins or acts as an address in a reserved
+scope, `NAME.local` or `keryx.system`, so that only a plain terminal, or a program run from one,
+acts as the person at the keyboard and marks that person's mail read. This is not a guarantee under
+the same-user model. `env -i keryx --as NAME.local ...` removes the variables that tell an agent
+apart, a herdr that does not answer makes an agent in a pane look like a terminal, and any process
+of the user can write the mailbox files directly. A guarantee needs an operating system boundary,
+such as the person's mailbox under another Unix user, which keryx does not provide.
+
 Mail between machines travels only over SSH, and keryx opens no port. A machine refuses mail meant
 for another host and mail that claims to come from one of its own addresses, so a forwarded message
 cannot pass for a local one.
@@ -22,8 +30,9 @@ Within that boundary, keryx defends against a few things that matter when the pa
 language models.
 
 - A peer's message is not the user's word. The skill keryx gives agents says so, and tells them
-  to refuse what their own user did not authorize. An agent that joined no address cannot send as
-  the person at the keyboard.
+  to refuse what their own user did not authorize. An agent session cannot send as the person at
+  the keyboard, whether it joined an address or not, with the limits given above for the reserved
+  scopes.
 - The bell carries no text from the sender. It names the sender, the kind and the id, all
   checked against strict formats when the message is read, so a message file cannot place
   arbitrary text in another session's context through a bell or a hook reminder, and neither

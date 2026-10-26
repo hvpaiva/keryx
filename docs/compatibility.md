@@ -23,8 +23,10 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
 - Mail between machines goes through SSH with keys and OpenSSH options, and one machine forwards
   only to machines it can reach by the host part of the address.
 - Identities are not authenticated. Any process running as your user can act as any address with
-  `--as`. keryx coordinates sessions you run and is not a security boundary, as the
-  [security policy](../SECURITY.md) explains.
+  `--as`. keryx refuses an agent session that joins or acts as `NAME.local` or `keryx.system`, but
+  only at its own commands, so this is no guarantee. keryx coordinates sessions you run and is not a
+  security boundary, as the [security policy](../SECURITY.md#what-keryx-protects-and-what-it-does-not)
+  explains.
 - Typing into a herdr pane depends on herdr recognizing the agent's dialogs. keryx also checks the
   screen for the common ones by their phrases, options and footer, so that a dialog a narrow pane
   wraps or breaks still counts, and does not type into a pane too narrow to tell, but an unknown

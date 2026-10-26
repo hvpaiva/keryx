@@ -186,14 +186,20 @@ keyboard. A plain terminal acts as a member of the local scope named after `USER
 each character other than a to z, a digit or a hyphen turned into a hyphen, what comes before the
 first letter dropped and the rest cut to 32 characters, or `human` when nothing is left, so
 `USER=john_doe` acts as `john-doe.local`. That address is created on first use or by the first
-message sent to it.
+message sent to it. An agent session cannot act as it, or as any address in a reserved scope, with
+`--as` or `KERYX_AS` either: `Identity#existing` refuses a reserved address to an agent right after
+resolving it, before it reads the store, so only a plain terminal, or a program run from one, acts as
+the person and marks the person's mail read. That holds at keryx's own commands only, as
+[SECURITY.md](SECURITY.md) explains.
 
 An address is `MEMBER.TEAM@HOST`. Two team names are reserved scopes with no authority of their own:
 `local` is a person at a terminal, and `system` is keryx's own services, so the courier's notices and
-spawn's quotes of a dialog come from `keryx.system@HOST`. join takes `MEMBER.TEAM`, and of the local
-scope only the name this host's terminal acts as, so that a session can answer for that person; it
-refuses every system name. `Resolver` turns what a user types into a full address before anything is
-stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team, and a sender with no
+spawn's quotes of a dialog come from `keryx.system@HOST`. join takes `MEMBER.TEAM`, and join and
+spawn refuse every name in a reserved scope, the person's own included, since a person acts as theirs
+from a terminal without joining. A session that an older keryx let join a local name holds nothing:
+`Identity#held` skips a reserved name for an agent, so the session acts as no address until it joins
+a team one, and that join releases the old binding. `Resolver` turns what a user types into a full
+address before anything is stored. `MEMBER.TEAM` is on this host. A bare `MEMBER` takes the sender's team, and a sender with no
 team of its own (local or system) reaches it only when exactly
 one team on this host has that member, else the error lists the matches or says there is none.
 Either short form takes `/SESSION` for a session address on this host, as `MEMBER.TEAM/SESSION` or
