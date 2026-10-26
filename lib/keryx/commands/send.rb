@@ -81,14 +81,17 @@ module Keryx
       def add_to(arguments)
         raise UsageError, ON_ADDRESS if arguments.size > 1
 
-        request = Wait.sent_request(app, app.me, options[:on]).last
+        holder, request = Wait.sent_request(app, app.me, options[:on])
         refuse_closed(request)
-        told(complement(request, body(arguments[0])), request)
+        told(complement(request, holder, body(arguments[0])), request)
       end
 
-      def complement(request, text)
-        app.postman.post(sender: app.me, recipient: Address.parse(request.to), kind: 'message', body: text,
-                         reply_to: request)
+      # A request held in a mailbox here goes to its recipient here, though it may name this machine by a name it no
+      # longer has; one in the outbox goes to the machine it names.
+      def complement(request, holder, text)
+        recipient = Address.parse(request.to)
+        recipient = recipient.with(host: app.host) if holder
+        app.postman.post(sender: app.me, recipient:, kind: 'message', body: text, reply_to: request)
       end
 
       def told(posted, request)

@@ -77,6 +77,21 @@ class SendOnTest < Minitest::Test
     assert_equal(%w[request], inbox(@rev).map { it['kind'] })
   end
 
+  def test_send_on_reaches_the_recipient_here_of_a_request_from_before_the_machine_was_renamed
+    keryx('ask', 'rev-1.dev', 'Port it', env: @orq.merge('KERYX_HOST' => 'lap-0042'))
+    id = last_id(@rev)
+    clock.advance(1)
+    remote.down << 'lap-0042'
+    sent = keryx('send', '--on', id, 'The fixture is reset', env: @orq)
+
+    assert_equal 0, sent.status, sent.err
+    assert_match(/\ASent \w{26} to rev-1.dev@athena in the thread of #{id}\. The bell rang through claude\.\n\z/,
+                 sent.out)
+    assert_equal ['message', id, id, 'orq.dev@athena', 'rev-1.dev@athena', 'The fixture is reset'],
+                 inbox(@rev).last.values_at('kind', 'thread', 'in_reply_to', 'from', 'to', 'body')
+    assert_empty store.outbox.outgoing('lap-0042')
+  end
+
   def test_the_skill_tells_the_sender_how_to_add_to_a_request
     assert_includes keryx('skill').out, 'keryx send --on ID TEXT'
   end
