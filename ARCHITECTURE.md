@@ -175,6 +175,9 @@ there, since only that machine sees its session and its mail. `Postman` and `Rec
 mail to a retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
 `--revive`, which removes `retired.json` in the hold where it binds the session. `keryx history
 ADDRESS` still lists the mail of a retired address, read and unread, and with `--sent` what it sent.
+With no ADDRESS it lists the retired team addresses instead, each with when and by which address it
+was retired, how many messages its mailbox holds, when the newest was written and when `keryx purge`
+removed its mail, so whoever chooses what purge removes sees them side by side.
 It acts as no address, so the refusal of `--as` does not apply, `Identity` never creates the person's
 address for it, and it marks nothing read. It refuses a team address that is not retired, which
 `inbox --all --as` lists, and reads the folder of an address from before team names, `NAME@HOST`,
