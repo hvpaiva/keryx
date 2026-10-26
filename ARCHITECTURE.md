@@ -93,6 +93,24 @@ and through it who, status and the courier's rounds, walks that list, as do ring
 `Store` and `Outbox` are the only code that touches these paths, and they validate every address
 and host name before building a path from it.
 
+keryx reads nothing in the store through a symbolic link. Every file opens with `O_NOFOLLOW`, and
+before it lists a folder or reads a file on its own, `Links` checks with `lstat` each entry from
+below the root down, so a link anywhere from `addresses/` or `outbox/` to the file is never
+followed. A linked file is skipped as not a regular file, and a linked folder is skipped with a
+problem that names it; an address whose folder is a link is no address, and `join` refuses it. A
+message listed in a folder is opened with `O_NOFOLLOW` alone, since the listing checked its folder,
+so a listing walks its folders once and not once for each message. The root and what is above
+it may be links, and so may the config file, which a dotfiles repository often keeps as one.
+
+keryx writes nothing through a symbolic link either. Before it writes a file or makes a folder, it
+refuses a link on the way with an error that names it, and the three lock files open with
+`O_NOFOLLOW`, so a link in place of one is refused and its target never made. The final name never
+followed a link: a file is written under a fresh name with `O_EXCL`, then renamed or hard linked
+into place. Removing a file is not checked, so a linked folder on the way still leads a removal
+outside the store. A bell first writes and removes a mark in its mailbox's `receipts/`, so one whose
+receipt could not be written is not rung, and the courier reports that mailbox once and goes on
+with the others, rather than ringing the same message on every round.
+
 ## Identity
 
 A command first works out which session called it (`Caller`), from what the harness exports to

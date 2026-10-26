@@ -71,4 +71,41 @@ class CourierCommandTest < Minitest::Test
     assert_empty app.take_problems
     assert_empty app.store.problems
   end
+
+  def test_a_linked_receipts_folder_rings_no_bell_again_and_stops_no_round
+    output = ring_after do |receipts|
+      FileUtils.mv(receipts, tmp('outside'))
+      File.symlink(tmp('outside'), receipts)
+    end
+
+    assert_includes output, "#{tmp('state', 'addresses', 'rev-1.dev', 'receipts')} is a symbolic link"
+    assert_empty(Dir.children(tmp('outside')).reject { it.end_with?('.bell') })
+  end
+
+  def test_a_receipts_folder_that_is_a_file_rings_no_bell_again_and_stops_no_round
+    output = ring_after do |receipts|
+      FileUtils.rm_rf(receipts)
+      File.write(receipts, '')
+    end
+
+    assert_includes output, 'Not a directory'
+  end
+
+  private
+
+  # rev-59's receipts-courier.sh and receipts-damaged.sh, with three rounds of one courier and the bells counted.
+  def ring_after
+    orq = join_claude('orq.dev', 111)
+    join_claude('rev-1.dev', 222)
+    keryx('send', 'rev-1.dev', 'm1', env: orq)
+    receipts = tmp('state', 'addresses', 'rev-1.dev', 'receipts')
+    yield receipts
+    store.deliver('orq.dev', build_message(to: 'orq.dev@athena', from: 'rev-1.dev@athena'))
+    printed = rounds(3)
+
+    assert_equal 3, printed.size, printed.last
+    assert_equal({ '/tmp/cc-222.sock' => 1, '/tmp/cc-111.sock' => 1 }, sockets.posts.map(&:first).tally)
+    assert_equal 1, printed.last.scan(/did not ring rev-1\.dev@athena, whose bells keryx cannot record/).size
+    printed.last
+  end
 end

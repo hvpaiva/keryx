@@ -81,12 +81,12 @@ module Keryx
 
     def address_names
       base = File.join(root, ADDRESSES)
-      return [] unless File.directory?(base)
+      return [] unless stored_folder?(base)
 
-      Dir.children(base).select { Address.key?(it) && File.file?(address_file(it)) }.sort
+      Dir.children(base).select { Address.key?(it) && address?(it) }.sort
     end
 
-    def address?(name) = File.file?(address_file(name))
+    def address?(name) = stored_file?(address_file(name))
 
     def address(name)
       data = read_json(address_file(name)) or return nil
@@ -137,7 +137,7 @@ module Keryx
     # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
     def with_occupants_lock(within: LOCK_SECONDS)
       FileUtils.mkdir_p(root, mode: DIR_MODE)
-      File.open(File.join(root, OCCUPANTS_LOCK), File::RDWR | File::CREAT, FILE_MODE) do |file|
+      open_lock(File.join(root, OCCUPANTS_LOCK)) do |file|
         take(file, within)
         yield
       end
@@ -204,7 +204,7 @@ module Keryx
     def marked?(name, id, kind) = File.exist?(receipt_file(name, id, kind))
 
     def mark_once(name, id, kind)
-      File.open(receipt_file(name, id, kind), File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) { true }
+      create_file(receipt_file(name, id, kind)) { true }
     rescue Errno::EEXIST
       false
     end
@@ -221,7 +221,7 @@ module Keryx
     # The value claimed for ID, or nil while nothing claimed it. A value the block rejects is damaged.
     def claimed(name, id, kind)
       path = receipt_file(name, id, kind)
-      value = read_regular(path) or raise Error, "#{path} is not a regular file"
+      value = read_stored(path) or raise Error, "#{path} is not a regular file"
       return value if !block_given? || yield(value)
 
       raise Damaged, "#{path} is damaged"
@@ -239,12 +239,19 @@ module Keryx
     # Each claim of KIND in the mailbox of NAME that claimed refuses is reported as a problem.
     def report_damaged_claims(name, kind, &)
       suffix = ".#{kind}"
-      Dir.children(File.join(box(name), 'receipts')).sort.each do |file|
+      dir = File.join(box(name), 'receipts')
+      return if linked?(dir)
+
+      Dir.children(dir).sort.each do |file|
         reporting { claimed(name, file.delete_suffix(suffix), kind, &) } if file.end_with?(suffix)
       end
     rescue Errno::ENOENT
       nil
     end
+
+    # Writes and removes a mark in the receipts of NAME, so a bell whose receipt could not be written fails here, before
+    # it rings, and is never rung again for want of a receipt.
+    def try_receipts(name, id) = prepare_mark(name, id, 'bell').then { FileUtils.rm_f(pending_mark(name, id, 'bell')) }
 
     # Preparing writes and renames in the receipts as keeping does, so a mark that could not be kept fails here.
     def prepare_mark(name, id, kind) = write_atomic(pending_mark(name, id, kind), '')

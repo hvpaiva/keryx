@@ -13,7 +13,10 @@ module Keryx
 
     # The sessions displaced from the address that are still bound to it.
     def outgoing(name)
-      Dir.children(File.join(box(name), OUTGOING)).filter_map do |file|
+      dir = File.join(box(name), OUTGOING)
+      return [] if linked?(dir)
+
+      Dir.children(dir).filter_map do |file|
         session = file.delete_suffix('.json')
         session if file.end_with?('.json') && Address::SESSION.match?(session)
       end.sort
