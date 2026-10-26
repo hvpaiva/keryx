@@ -173,5 +173,10 @@ All notable changes to this project are documented here. The format follows
   spawn does, in the record `who -o json` gives as `spawned`. Running it again with the same record
   changes nothing, even once that session joined, and a different record is replaced only with
   `--replace`.
+- A change signal for a reader that caches keryx's output: the mtime of `changed` at the root of
+  the store moves forward after every change a command makes there, mail another machine forwards
+  included, once per command and before a command pauses, and never backward, so one `stat` per poll
+  tells the reader to run its commands again. A command that only reads leaves it alone; a session
+  that ends, context figures and ages show in no file, so `who` and `status` still need polling.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

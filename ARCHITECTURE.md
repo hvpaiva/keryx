@@ -19,6 +19,7 @@ addresses/KEY/tmp/             messages being written
 addresses/KEY/mail/            every message, under its id, never moved; keryx purge removes all but the answers it keeps
 addresses/KEY/read/            a hard link for each message read
 addresses/KEY/receipts/        bell results and hook reminders, one file per message, and context notice marks
+changed                        empty; its mtime moves forward after every change to the store
 occupants.lock                 locked while a command changes which session holds an address
 outbox/HOST/new/               messages waiting to go to another machine
 outbox/HOST/cur/               messages the other machine took
@@ -111,6 +112,34 @@ into place. Removing a file is not checked, so a linked folder on the way still 
 outside the store. A bell first writes and removes a mark in its mailbox's `receipts/`, so one whose
 receipt could not be written is not rung, and the courier reports that mailbox once and goes on
 with the others, rather than ringing the same message on every round.
+
+`changed` is the store's change signal, for a reader that keeps what keryx printed and runs a
+command again only when the store changed. Each create, rename, hard link and removal of a file or
+folder under the root moves its mtime forward: mail, read marks, receipts and bell marks, the
+outbox's queues, moves and outcomes, `address.json`, `occupant.json`, `spawned.json`,
+`retired.json`, `outgoing/` and what purge removes, whether a command on this machine made it or
+`__receive` stored mail another machine forwarded. Temporaries and lock files do not count, and a
+command that only reads moves nothing. Each write that changed the store notes it once made, in
+`Links` and `Files`, and the process moves the mtime once for all it noted: when its command ends,
+from `Dispatcher#execute`, and before each pause, through the app's sleeper, so `courier` between
+rounds, `wait`, `spawn` waiting for the join and a wait for `occupants.lock` signal their changes
+before they sleep. A reader that saw the mtime move and then runs a command therefore sees every
+change made before it.
+
+`Changes` sets the mtime to the later of the clock and the old mtime plus 1 ms, under a lock on
+the file, so it only moves forward, apart even for two changes in one tick of the clock or after
+the clock stepped back, and by enough for a reader that keeps milliseconds; a filesystem that keeps
+whole seconds gets a second. The mtime is a signal and not the time of a change, and it can run a
+few milliseconds ahead of the clock. A reader stats the file once per poll and reads nothing,
+compares the mtime at full resolution for inequality, which also catches a store made again, and
+takes a missing file as unknown. The file is made `0600` when missing, a link in its place is
+refused as for any write, and `lutime` never follows one. When moving the mtime fails, the change
+stands, the command keeps its exit status and warns on stderr, and the next change moves it. Two
+cases stay unsignaled until the next change: a process killed before its command ended, and a
+failure under `__receive`, whose stderr the sending machine drops when ssh succeeds. No file shows a
+session that ends, which `who` sees from its pid, the context figures and last activity read from
+the harnesses' transcripts, or ages and overdue states, which come from the clock, so a reader still
+polls `who` and `status` for those, more slowly.
 
 ## Identity
 
