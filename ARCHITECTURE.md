@@ -102,6 +102,13 @@ message listed in a folder is opened with `O_NOFOLLOW` alone, since the listing 
 so a listing walks its folders once and not once for each message. The root and what is above
 it may be links, and so may the config file, which a dotfiles repository often keeps as one.
 
+keryx writes nothing through a symbolic link either. Before it writes a file or makes a folder, it
+refuses a link on the way with an error that names it, and the three lock files open with
+`O_NOFOLLOW`, so a link in place of one is refused and its target never made. The final name never
+followed a link: a file is written under a fresh name with `O_EXCL`, then renamed or hard linked
+into place. Removing a file is not checked, so a linked folder on the way still leads a removal
+outside the store.
+
 ## Identity
 
 A command first works out which session called it (`Caller`), from what the harness exports to

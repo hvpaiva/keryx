@@ -32,8 +32,6 @@ module Keryx
 
     private
 
-    def make_dirs(base, dirs) = dirs.each { FileUtils.mkdir_p(File.join(base, it), mode: DIR_MODE) }
-
     def drop_in(base, dir, message)
       temporary = File.join(base, 'tmp', "#{message.id}.#{Process.pid}.#{SecureRandom.hex(4)}")
       write_file(temporary, message.to_json)
@@ -43,6 +41,7 @@ module Keryx
     end
 
     def link(source, target)
+      refuse_link(File.dirname(target))
       File.link(source, target)
       sync_directory(File.dirname(target))
       :delivered
@@ -127,7 +126,7 @@ module Keryx
     end
 
     def write_file(path, content)
-      File.open(path, File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) do |file|
+      create_file(path) do |file|
         file.write(content)
         file.flush
         file.fsync

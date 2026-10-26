@@ -151,7 +151,7 @@ module Keryx
     # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
     def with_occupants_lock(within: LOCK_SECONDS)
       FileUtils.mkdir_p(root, mode: DIR_MODE)
-      File.open(File.join(root, OCCUPANTS_LOCK), File::RDWR | File::CREAT, FILE_MODE) do |file|
+      open_lock(File.join(root, OCCUPANTS_LOCK)) do |file|
         take(file, within)
         yield
       end
@@ -218,7 +218,7 @@ module Keryx
     def marked?(name, id, kind) = File.exist?(receipt_file(name, id, kind))
 
     def mark_once(name, id, kind)
-      File.open(receipt_file(name, id, kind), File::WRONLY | File::CREAT | File::EXCL, FILE_MODE) { true }
+      create_file(receipt_file(name, id, kind)) { true }
     rescue Errno::EEXIST
       false
     end

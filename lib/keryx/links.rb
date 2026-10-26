@@ -1,20 +1,47 @@
 # frozen_string_literal: true
 
+require 'fileutils'
 require_relative 'error'
 
 module Keryx
-  # How keryx reads the store through no symbolic link, from below its root, which @root names, down to each file. The
-  # root and the folders above it may be links, as a home folder on another disk is. A link found is reported in
-  # @problems, or refused, the way a file that is not regular is.
+  # How keryx reads and writes the store through no symbolic link, from below its root, which @root names, down to each
+  # file. The root and the folders above it may be links, as a home folder on another disk is. A link found on a read
+  # is reported in @problems, or refused, the way a file that is not regular is; a link found on a write is refused.
   module Links
     private
 
     # A file of the store, or nil when it is not a regular file, as a link in its place is not.
     def read_stored(path)
-      link = first_link(File.dirname(path))
-      raise Error, "#{link} is a symbolic link" if link
-
+      refuse_link(File.dirname(path))
       read_regular(path, File::NOFOLLOW)
+    end
+
+    # keryx neither reads nor writes through a folder that a symbolic link stands for.
+    def refuse_link(path)
+      link = first_link(path)
+      raise Error, "#{link} is a symbolic link" if link
+    end
+
+    def make_dirs(base, dirs)
+      dirs.map { File.join(base, it) }.each do |dir|
+        refuse_link(dir)
+        FileUtils.mkdir_p(dir, mode: Files::DIR_MODE)
+      end
+    end
+
+    # Every file keryx writes is first made here, under a name nothing holds yet, so a link there is refused too.
+    def create_file(path, &)
+      refuse_link(File.dirname(path))
+      File.open(path, File::WRONLY | File::CREAT | File::EXCL, Files::FILE_MODE, &)
+    end
+
+    # A lock file, which keryx creates when missing, opens through no symbolic link in its place.
+    def open_lock(path, &)
+      File.open(path, File::RDWR | File::CREAT | File::NOFOLLOW, Files::FILE_MODE, &)
+    rescue Errno::ELOOP
+      raise Error, "#{path} is a symbolic link" if File.symlink?(path)
+
+      raise
     end
 
     def stored_file?(path)
