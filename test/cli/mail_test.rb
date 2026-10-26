@@ -20,8 +20,8 @@ class MailTest < Minitest::Test
     assert_equal 0, result.status
     assert_equal "Asked rev-1.dev@athena (#{id}). The bell rang through claude.", result.out.lines.first.chomp
     assert_match(/\AThe reply will ring this session/, result.out.lines[1])
-    assert_equal [['/tmp/cc-222.sock', "[keryx] New request for rev-1.dev@athena from orq.dev@athena (#{id}). " \
-                                       "Run 'keryx read #{id}' to open it."]], sockets.posts
+    assert_equal [['/tmp/cc-222.sock', '[keryx] New request for rev-1.dev@athena from orq.dev@athena, a Claude Code ' \
+                                       "session. Run 'keryx read #{id}' to open it."]], sockets.posts
   end
 
   def codex_in_pane(thread, pane)

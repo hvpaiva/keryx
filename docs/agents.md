@@ -36,6 +36,10 @@ set it only on the sessions that take part, not in your global settings. `keryx 
 starts a session in a herdr pane, passes these settings inline to each Claude Code session it
 starts, so they apply to that session only.
 
+Claude Code shows each bell under text of its own that says another Claude session sent it,
+whoever wrote the message. The bell's own line, the one that starts with `[keryx]`, names the
+sender and, when keryx can tell, what it is, such as a person at a terminal or a Codex session.
+
 `keryx spawn` also starts each Claude Code session with `--disallowedTools AskUserQuestion`, which
 denies it the tool through which Claude Code asks the person at its terminal in a dialog, so that a
 spawned session asks its questions through keryx rather than in a pane no one may be watching. Pass

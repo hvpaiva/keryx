@@ -48,7 +48,10 @@ All notable changes to this project are documented here. The format follows
 - `keryx withdraw`, which closes a request its sender no longer needs answered, including one sent
   before the machine was renamed.
 - Bells through the Claude Code peer socket, `codex queue` for a Codex thread herdr shows open in
-  its pane, or typing into a herdr pane when no dialog shows, which is how Cursor is rung.
+  its pane, or typing into a herdr pane when no dialog shows, which is how Cursor is rung. Each bell
+  names its sender and what it is, a person at a terminal, keryx itself, or an agent session and
+  its harness while that session still holds the address on this machine, and the address alone
+  otherwise, since Claude Code shows every bell as sent by another Claude session.
 - `keryx hook stop`, the stop hook of Claude Code, Codex and Cursor, which reminds a session of
   unread mail and unanswered requests before it ends a turn.
 - Mail between machines over SSH, with an outbox that holds it while the other machine is

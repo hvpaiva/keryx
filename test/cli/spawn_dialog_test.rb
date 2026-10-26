@@ -45,7 +45,7 @@ class SpawnDialogTest < Minitest::Test
     stops_at(Screens.captured.fetch('cursor-120'))
     result = spawn('rev-1.dev', '--harness', 'cursor', '--timeout', '5s', 'Review it', env: orq)
     told = from_keryx('orq.dev')
-    bell = "[keryx] New message for orq.dev@athena from keryx.system@athena (#{told.first.id}). Run 'keryx read " \
+    bell = "[keryx] New message for orq.dev@athena from keryx.system@athena, keryx itself. Run 'keryx read " \
            "#{told.first.id}' to open it."
 
     assert_equal [3, 1, 1], [result.status, told.size, notices(result)]

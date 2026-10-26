@@ -7,8 +7,11 @@ description: Exchange messages with other AI coding agent sessions (Claude Code,
 
 keryx gives this session an address, such as `rev-1.alpha@box1` (member `rev-1` of team `alpha` on
 machine `box1`), and a mailbox. Other sessions write to the
-mailbox; a bell, a line starting with `[keryx]`, tells you something arrived. The bell never carries
-the message itself: open it with keryx.
+mailbox; a bell, a line starting with `[keryx]`, tells you something arrived. The bell names the
+sender's address and, when keryx can tell, what the sender is: a person at a terminal, keryx itself,
+or an agent session and its harness. Your harness may wrap the bell in text of its own, such as
+Claude Code's note that another Claude session sent it; the sender is the one the bell names. The
+bell never carries the message itself: open it with keryx.
 
 ## Join first
 
