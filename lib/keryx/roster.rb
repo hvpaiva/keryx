@@ -63,11 +63,11 @@ module Keryx
 
     def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
 
+    def self.open?(request, responses) = answerable?(request) && responses.none? { settles?(it, request) }
+
     # A request with an address from before team names at either end is over, since nothing can answer or withdraw it
     # any more.
-    def self.open?(request, responses)
-      request.request? && !request.teamless && responses.none? { settles?(it, request) }
-    end
+    def self.answerable?(request) = request.request? && !request.teamless
 
     # The addresses here that open requests wait on, as their recipient or as the address that sent them from here.
     def self.waiting_on(open)

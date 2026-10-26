@@ -105,7 +105,7 @@ module Keryx
       unless unanswered.empty?
         parts << "#{count(unanswered.size, 'request')} read but not answered (#{ids(unanswered, from: true)})"
       end
-      closing = unread.any?(&:request?) || !unanswered.empty? ? ANSWER : 'before ending the turn.'
+      closing = unread.any? { Roster.answerable?(it) } || !unanswered.empty? ? ANSWER : 'before ending the turn.'
       "keryx: #{name} has #{parts.join(' and ')}. Open each with 'keryx read ID' #{closing}"
     end
 

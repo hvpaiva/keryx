@@ -112,6 +112,26 @@ class OldStoreTest < Minitest::Test
     assert_empty keryx('hook', 'stop', env: orq, input: '{}').out
   end
 
+  def stop(env)
+    keryx('hook', 'stop', env:, input: JSON.generate('session_id' => env['CLAUDE_CODE_SESSION_ID'],
+                                                     'hook_event_name' => 'Stop')).out
+  end
+
+  def test_the_stop_hook_has_an_unread_request_from_before_team_names_opened_but_not_answered
+    orq = join_claude('orq.dev', 111)
+    old = id(1)
+    team = id(2)
+    raw(tmp('state', 'addresses', 'orq.dev', 'mail', "#{old}.json"),
+        old_message(old, from: 'hvpaiva@athena', to: 'orq.dev@athena', format: 2))
+    opened = stop(orq)
+    store.deliver('orq.dev', build_message(from: 'rev-1.dev@athena', to: 'orq.dev@athena', kind: 'request', id: team))
+    asked = stop(orq)
+
+    assert_includes opened, "1 unread message (#{old}). Open each with 'keryx read ID' before ending the turn."
+    refute_includes opened, 'keryx reply'
+    assert_includes asked, "(#{team}). Open each with 'keryx read ID' and answer every request"
+  end
+
   def test_a_request_sent_to_an_address_from_before_team_names_is_over_and_wait_says_so_at_once
     orq = join_claude('orq.dev', 111)
     request = id(1)
