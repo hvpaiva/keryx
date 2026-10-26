@@ -16,6 +16,12 @@ the bell's channels and the variables of the pane and the store, the same that s
 host name keryx resolves. A launcher that does not read keryx's config file passes that name as
 `KERYX_HOST`, so the session joins under the same host.
 
+Such a launcher runs `keryx expect ADDRESS --harness HARNESS --pane PANE` once it has opened the
+pane and before the harness starts, so the session takes the address expect runs as for its
+director when it joins, as a session spawn starts does. Running it twice with the same arguments is
+safe, and `keryx expect --help` says what it refuses. The address takes mail from then on, so the
+first request need not wait for the join.
+
 ## Claude Code
 
 Start the sessions that use keryx with these settings, saved for example as `keryx.json` and

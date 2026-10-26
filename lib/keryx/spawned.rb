@@ -4,7 +4,8 @@ require_relative 'address'
 
 module Keryx
   # What spawn records about the session it starts, so that the session takes the address spawn ran as for its
-  # director when it joins, even after spawn gave up waiting.
+  # director when it joins, even after spawn gave up waiting. expect records the same for a session another launcher
+  # starts.
   Spawned = Data.define(:director, :harness, :herdr_socket, :herdr_pane)
 
   class Spawned

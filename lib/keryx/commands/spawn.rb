@@ -44,7 +44,8 @@ module Keryx
                                    'hook only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
                                    "spawn installs no hook for them; 'keryx hook --help' shows how to add it. 'keryx " \
                                    "wiring HARNESS' prints what spawn gives a session of HARNESS, for a launcher of " \
-                                   'your own. Arguments after -- go to the harness unchanged. They and the first ' \
+                                   "your own, and 'keryx expect' records its director as spawn does. Arguments " \
+                                   'after -- go to the harness unchanged. They and the first ' \
                                    "prompt, --prompt included, are part of the harness's command line, which any " \
                                    'local process can read, so none of them may carry a secret; the request goes to ' \
                                    'the mailbox, in files only your user can read. spawn refuses a command line over ' \
