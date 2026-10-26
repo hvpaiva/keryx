@@ -55,8 +55,15 @@ module Keryx
         found = responses.fetch(request.id, [])
         next unless Roster.open?(request, found)
 
-        [holder, found.any? { it.takes?(request) } ? stored.with(state: :taken) : stored]
+        [holder, Roster.taken?(stored, found) ? stored.with(state: :taken) : stored]
       end
+    end
+
+    # A request to its own sender's address cannot tell the sender's send --on from the recipient's send --re by the
+    # message, so it counts as taken only once read, as send --re leaves it and send --on does not.
+    def self.taken?(stored, responses)
+      request = stored.message
+      responses.any? { it.takes?(request) } && (request.from != request.to || stored.state != :unread)
     end
 
     def settlement(request) = @store.all_messages.map { it.last.message }.find { Roster.settles?(it, request) }
