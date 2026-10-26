@@ -26,6 +26,14 @@ module Keryx
       read_regular(path, File::NOFOLLOW)
     end
 
+    # Without O_NONBLOCK a named pipe waits for a writer, and a socket fails to open; neither is a regular file, and
+    # with O_NOFOLLOW in FLAGS neither is a symbolic link, which fails to open with ELOOP on Linux and macOS.
+    def read_regular(path, flags = 0)
+      File.open(path, File::RDONLY | File::NONBLOCK | flags) { |file| file.read if file.stat.file? }
+    rescue Errno::ENXIO, Errno::EOPNOTSUPP, Errno::ELOOP
+      nil
+    end
+
     # keryx neither reads nor writes through a folder that a symbolic link stands for.
     def refuse_link(path)
       link = first_link(path)
@@ -35,9 +43,28 @@ module Keryx
     def make_dirs(base, dirs)
       dirs.map { File.join(base, it) }.each do |dir|
         refuse_link(dir)
-        FileUtils.mkdir_p(dir, mode: Files::DIR_MODE)
+        make_dir(dir)
       end
     end
+
+    # A folder made is a change of the store; one that was there already is none.
+    def make_dir(dir)
+      return if File.directory?(dir)
+
+      FileUtils.mkdir_p(dir, mode: Files::DIR_MODE)
+      changed!
+    end
+
+    # Like FileUtils.rm_f, which gives up on any failure and checks no link on the way, but a removal made is noted.
+    def remove(path)
+      File.unlink(path)
+      changed!
+    rescue SystemCallError
+      nil
+    end
+
+    # Each write that changed the store says so once it is made, for Changes to signal; temporaries and locks do not.
+    def changed! = @changes.note
 
     # Every file keryx writes is first made here, under a name nothing holds yet, so a link there is refused too.
     def create_file(path, &)

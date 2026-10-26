@@ -43,7 +43,7 @@ module Keryx
       @claude_socket = claude_socket
       @codex = codex
       @remote = remote
-      @sleeper = sleeper
+      @sleeper = pausing(sleeper)
       @processes = processes
       @monotonic = monotonic
       @reported = []
@@ -52,6 +52,10 @@ module Keryx
     def now = clock.call
 
     def store = @store ||= Store.new(Paths.new(env).root, clock:, sleeper:)
+
+    # What this process changed in the store is signaled before it pauses, through the sleeper, and when its command
+    # ends; a command that never opened the store changed nothing.
+    def signal_changes = @store&.signal_changes
 
     def config = @config ||= Config.new(Paths.new(env).config)
 
@@ -136,6 +140,13 @@ module Keryx
     end
 
     private
+
+    def pausing(sleeper)
+      lambda do |seconds|
+        signal_changes
+        sleeper.call(seconds)
+      end
+    end
 
     def refresh(name)
       occupant = store.occupant(name) or return

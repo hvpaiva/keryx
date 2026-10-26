@@ -43,6 +43,7 @@ module Keryx
     def link(source, target)
       refuse_link(File.dirname(target))
       File.link(source, target)
+      changed!
       sync_directory(File.dirname(target))
       :delivered
     rescue Errno::EEXIST
@@ -100,18 +101,11 @@ module Keryx
       nil
     end
 
-    # Without O_NONBLOCK a named pipe waits for a writer, and a socket fails to open; neither is a regular file, and
-    # with O_NOFOLLOW in FLAGS neither is a symbolic link, which fails to open with ELOOP on Linux and macOS.
-    def read_regular(path, flags = 0)
-      File.open(path, File::RDONLY | File::NONBLOCK | flags) { |file| file.read if file.stat.file? }
-    rescue Errno::ENXIO, Errno::EOPNOTSUPP, Errno::ELOOP
-      nil
-    end
-
     def write_atomic(path, content)
       temporary = "#{path}.#{Process.pid}.#{SecureRandom.hex(4)}.tmp"
       write_file(temporary, content)
       File.rename(temporary, path)
+      changed!
       sync_directory(File.dirname(path))
     ensure
       FileUtils.rm_f(temporary) if temporary

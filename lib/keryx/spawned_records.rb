@@ -1,6 +1,5 @@
 # frozen_string_literal: true
 
-require 'fileutils'
 require 'json'
 require_relative 'error'
 require_relative 'spawned'
@@ -28,7 +27,7 @@ module Keryx
       waiting
     end
 
-    def forget_spawned(name) = FileUtils.rm_f(spawned_file(name))
+    def forget_spawned(name) = remove(spawned_file(name))
 
     private
 
