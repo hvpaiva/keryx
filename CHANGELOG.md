@@ -159,5 +159,11 @@ All notable changes to this project are documented here. The format follows
   file that is a link, is refused with an error that names the link, and a bell whose receipt
   cannot be written is not rung, while the courier goes on with the other addresses. The store's
   root and the config file may still be links.
+- `keryx expect ADDRESS --harness HARNESS --pane PANE`, for a launcher other than `keryx spawn`,
+  run after it opens a herdr pane and before the harness starts there. It creates the address and
+  records the address it acts as for the director of the session that joins from that pane, as
+  spawn does, in the record `who -o json` gives as `spawned`. Running it again with the same record
+  changes nothing, even once that session joined, and a different record is replaced only with
+  `--replace`.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

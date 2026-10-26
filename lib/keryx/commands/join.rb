@@ -12,11 +12,11 @@ module Keryx
       ROLE = /\A[[:alnum:]][[:alnum:] ._-]{0,39}\z/
       CEILING = 'A ceiling is a number of tokens, such as 125k, kept with the session. Once its context reaches ' \
                 '80% of the ceiling, and again once it reaches the ceiling, keryx courier tells the session and its ' \
-                'director: the address that spawned it, or else the sender of its oldest open request. Windows ' \
-                'differ by harness and model (Claude Code runs 200K or 1M; Codex and Cursor show theirs in keryx ' \
-                'who for a session with no ceiling, and in its JSON output), so no one share fits them all. Choose ' \
-                'the ceiling below the window, at the point where the session should reach a stopping point and ' \
-                'hand over. There is no ceiling unless one is given.'
+                'director: the address that spawned it or ran keryx expect for it, or else the sender of its ' \
+                'oldest open request. Windows differ by harness and model (Claude Code runs 200K or 1M; Codex and ' \
+                'Cursor show theirs in keryx who for a session with no ceiling, and in its JSON output), so no one ' \
+                'share fits them all. Choose the ceiling below the window, at the point where the session should ' \
+                'reach a stopping point and hand over. There is no ceiling unless one is given.'
 
       define 'join', section: 'Session Commands', arguments: 'ADDRESS', min: 1, max: 1,
                      summary: 'Claim an address for this agent session',

@@ -38,10 +38,10 @@ module Keryx
                                  "#{CLI::ShortView::HELP} The last line says how many it left out, and --all " \
                                  'lists every address. With -o json, view says which list it is, short or all, and ' \
                                  "hidden how many addresses it left out.\n\n" \
-                                 'DIRECTOR is the address keryx spawn recorded as the director of the session it ' \
-                                 'started, which the courier tells when the session stops at a dialog (keryx ' \
-                                 "courier --help). It is - when spawn recorded none, recorded the session's own " \
-                                 "address, or recorded an address retired here.\n\n" \
+                                 'DIRECTOR is the address keryx spawn or keryx expect recorded as the director of ' \
+                                 'the session, which the courier tells when the session stops at a dialog (keryx ' \
+                                 'courier --help). It is - when none was recorded, or the one recorded is the ' \
+                                 "session's own address or an address retired here.\n\n" \
                                  'SESSION is none when no session holds the address, gone when the session ended, ' \
                                  "live when its process runs, or herdr's view of the agent (idle, working, " \
                                  'blocked, done) when herdr sees it in its pane, which a session herdr relaunched ' \
