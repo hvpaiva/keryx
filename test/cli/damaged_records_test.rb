@@ -80,4 +80,17 @@ class DamagedRecordsTest < Minitest::Test
     assert_warned_once([result], file('occupant.json'))
     assert_equal 'session-333', store.occupant('impl.dev').session_id
   end
+
+  def test_a_spawn_record_keryx_cannot_open_is_none_and_the_join_removes_it
+    skip 'root reads a file whatever its mode' if Process.uid.zero?
+    File.write(file('spawned.json'), JSON.generate('director' => 'healthy.dev', 'harness' => 'claude',
+                                                   'herdr_socket' => '/h.sock', 'herdr_pane' => 'w1:p2'))
+    File.chmod(0, file('spawned.json'))
+    alive << 333
+    result = keryx('join', 'broken.dev', env: claude(333))
+
+    assert_equal 0, result.status, result.err
+    refute_path_exists file('spawned.json')
+    assert_nil store.occupant('broken.dev').director
+  end
 end
