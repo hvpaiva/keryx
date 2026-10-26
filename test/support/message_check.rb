@@ -11,7 +11,7 @@ module MessageCheckHelpers
 
   # A check that runs CHECKER, the trust walk refusing a folder or file the group can write whatever the umask.
   def check_with(checker, host: 'athena', timeout: 5)
-    [tmp('etc'), tmp('etc', host)].each do |folder|
+    [real_tmp('etc'), real_tmp('etc', host)].each do |folder|
       FileUtils.mkdir_p(folder)
       File.chmod(0o755, folder)
     end
@@ -26,7 +26,7 @@ module MessageCheckHelpers
   # The checker of HOST, which records the envelope and exits STATUS with REASON on stderr. It sits in the test's own
   # folder, which only the test user can write.
   def checker(host, status: 0, reason: nil)
-    path = tmp("#{host}-checker")
+    path = real_tmp("#{host}-checker")
     lines = ['#!/bin/sh', "cat >> #{record(host)}"]
     lines += ["cat >&2 <<'REASON'", reason, 'REASON'] if reason
     File.write(path, [*lines, "exit #{status}", ''].join("\n"))

@@ -131,8 +131,11 @@ module CLIHelpers
   # The test's own files count as root's for a check file a test writes; /, /tmp and the rest really are root's.
   TRUSTED = ->(stat) { [0, Process.uid].include?(stat.uid) }
 
-  # The check file of HOST, under the test's folder and absent until a test writes it.
-  def check_path(host = 'athena') = tmp('etc', host, 'check')
+  # The check file of HOST, under the test's folder and absent until a test writes it. The folder is named by its real
+  # path, since the check refuses a link on the way, such as /tmp on macOS.
+  def check_path(host = 'athena') = real_tmp('etc', host, 'check')
+
+  def real_tmp(*parts) = File.join(File.realpath(tmp), *parts)
 
   # The check each machine's commands run. A test may put its own in checks before the first command.
   def checks = @checks ||= {}
