@@ -49,8 +49,8 @@ gem install keryx
 
 keryx carries the messages and leaves to the sessions how a team of them works.
 [nomos](https://github.com/hvpaiva/nomos) is a protocol for that, for how sessions divide work,
-delegate authority, report and hand over, with keryx as its reference binding, and its setup starts
-from a keryx set up as this section shows.
+delegate authority, report and hand over, with keryx as its reference binding; its setup on keryx
+starts from a keryx set up as this section shows.
 
 To upgrade, run `gem update keryx` and restart the courier service if the machine runs one. A
 session that joined under an older keryx can record what the new one needs with its next keryx
