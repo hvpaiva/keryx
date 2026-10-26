@@ -66,6 +66,21 @@ class OccupantsLockTest < Minitest::Test
     end
   end
 
+  def test_purge_checks_and_removes_nothing_while_another_command_keeps_the_lock
+    join_claude('rev-1.dev', 222)
+    keryx('send', 'rev-1.dev', 'heads-up')
+    alive.delete(222)
+    keryx('retire', 'rev-1.dev')
+    holding_the_lock do
+      result = in_time { keryx('purge', 'rev-1.dev') }
+
+      assert_equal 1, result.status
+      assert_match(/occupants\.lock stayed locked by another keryx command for 15s/, result.err)
+      refute_predicate store.retired('rev-1.dev'), :purged?
+      assert_equal 1, store.stored('rev-1.dev').size
+    end
+  end
+
   def test_leave_as_gives_up_when_another_command_keeps_the_lock
     keryx('join', 'impl.dev', env: { 'CODEX_THREAD_ID' => 'closed' })
     holding_the_lock do

@@ -2,6 +2,7 @@
 
 require_relative '../cli/command'
 require_relative '../tokens'
+require_relative 'purge'
 
 module Keryx
   module Commands
@@ -36,7 +37,8 @@ module Keryx
                                   'and that session stays reachable at its session address, with the work it ' \
                                   "took before, until it leaves.\n\n" \
                                   'A retired address is refused unless --revive is given, which takes it back with ' \
-                                  "its mailbox as it was; 'keryx retire --help' says what retiring does.\n\n" \
+                                  'its mailbox as it was, or after keryx purge with only the answers purge kept; ' \
+                                  "'keryx retire --help' says what retiring does.\n\n" \
                                   "#{CEILING}",
                      examples: [['Join team alpha as its first reviewer', 'join rev-1.alpha --role reviewer'],
                                 ['Join with a context ceiling of 125k tokens', 'join impl.alpha --ceiling 125k'],
@@ -106,8 +108,8 @@ module Keryx
         raise Error, NOT_AN_AGENT unless caller.agent?
 
         occupant = app.session_occupant(app.now).with(ceiling: options[:ceiling] && Tokens.parse(options[:ceiling]))
-        displaced = app.store.with_occupants_lock { claim(name, caller, occupant) }
-        report(name, occupant, displaced)
+        displaced, purged = app.store.with_occupants_lock { claim(name, caller, occupant) }
+        report(name, occupant, displaced, purged)
       end
 
       private
@@ -115,13 +117,20 @@ module Keryx
       # A bare member joins the team of the address the session holds.
       def address(text) = Join.resolve(app, text, -> { app.identity.held })
 
+      # The record a revive removes says whether purge removed the mail, which the report tells.
       def claim(name, caller, occupant)
         Join.refuse_retired(app, name, 'pass --revive to bring it back with its mailbox') unless options[:revive]
         refuse_taken(name, caller)
         release_others(name, caller)
-        app.store.revive(name) if options[:revive]
+        purged = revive(name) if options[:revive]
         app.store.create_address(name, role: options[:role])
-        take(name, caller, occupant)
+        [take(name, caller, occupant), purged]
+      end
+
+      def revive(name)
+        record = app.store.reporting { app.store.retired(name) }
+        app.store.revive(name)
+        record if record&.purged?
       end
 
       # The session the address is taken from, when it still runs elsewhere, stays bound at its session address, which
@@ -167,16 +176,29 @@ module Keryx
 
       def ceiling(occupant) = occupant.ceiling ? " Its context ceiling is #{Tokens.short(occupant.ceiling)}." : ''
 
-      def report(name, occupant, displaced)
+      def report(name, occupant, displaced, purged)
         terminal.puts("Joined #{terminal.paint(:address, app.full(name))} as a #{Text.plain(occupant.harness)} " \
                       "session (#{Text.plain(Join.where(occupant))}).#{ceiling(occupant)}")
         if displaced
           terminal.puts('The session that held it stays reachable at ' \
                         "#{terminal.paint(:address, app.full(displaced))} until it leaves.")
         end
+        report_mailbox(name, purged)
+        nil
+      end
+
+      def report_mailbox(name, purged)
+        report_purge(name, purged) if purged
         unread = app.store.unread(name).size
         terminal.puts("#{unread} unread message(s) waiting; run 'keryx inbox'.") if unread.positive?
-        nil
+      end
+
+      def report_purge(name, record)
+        answers, rest = Roster.purged_counts(name, app.store.all_messages)
+        held = if (answers + rest).zero? then 'so its mailbox starts empty'
+               else "and its mailbox holds #{'only ' if rest.zero?}#{Purge.contents(answers, rest)}"
+               end
+        terminal.puts("Its mail was purged at #{record.purge_stamp}, #{held}.")
       end
     end
   end

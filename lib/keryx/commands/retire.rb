@@ -24,7 +24,8 @@ module Keryx
                                     'stays open for its sender, and the withdrawal of that request still reaches ' \
                                     'it, from here or from another machine, so its sender stops waiting. Its ' \
                                     'files stay where they were, under ' \
-                                    'addresses/MEMBER.TEAM in the keryx state directory, and ' \
+                                    'addresses/MEMBER.TEAM in the keryx state directory, until keryx purge removes ' \
+                                    'its mail, and ' \
                                     "'keryx join MEMBER.TEAM --revive' " \
                                     "brings it back with its mailbox as it was.\n\n" \
                                     'An address is retired on the machine that has it, since only that machine ' \
@@ -89,19 +90,12 @@ module Keryx
       end
 
       def refuse_waiting(name)
-        received, sent = waiting(name)
+        received, sent = app.roster.waiting(name)
         count = received.size + sent.size
         return if count.zero?
 
         raise Error, "#{app.full(name)} has #{count} open request#{'s' unless count == 1} and retires once none is " \
                      "left: #{(received.map { answer(name, it) } + sent.map { withdraw(name, it) }).join('; ')}"
-      end
-
-      def waiting(name)
-        open = app.roster.open_requests
-        received = open.filter_map { |holder, stored| stored.message if holder == name }
-        sent = open.filter_map { |holder, stored| stored.message if Store.sender_here(holder, stored.message) == name }
-        [received, sent - received]
       end
 
       def report(name)
