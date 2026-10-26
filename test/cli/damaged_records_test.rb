@@ -52,6 +52,21 @@ class DamagedRecordsTest < Minitest::Test
     assert_equal "rang healthy.dev@athena: rung\n", courier.out
   end
 
+  # A courier takes each problem once for its life, so its rounds warn of a link no more often than of a damaged file.
+  def test_an_address_folder_that_is_a_symbolic_link_is_warned_of_once_as_a_damaged_file_is
+    linked = tmp('state', 'addresses', 'broken.dev')
+    FileUtils.mv(linked, tmp('elsewhere'))
+    File.symlink(tmp('elsewhere'), linked)
+    runs = overview
+    app = Keryx::App.new(env: base_env, herdr:, clock:, processes:)
+    taken = Array.new(3) { app.courier.round.then { app.take_problems } }
+
+    assert_equal [0] * 3, runs.map(&:status)
+    assert_equal([1] * 3, runs.map { it.err.scan("warning: skipped #{linked}: a symbolic link").size })
+    refute(runs.any? { it.out.include?('broken.dev') })
+    assert_equal [["skipped #{linked}: a symbolic link"], [], []], taken
+  end
+
   def test_an_occupant_that_cannot_be_read_is_never_typed_into_its_pane
     damage_occupant(herdr_socket: SOCKET, herdr_pane: 'w1:p3')
     show('w1:p3', 'claude', 'idle', 'session-1')

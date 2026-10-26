@@ -95,6 +95,24 @@ class OverviewTest < Minitest::Test
     assert(runs.all? { it.err.include?('not a regular file') })
   end
 
+  def test_a_linked_mail_file_and_a_linked_address_folder_are_skipped_with_a_warning
+    keryx('send', 'rev-1.dev', 'readable', env: @orq)
+    Keryx::Store.new(tmp('elsewhere')).create_address('ext.dev')
+    folder = tmp('state', 'addresses', 'ext.dev')
+    File.symlink(tmp('elsewhere', 'addresses', 'ext.dev'), folder)
+    planted = build_message(to: 'rev-1.dev@athena', from: 'orq.dev@athena', body: 'planted')
+    File.write(tmp('planted.json'), planted.to_json)
+    file = tmp('state', 'addresses', 'rev-1.dev', 'mail', "#{planted.id}.json")
+    File.symlink(tmp('planted.json'), file)
+    runs = [keryx('inbox', '-o', 'json', env: @rev), keryx('status'), keryx('who', '--all')]
+
+    assert_equal([0, 0, 0], runs.map(&:status))
+    assert_equal(['readable'], JSON.parse(runs.first.out).map { it['body'] })
+    assert(runs.none? { it.out.include?('ext.dev') || it.out.include?('planted') })
+    assert(runs.all? { it.err.include?("skipped #{file}: not a regular file") })
+    assert(runs.drop(1).all? { it.err.include?("skipped #{folder}: a symbolic link") })
+  end
+
   def test_status_with_nothing_pending
     sections = keryx('status').out
 

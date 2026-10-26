@@ -4,10 +4,13 @@ require 'fileutils'
 require 'json'
 require 'securerandom'
 require_relative 'error'
+require_relative 'links'
 require_relative 'message'
 
 module Keryx
   module Files
+    include Links
+
     MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
     DIR_MODE = 0o700
     FILE_MODE = 0o600
@@ -48,7 +51,7 @@ module Keryx
     end
 
     def ids_in(dir)
-      return [] unless File.directory?(dir)
+      return [] unless stored_folder?(dir)
 
       Dir.children(dir).filter_map { MESSAGE_FILE.match(it)&.[](:id) }.sort
     end
@@ -64,8 +67,9 @@ module Keryx
       nil
     end
 
+    # Only a file ids_in listed is read here, so no folder on its way is a symbolic link.
     def load_message(path)
-      text = read_regular(path) or raise Error, 'not a regular file'
+      text = read_regular(path, File::NOFOLLOW) or raise Error, 'not a regular file'
       message = Message.from_json(text)
       return message if File.basename(path, '.json') == message.id
 
@@ -75,7 +79,7 @@ module Keryx
     def skipped(path, error) = @problems << "skipped #{path}: #{error.message}"
 
     def read_json(path)
-      text = read_regular(path) or raise Error, "#{path} is not a regular file"
+      text = read_stored(path) or raise Error, "#{path} is not a regular file"
       data = JSON.parse(text)
       return data if data.is_a?(Hash)
 
@@ -97,10 +101,11 @@ module Keryx
       nil
     end
 
-    # Without O_NONBLOCK a named pipe waits for a writer, and a socket fails to open; neither is a regular file.
-    def read_regular(path)
-      File.open(path, File::RDONLY | File::NONBLOCK) { |file| file.read if file.stat.file? }
-    rescue Errno::ENXIO, Errno::EOPNOTSUPP
+    # Without O_NONBLOCK a named pipe waits for a writer, and a socket fails to open; neither is a regular file, and
+    # with O_NOFOLLOW in FLAGS neither is a symbolic link, which fails to open with ELOOP on Linux and macOS.
+    def read_regular(path, flags = 0)
+      File.open(path, File::RDONLY | File::NONBLOCK | flags) { |file| file.read if file.stat.file? }
+    rescue Errno::ENXIO, Errno::EOPNOTSUPP, Errno::ELOOP
       nil
     end
 

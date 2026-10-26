@@ -105,4 +105,12 @@ class ConfigTest < Minitest::Test
     error = assert_raises(Keryx::Error) { Keryx::Config.new(tmp('keryx', 'config')).host }
     assert_equal "cannot read #{tmp('keryx', 'config')}: Not a directory", error.message
   end
+
+  # A dotfiles repository keeps the file as a link, unlike the store, which keryx reads through none.
+  def test_a_file_that_is_a_symbolic_link_is_read_through_it
+    File.write(tmp('dotfiles-config'), "host = athena\n")
+    File.symlink(tmp('dotfiles-config'), path)
+
+    assert_equal 'athena', Keryx::Config.new(path).host.value
+  end
 end

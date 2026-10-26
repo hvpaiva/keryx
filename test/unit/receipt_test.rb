@@ -118,4 +118,34 @@ class ReceiptTest < Minitest::Test
 
     assert_equal 2, store.problems.size
   end
+
+  def test_a_receipt_or_claim_that_is_a_symbolic_link_is_not_a_regular_file
+    File.write(tmp('outside'), JSON.generate('status' => 'rung'))
+    bell, claim = Array.new(2) { Keryx::Ulid.generate }
+    File.symlink(tmp('outside'), bell_receipt(bell))
+    File.symlink(tmp('outside'), "#{receipts}/#{claim}.claim")
+
+    assert_nil store.receipt('rev-1.dev', bell, 'bell')
+    assert_equal ["#{bell_receipt(bell)} is not a regular file; it is ignored until keryx writes it again"],
+                 store.problems
+    error = assert_raises(Keryx::Error) { store.claimed('rev-1.dev', claim, 'claim') }
+    assert_equal "#{receipts}/#{claim}.claim is not a regular file", error.message
+  end
+
+  def test_a_receipts_folder_that_is_a_symbolic_link_is_neither_read_nor_listed
+    elsewhere = Keryx::Store.new(tmp('elsewhere'))
+    elsewhere.create_address('rev-1.dev')
+    id = Keryx::Ulid.generate
+    elsewhere.write_receipt('rev-1.dev', id, 'bell', { 'status' => 'rung' })
+    elsewhere.claim('rev-1.dev', id, 'claim', 'damaged')
+    FileUtils.rm_rf(receipts)
+    File.symlink(tmp('elsewhere', 'addresses', 'rev-1.dev', 'receipts'), receipts)
+
+    assert_nil store.receipt('rev-1.dev', id, 'bell')
+    assert_raises(Keryx::Error) { store.claimed('rev-1.dev', id, 'claim') }
+    store.report_damaged_claims('rev-1.dev', 'claim') { false }
+
+    assert_equal ["#{receipts} is a symbolic link; it is ignored until keryx writes it again",
+                  "skipped #{receipts}: a symbolic link"], store.problems
+  end
 end

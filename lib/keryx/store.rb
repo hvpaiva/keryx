@@ -80,12 +80,12 @@ module Keryx
 
     def address_names
       base = File.join(root, ADDRESSES)
-      return [] unless File.directory?(base)
+      return [] unless stored_folder?(base)
 
-      Dir.children(base).select { Address.key?(it) && File.file?(address_file(it)) }.sort
+      Dir.children(base).select { Address.key?(it) && address?(it) }.sort
     end
 
-    def address?(name) = File.file?(address_file(name))
+    def address?(name) = stored_file?(address_file(name))
 
     def address(name)
       data = read_json(address_file(name)) or return nil
@@ -235,7 +235,7 @@ module Keryx
     # The value claimed for ID, or nil while nothing claimed it. A value the block rejects is damaged.
     def claimed(name, id, kind)
       path = receipt_file(name, id, kind)
-      value = read_regular(path) or raise Error, "#{path} is not a regular file"
+      value = read_stored(path) or raise Error, "#{path} is not a regular file"
       return value if !block_given? || yield(value)
 
       raise Damaged, "#{path} is damaged"
@@ -253,7 +253,10 @@ module Keryx
     # Each claim of KIND in the mailbox of NAME that claimed refuses is reported as a problem.
     def report_damaged_claims(name, kind, &)
       suffix = ".#{kind}"
-      Dir.children(File.join(box(name), 'receipts')).sort.each do |file|
+      dir = File.join(box(name), 'receipts')
+      return if linked?(dir)
+
+      Dir.children(dir).sort.each do |file|
         reporting { claimed(name, file.delete_suffix(suffix), kind, &) } if file.end_with?(suffix)
       end
     rescue Errno::ENOENT

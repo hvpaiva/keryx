@@ -25,6 +25,7 @@ module Keryx
     # outbox's cur/ and refused/.
     def initialize(store, old: false)
       @store = store
+      @root = store.root
       @old = old
       @problems = store.problems
     end
@@ -46,7 +47,7 @@ module Keryx
     end
 
     # Whether NAME is a folder from before team names, which only the reading keryx history makes takes.
-    def old?(name) = @old && Address::NAME.match?(name.to_s) && File.file?(File.join(folder(name), 'address.json'))
+    def old?(name) = @old && Address::NAME.match?(name.to_s) && stored_file?(File.join(folder(name), 'address.json'))
 
     private
 
@@ -54,7 +55,7 @@ module Keryx
 
     def old_names
       base = File.join(@store.root, Store::ADDRESSES)
-      File.directory?(base) ? Dir.children(base).select { old?(it) }.sort : []
+      stored_folder?(base) ? Dir.children(base).select { old?(it) }.sort : []
     end
 
     def outgoing = @old ? @store.outbox.outgoing(read: method(:messages_in)) : @store.outbox.outgoing
@@ -70,9 +71,11 @@ module Keryx
     def messages(name) = messages_in(File.join(folder(name), Store::MAIL))
 
     # The read mark is a hard link to the message, and making it sets the change time of the file both names share,
-    # which nothing keryx does changes after. A copy of the store sets it again, to the time of the copy.
+    # which nothing keryx does changes after. A copy of the store sets it again, to the time of the copy. A read/ behind
+    # a symbolic link holds no mark of this store.
     def read_at(name, id)
-      File.lstat(File.join(folder(name), Store::READ, "#{id}.json")).ctime.utc
+      read = File.join(folder(name), Store::READ)
+      File.lstat(File.join(read, "#{id}.json")).ctime.utc unless first_link(read)
     rescue Errno::ENOENT
       nil
     end
@@ -83,7 +86,7 @@ module Keryx
     def load_message(path)
       return super unless @old
 
-      text = read_regular(path) or raise Error, 'not a regular file'
+      text = read_regular(path, File::NOFOLLOW) or raise Error, 'not a regular file'
       message = Message.from_json(text, old_format: true)
       return message if File.basename(path, '.json') == message.id
 

@@ -130,4 +130,22 @@ class OutboxTest < Minitest::Test
     end
     assert_equal 'forwarded', outbox.outcome('zeus', damaged.id)['status']
   end
+
+  def test_a_host_folder_that_is_a_symbolic_link_is_skipped
+    elsewhere = Keryx::Store.new(tmp('elsewhere'))
+    message = build_message(to: 'port.dev@zeus')
+    elsewhere.outbox.queue('zeus', message)
+    elsewhere.outbox.write_outcome('zeus', message.id, { 'status' => 'forwarded' })
+    FileUtils.mkdir_p(tmp('state', 'outbox'))
+    File.symlink(tmp('elsewhere', 'outbox', 'zeus'), tmp('state', 'outbox', 'zeus'))
+
+    assert_empty outbox.hosts
+    assert_empty outbox.outgoing
+    assert_empty outbox.queued('zeus')
+    assert_nil outbox.outcome('zeus', message.id)
+    linked = tmp('state', 'outbox', 'zeus')
+
+    assert_equal ["skipped #{linked}: a symbolic link",
+                  "#{linked} is a symbolic link; it is ignored until keryx writes it again"], store.problems.uniq
+  end
 end

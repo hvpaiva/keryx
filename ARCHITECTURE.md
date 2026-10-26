@@ -93,6 +93,15 @@ and through it who, status and the courier's rounds, walks that list, as do ring
 `Store` and `Outbox` are the only code that touches these paths, and they validate every address
 and host name before building a path from it.
 
+keryx reads nothing in the store through a symbolic link. Every file opens with `O_NOFOLLOW`, and
+before it lists a folder or reads a file on its own, `Links` checks with `lstat` each entry from
+below the root down, so a link anywhere from `addresses/` or `outbox/` to the file is never
+followed. A linked file is skipped as not a regular file, and a linked folder is skipped with a
+problem that names it; an address whose folder is a link is no address, and `join` refuses it. A
+message listed in a folder is opened with `O_NOFOLLOW` alone, since the listing checked its folder,
+so a listing walks its folders once and not once for each message. The root and what is above
+it may be links, and so may the config file, which a dotfiles repository often keeps as one.
+
 ## Identity
 
 A command first works out which session called it (`Caller`), from what the harness exports to

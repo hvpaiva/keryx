@@ -17,6 +17,7 @@ module Keryx
     THREAD_LOCK = 'thread.lock'
 
     def initialize(root, problems: [], clock: -> { Time.now.utc })
+      @root = root
       @base = File.join(root, DIR)
       @problems = problems
       @clock = clock
@@ -44,9 +45,9 @@ module Keryx
     end
 
     def hosts
-      return [] unless File.directory?(@base)
+      return [] unless stored_folder?(@base)
 
-      Dir.children(@base).select { Address::HOST.match?(it) && File.directory?(File.join(@base, it)) }.sort
+      Dir.children(@base).select { Address::HOST.match?(it) && stored_folder?(File.join(@base, it)) }.sort
     end
 
     # READ lists the messages of cur/ and refused/; keryx history gives its own, which takes format 1 there.

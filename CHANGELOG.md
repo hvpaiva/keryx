@@ -152,5 +152,9 @@ All notable changes to this project are documented here. The format follows
   the deny of `AskUserQuestion`, which `keryx spawn` passes on the command line, do not survive
   herdr's relaunch, so a relaunched session gets no stop hook reminders and can ask in a dialog
   again.
+- keryx reads no file of the store through a symbolic link. A mail file, receipt or record that is
+  a link is skipped as not a regular file, and a linked folder, an address folder among them, is
+  skipped with a warning that names it, so a link planted in the store never makes a file elsewhere
+  read as mail. The store's root and the config file may still be links.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main
