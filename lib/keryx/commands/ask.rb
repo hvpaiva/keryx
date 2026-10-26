@@ -57,7 +57,7 @@ module Keryx
 
       def call(arguments)
         posted = app.postman.post(sender: app.me, recipient: app.address(arguments[0]), kind: 'request',
-                                  body: body(arguments[1]), due_at:)
+                                  body: body(arguments[1]), due_at:, command: 'ask')
         message = posted.message
         terminal.puts("#{asked(message)} #{Delivery.note(posted)}", Ask.follow_up(app, message.id))
       end

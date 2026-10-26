@@ -29,10 +29,10 @@ module Keryx
 
       private
 
+      # The message is marked read once the reply is posted, so a reply that fails or is refused leaves it as it was.
       def answer(name, original, text)
-        app.store.mark_read(name, original.id)
         app.postman.post(sender: name, recipient: Address.parse(original.from), kind: 'reply', body: text,
-                         reply_to: original)
+                         reply_to: original, command: 'reply').tap { app.store.mark_read(name, original.id) }
       end
     end
   end

@@ -159,6 +159,9 @@ module Keryx
       drop_in(box(name), MAIL, message)
     end
 
+    # Whether the mailbox of NAME holds the message ID already, which deliver would answer as a duplicate.
+    def stored?(name, id) = stored_file?(File.join(box(name), MAIL, "#{id}.json"))
+
     # Every message the address holds, whichever of its incarnations it was sent to.
     def stored(name)
       read = read_ids(name)

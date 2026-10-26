@@ -202,7 +202,8 @@ class OldStoreTest < Minitest::Test
 
   def test_a_message_from_another_machine_in_format_1_or_from_before_team_names_is_refused_with_its_reason
     store.create_address('orq.dev')
-    receiver = Keryx::Receiver.new(store:, bell: nil, host: 'athena', person: 'person.local')
+    receiver = Keryx::Receiver.new(store:, bell: nil, host: 'athena', person: 'person.local',
+                                   check: Keryx::Check.new(host: 'athena'))
     old = id(1)
     flat = id(2)
     receipts = [receiver.receive(JSON.generate(old_message(old, from: 'port@zeus', to: 'orq@athena'))),

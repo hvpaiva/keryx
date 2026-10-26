@@ -209,7 +209,7 @@ module Keryx
 
       def post(sender, name, text)
         app.postman.post(sender:, recipient: Address.from_key(name, host: app.host), kind: 'request', body: text,
-                         due_at:, ring: false).message
+                         due_at:, ring: false, command: 'spawn').message
       end
 
       # The request goes on the first line, since a dialog's text can follow it.

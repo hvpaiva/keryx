@@ -61,7 +61,7 @@ module Keryx
         raise UsageError, MISSING if arguments.empty?
 
         posted = app.postman.post(sender: app.me, recipient: app.address(arguments[0]), kind: 'message',
-                                  body: body(arguments[1]))
+                                  body: body(arguments[1]), command: 'send')
         terminal.puts("Sent #{terminal.paint(:id, posted.message.id)} to #{posted.message.to}. " \
                       "#{Delivery.note(posted)}")
         nil
@@ -103,7 +103,8 @@ module Keryx
       def complement(request, holder, text)
         recipient = Address.parse(request.to)
         recipient = recipient.with(host: app.host) if holder
-        app.postman.post(sender: app.me, recipient:, kind: 'message', body: text, reply_to: request)
+        app.postman.post(sender: app.me, recipient:, kind: 'message', body: text, reply_to: request,
+                         command: 'send --on')
       end
 
       def told(posted, request)
@@ -121,7 +122,7 @@ module Keryx
       # The request is marked read once the message is posted, so a message that fails leaves it as it was.
       def take(request, text)
         app.postman.post(sender: app.me, recipient: Address.parse(request.from), kind: 'message', body: text,
-                         reply_to: request).tap { app.store.mark_read(app.me, request.id) }
+                         reply_to: request, command: 'send --re').tap { app.store.mark_read(app.me, request.id) }
       end
 
       def open_request(name, reference)

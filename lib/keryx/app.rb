@@ -4,6 +4,7 @@ require 'rbconfig'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'caller'
+require_relative 'check'
 require_relative 'config'
 require_relative 'courier'
 require_relative 'forwarder'
@@ -33,8 +34,9 @@ module Keryx
                    claude_socket: Bell::ClaudeSocket.new, codex: Bell::CodexQueue.new, remote: nil,
                    sleeper: ->(seconds) { sleep(seconds) }, processes: Processes.new,
                    host_os: RbConfig::CONFIG['host_os'],
-                   monotonic: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) })
+                   monotonic: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }, check: nil)
       @env = env
+      @check = check
       @cwd = cwd
       @host_os = host_os
       @as = as || present(env['KERYX_AS'])
@@ -75,12 +77,17 @@ module Keryx
 
     def forwarder = @forwarder ||= Forwarder.new(store:, remote:, clock:)
 
+    # Only Ruby that builds an App passes another check; the executable reads /etc/keryx/check.
+    def check = @check ||= Check.new(host:)
+
     def postman
-      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name,
+      @postman ||= Postman.new(store:, bell:, forwarder:, host:, clock:, person: identity.human_name, check:,
                                measure: ->(name) { context_of(name) }, live:)
     end
 
-    def receiver = @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name, live:)
+    def receiver
+      @receiver ||= Receiver.new(store:, bell:, host:, person: identity.human_name, check:, live:, monotonic:)
+    end
 
     # Whether the session of the incarnation NAME runs.
     def live = ->(name) { roster.live?(store.reporting { store.occupant(name) }) }

@@ -29,14 +29,18 @@ class PostmanTest < Minitest::Test
 
   def remote
     @remote ||= FakeRemote.new do |_host, input|
-      receiver = Keryx::Receiver.new(store: zeus, bell: RecordingBell.new, host: 'zeus', person: 'person.local')
+      receiver = Keryx::Receiver.new(store: zeus, bell: RecordingBell.new, host: 'zeus', person: 'person.local',
+                                     check: Keryx::Check.new(host: 'zeus'))
       input.each_line.map { "#{JSON.generate(receiver.receive(it))}\n" }.join
     end
   end
 
   def forwarder = Keryx::Forwarder.new(store:, remote:, clock: -> { NOW })
 
-  def postman = Keryx::Postman.new(store:, bell:, forwarder:, host: 'athena', clock: -> { NOW }, person: 'person.local')
+  def postman
+    Keryx::Postman.new(store:, bell:, forwarder:, host: 'athena', clock: -> { NOW }, person: 'person.local',
+                       check: Keryx::Check.new(host: 'athena'))
+  end
 
   def address(text) = Keryx::Resolver.new(store:, host: 'athena').resolve(text, sender: 'orq.dev')
 
@@ -58,7 +62,7 @@ class PostmanTest < Minitest::Test
 
   def test_a_bell_that_fails_after_delivery_still_reports_the_message_sent
     failing = Keryx::Postman.new(store:, bell: FailingBell.new, forwarder:, host: 'athena', clock: -> { NOW },
-                                 person: 'person.local')
+                                 person: 'person.local', check: Keryx::Check.new(host: 'athena'))
     posted = failing.post(sender: 'orq.dev', recipient: address('rev-1.dev'), kind: 'message', body: 'hello')
 
     assert_equal [posted.message], store.unread('rev-1.dev')
@@ -172,7 +176,7 @@ class PostmanTest < Minitest::Test
     late = Keryx::Forwarder.new(store:, remote: failing_after(->(host) { courier.forward(host) }), clock: -> { NOW })
     posted = Keryx::Postman.new(store:, bell:, forwarder: late, host: 'athena', clock: lambda {
       NOW
-    }, person: 'person.local')
+    }, person: 'person.local', check: Keryx::Check.new(host: 'athena'))
                            .post(sender: 'orq.dev', recipient: address('port.dev@zeus'), kind: 'message', body: 'once')
 
     assert_equal %w[forwarded rung], [posted.forward.status, posted.forward.bell['status']]

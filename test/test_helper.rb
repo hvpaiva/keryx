@@ -2,6 +2,7 @@
 
 $LOAD_PATH.unshift File.expand_path('../lib', __dir__)
 require 'keryx'
+require_relative 'support/system_check'
 
 Warning[:deprecated] = true
 

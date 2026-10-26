@@ -21,10 +21,31 @@ class ReceiverTest < Minitest::Test
     def ring(*) = RESULT
   end
 
+  # A check like Keryx::Check whose every run takes 20 s of CLOCK under a timeout of 30 s, and records what it ran on.
+  class SlowCheck
+    attr_reader :calls
+
+    def initialize(clock)
+      @clock = clock
+      @calls = []
+    end
+
+    def exempt?(message) = Keryx::Address.parse(message.from).key == Keryx::Identity::SYSTEM
+
+    def timeout_for(message) = (30 unless exempt?(message))
+
+    def refusal(message, event:, command:)
+      @calls << [message.id, event, command]
+      @clock.advance(20)
+      nil
+    end
+  end
+
   def store = @store ||= Keryx::Store.new(tmp('zeus')).tap { it.create_address('port.dev') }
 
   def receive(message, bell: QuietBell.new)
-    Keryx::Receiver.new(store:, bell:, host: 'zeus', person: 'person.local').receive(message.to_json)
+    Keryx::Receiver.new(store:, bell:, host: 'zeus', person: 'person.local', check: Keryx::Check.new(host: 'zeus'))
+                   .receive(message.to_json)
   end
 
   def incoming = @incoming ||= build_message(to: 'port.dev@zeus', from: 'orq.dev@athena')
@@ -32,9 +53,30 @@ class ReceiverTest < Minitest::Test
   # The receipts a receiver on STORE gives for MESSAGES sent to it in one batch, as keryx __receive takes them.
   def batch(store, *messages)
     receipts = []
-    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local')
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local',
+                                   check: Keryx::Check.new(host: 'zeus'))
     receiver.receive_all(StringIO.new(messages.map { "#{it.to_json}\n" }.join)) { receipts << it }
     receipts
+  end
+
+  def athena = @athena ||= Keryx::Store.new(tmp('athena')).tap { it.create_address('orq.dev') }
+
+  def monotonic = @monotonic ||= CLIHelpers::Clock.new(0)
+
+  def slow_check = @slow_check ||= SlowCheck.new(monotonic)
+
+  # The receipts a receiver on athena gives for MESSAGES in one batch, each check there taking 20 s of its clock.
+  def checked(*messages, live: ->(_name) {})
+    receipts = []
+    receiver = Keryx::Receiver.new(store: athena, bell: QuietBell.new, host: 'athena', person: 'person.local',
+                                   check: slow_check, live:, monotonic:)
+    receiver.receive_all(StringIO.new(messages.map { "#{it.to_json}\n" }.join)) { receipts << it }
+    receipts
+  end
+
+  # A message from zeus written at AT, in a thread of its own.
+  def from_zeus(to: 'orq.dev@athena', from: 'port.dev@zeus', at: NOW)
+    build_message(to:, from:, id: Keryx::Ulid.generate(at))
   end
 
   def test_a_bell_that_fails_after_the_message_is_stored_still_reports_it_delivered
@@ -48,7 +90,8 @@ class ReceiverTest < Minitest::Test
   # keryx __receive prints each receipt as a line of JSON, which Remote reads back on the sending machine.
   def test_a_deferred_bell_comes_back_to_the_sending_machine_with_its_obstacle_and_evidence
     lines = []
-    receiver = Keryx::Receiver.new(store:, bell: DeferredBell.new, host: 'zeus', person: 'person.local')
+    receiver = Keryx::Receiver.new(store:, bell: DeferredBell.new, host: 'zeus', person: 'person.local',
+                                   check: Keryx::Check.new(host: 'zeus'))
     receiver.receive_all(StringIO.new("#{incoming.to_json}\n")) { lines << "#{JSON.generate(it)}\n" }
     runner = FakeRunner.new({ ['ssh'] => { out: lines.join } })
     receipt = Keryx::Remote.new(runner:).deliver('zeus', [incoming]).receipts.fetch(incoming.id)
@@ -83,7 +126,8 @@ class ReceiverTest < Minitest::Test
 
   def test_a_numeric_id_thread_or_in_reply_to_is_refused_before_it_is_stored
     numeric = 12_345_678_901_234_567_890_123_456
-    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local')
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local',
+                                   check: Keryx::Check.new(host: 'zeus'))
     receipts = %w[id thread in_reply_to].map do |field|
       receiver.receive(JSON.generate(JSON.parse(incoming.to_json).merge(field => numeric)))
     end
@@ -101,7 +145,8 @@ class ReceiverTest < Minitest::Test
 
   def test_a_line_over_the_frame_limit_is_refused_without_stopping_the_next
     huge = build_message(to: 'port.dev@zeus', from: 'orq.dev@athena', body: 'x' * Keryx::Receiver::FRAME_LIMIT)
-    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local')
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local',
+                                   check: Keryx::Check.new(host: 'zeus'))
     receipts = []
     receiver.receive_all(StringIO.new("#{huge.to_json}\n#{incoming.to_json}\n")) { receipts << it }
 
@@ -137,7 +182,8 @@ class ReceiverTest < Minitest::Test
   def test_a_session_that_leaves_after_the_checks_gets_no_mail
     store.bind('port.dev', build_occupant(session: 'abc123'))
     live = ->(_name) { store.with_occupants_lock { store.unbind('port.dev') }.then { true } }
-    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local', live:)
+    receiver = Keryx::Receiver.new(store:, bell: QuietBell.new, host: 'zeus', person: 'person.local', live:,
+                                   check: Keryx::Check.new(host: 'zeus'))
     receipt = receiver.receive(build_message(to: 'port.dev@zeus/abc123').to_json)
 
     assert_equal ['refused', 'mail to port.dev@zeus/abc123 is refused: its session left; write to port.dev@zeus'],
@@ -150,7 +196,7 @@ class ReceiverTest < Minitest::Test
     now = NOW
     waiting = Keryx::Store.new(tmp('zeus'), clock: -> { now }, sleeper: ->(seconds) { now += seconds })
     receiver = Keryx::Receiver.new(store: waiting, bell: QuietBell.new, host: 'zeus', person: 'person.local',
-                                   live: ->(_name) { true })
+                                   live: ->(_name) { true }, check: Keryx::Check.new(host: 'zeus'))
     receipt = File.open(tmp('zeus', 'occupants.lock'), File::RDWR | File::CREAT) do |file|
       file.flock(File::LOCK_EX)
       receiver.receive(build_message(to: 'port.dev@zeus/abc123').to_json)
@@ -159,5 +205,44 @@ class ReceiverTest < Minitest::Test
     assert_equal 'failed', receipt['status']
     assert_match(/occupants\.lock stayed locked by another keryx command for 15s/, receipt['detail'])
     assert_empty store.mailbox('port.dev')
+  end
+
+  # The first check ends at 20 s, and the second could end past the budget of 40 s, at 20 + 30 + 1 for its kill grace,
+  # so it does not run. A notice from keryx needs no check and is still written.
+  def test_once_a_check_could_pass_the_budget_of_the_batch_each_later_message_that_needs_one_fails_unchecked
+    remote = (1..4).map { from_zeus(at: NOW + it) }
+    notice = from_zeus(from: 'keryx.system@zeus', at: NOW + 5)
+    receipts = checked(*remote, notice)
+
+    assert_equal(%w[delivered failed failed failed delivered], receipts.map { it['status'] })
+    assert_equal(['the check on athena ran out of time in this batch'] * 3, receipts[1..3].map { it['detail'] })
+    assert_equal [remote.first, notice], athena.stored('orq.dev').map(&:message)
+    assert_equal [[remote.first.id, 'receive', nil]], slow_check.calls
+  end
+
+  # A resend of what arrived needs no check, so a resent batch moves past it within the budget.
+  def test_a_message_the_mailbox_holds_already_answers_duplicate_unchecked_at_a_stable_or_a_running_session_address
+    athena.bind('orq.dev', build_occupant(session: 'abc123'))
+    held = [from_zeus, from_zeus(to: 'orq.dev@athena/abc123', at: NOW + 1)]
+    held.each { athena.deliver('orq.dev', it) }
+    receipts = checked(*held, live: ->(_name) { true })
+
+    assert_equal(held.map { { 'id' => it.id, 'status' => 'duplicate' } }, receipts)
+    assert_empty slow_check.calls
+    assert_equal held, athena.stored('orq.dev').map(&:message)
+  end
+
+  def test_a_resend_of_a_held_message_to_a_session_that_left_is_still_refused
+    athena.bind('orq.dev', build_occupant(session: 'abc123'))
+    held = from_zeus(to: 'orq.dev@athena/abc123')
+    athena.deliver('orq.dev', held)
+    athena.with_occupants_lock { athena.unbind('orq.dev') }
+    receipts = checked(held, live: ->(_name) { true })
+
+    assert_equal([[held.id, 'refused',
+                   'mail to orq.dev@athena/abc123 is refused: its session left; write to orq.dev@athena']],
+                 receipts.map { it.values_at('id', 'status', 'detail') })
+    assert_empty slow_check.calls
+    assert_equal [held], athena.stored('orq.dev').map(&:message)
   end
 end

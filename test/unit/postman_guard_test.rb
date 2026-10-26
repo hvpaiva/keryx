@@ -35,7 +35,7 @@ class PostmanGuardTest < Minitest::Test
   def remote
     @remote ||= FakeRemote.new do |_host, input|
       receiver = Keryx::Receiver.new(store: zeus, bell: WatchingBell.new(lambda { |_|
-      }), host: 'zeus', person: 'person.local')
+      }), host: 'zeus', person: 'person.local', check: Keryx::Check.new(host: 'zeus'))
       input.each_line.map { "#{JSON.generate(receiver.receive(it))}\n" }.join
     end
   end
@@ -52,7 +52,7 @@ class PostmanGuardTest < Minitest::Test
 
   def postman(**)
     Keryx::Postman.new(store:, bell: WatchingBell.new(watch), forwarder:, host: 'athena', clock: -> { NOW },
-                       person: 'person.local', **)
+                       person: 'person.local', check: Keryx::Check.new(host: 'athena'), **)
   end
 
   def address(text) = Keryx::Resolver.new(store:, host: 'athena').resolve(text, sender: 'orq.dev')
@@ -72,7 +72,10 @@ class PostmanGuardTest < Minitest::Test
     end
   end
 
-  def post(to, claim:) = postman.post(sender: 'orq.dev', recipient: address(to), kind: 'message', body: 'hello', claim:)
+  # Only a sender the check exempts posts with a claim, as keryx's courier does.
+  def post(to, claim:, sender: Keryx::Identity::SYSTEM)
+    postman.post(sender:, recipient: address(to), kind: 'message', body: 'hello', claim:)
+  end
 
   def claiming(id) = -> { watch.call(:claim).then { id } }
 
@@ -94,8 +97,8 @@ class PostmanGuardTest < Minitest::Test
   end
 
   def test_a_post_without_a_claim_takes_no_lock
-    post('rev-1.dev', claim: nil)
-    post('port.dev@zeus', claim: nil)
+    post('rev-1.dev', claim: nil, sender: 'orq.dev')
+    post('port.dev@zeus', claim: nil, sender: 'orq.dev')
 
     assert_equal({ write: false, bell: false, forward: false }, held)
   end
@@ -114,7 +117,8 @@ class PostmanGuardTest < Minitest::Test
     session = Keryx::Address.parse('rev-1.dev@athena/abc123')
     bound = postman(live: ->(_name) { true })
     bound.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello')
-    bound.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello', claim: claiming(Keryx::Ulid.generate))
+    bound.post(sender: Keryx::Identity::SYSTEM, recipient: session, kind: 'message', body: 'hello',
+               claim: claiming(Keryx::Ulid.generate))
 
     assert_equal 2, store.unread('rev-1.dev').size
     assert_equal({ write: true, bell: false, claim: true }, held)
@@ -125,9 +129,9 @@ class PostmanGuardTest < Minitest::Test
     session = Keryx::Address.parse('rev-1.dev@athena/abc123')
     leave = ->(_name) { store.with_occupants_lock { store.unbind('rev-1.dev') } }
     leaving = postman(live: ->(_name) { true }, measure: leave)
-    errors = [nil, claiming(Keryx::Ulid.generate)].map do |claim|
+    errors = [['orq.dev', nil], [Keryx::Identity::SYSTEM, claiming(Keryx::Ulid.generate)]].map do |sender, claim|
       store.bind('rev-1.dev', build_occupant(session: 'abc123'))
-      assert_raises(Keryx::Error) { leaving.post(sender: 'orq.dev', recipient: session, kind: 'message', body: 'hello', claim:) }
+      assert_raises(Keryx::Error) { leaving.post(sender:, recipient: session, kind: 'message', body: 'hello', claim:) }
     end
 
     assert_equal ['mail to rev-1.dev@athena/abc123 is refused: its session left; write to rev-1.dev@athena'] * 2,
@@ -140,6 +144,18 @@ class PostmanGuardTest < Minitest::Test
     error = assert_raises(Keryx::Error) { post('ghost.dev@zeus', claim: claiming(Keryx::Ulid.generate(NOW))) }
 
     assert_equal 'zeus refused the message; no address ghost.dev@zeus', error.message
+    assert_empty store.outbox.outgoing
+  end
+
+  # A claim holds the occupants lock, so a post that needs the check may not claim, and the checker never runs there.
+  def test_a_claimed_post_from_a_sender_the_check_does_not_exempt_raises_before_any_claim_or_write
+    errors = %w[rev-1.dev port.dev@zeus].map do |to|
+      assert_raises(ArgumentError) { post(to, claim: claiming(Keryx::Ulid.generate(NOW)), sender: 'orq.dev') }
+    end
+
+    assert_equal ['only a sender the check exempts posts with a claim'] * 2, errors.map(&:message)
+    assert_empty held
+    assert_empty store.unread('rev-1.dev')
     assert_empty store.outbox.outgoing
   end
 end
