@@ -90,5 +90,9 @@ All notable changes to this project are documented here. The format follows
   bell's receipt, which now keeps the obstacle that kept the bell from typing into a herdr pane
   (dialog, editor or cramped) and the words on the screen that showed it, cut at 60 characters, or
   null when it quotes none. A receipt written before, or by an older keryx, reads with null for both.
+- `keryx sent`, which lists what the address you act as sent, oldest first, from every mailbox on
+  this machine and the outbox, with `delivery` (delivered, queued, forwarded or refused) and, for a
+  recipient on this machine, `read_at`, the time its read mark was made, read from the mark's change
+  time. `--id`, `--thread` and `--to` narrow the list.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

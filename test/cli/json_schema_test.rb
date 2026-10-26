@@ -85,6 +85,14 @@ class JSONSchemaTest < Minitest::Test
     assert_equal [*MESSAGE, 'context', 'schema', 'withdrawn_by'].sort, keys(json('read', @request, env: @rev))
   end
 
+  def test_sent_gives_read_at_only_for_a_recipient_here
+    sent = json('sent', env: @orq)
+
+    assert_equal([[*MESSAGE, 'context', 'delivery', 'read_at', 'schema', 'withdrawn_by'].sort,
+                  [*MESSAGE, 'context', 'delivery', 'schema'].sort], sent.map { keys(it) })
+    assert_equal(%w[delivered queued], sent.map { it['delivery'] })
+  end
+
   def test_wait
     clock.advance(1)
     keryx('reply', @request, 'Done', env: @rev)

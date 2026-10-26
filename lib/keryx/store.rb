@@ -64,6 +64,13 @@ module Keryx
       raise Error, "message id #{reference.inspect} is too short; give at least #{MINIMUM_PREFIX} characters"
     end
 
+    # By id, each request among MESSAGES that its own sender withdrew with one of HELD, with that withdrawal.
+    def self.withdrawn(messages, held)
+      pulled = held.select(&:withdrawal?).group_by(&:in_reply_to)
+      messages.select(&:request?).to_h { |request| [request.id, pulled[request.id]&.find { it.withdraws?(request) }] }
+              .compact
+    end
+
     def initialize(root, clock: -> { Time.now.utc }, sleeper: ->(seconds) { sleep(seconds) })
       @root = root
       @problems = []
@@ -172,11 +179,9 @@ module Keryx
 
     # By id, each request among MESSAGES that its own sender withdrew in the mailbox of NAME, with that withdrawal.
     def withdrawals(name, messages)
-      requests = messages.select(&:request?)
-      return {} if requests.empty?
+      return {} if messages.none?(&:request?)
 
-      pulled = messages_in(File.join(box(name), MAIL)).select(&:withdrawal?).group_by(&:in_reply_to)
-      requests.to_h { |request| [request.id, pulled[request.id]&.find { it.withdraws?(request) }] }.compact
+      Store.withdrawn(messages, messages_in(File.join(box(name), MAIL)))
     end
 
     def find(name, reference)

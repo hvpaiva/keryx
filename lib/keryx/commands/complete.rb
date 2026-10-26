@@ -6,7 +6,7 @@ module Keryx
   module Commands
     class Complete < CLI::Command
       VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
-                         --effort --prompt --ceiling --re].freeze
+                         --effort --prompt --ceiling --re --id --thread --to].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
@@ -100,7 +100,7 @@ module Keryx
 
       def value_candidates(option)
         case option
-        when '--as' then addresses
+        when '--as', '--to' then addresses
         when '-o', '--output' then OUTPUTS
         when '--harness' then Harness::KINDS
         when '--split' then Spawn::DIRECTIONS
