@@ -590,10 +590,11 @@ with the dialog below it, as spawn's quote is, or else from below the last compo
 command herdr typed no longer shows and a dialog takes the composer's place; a quote that says no
 action is required, as Codex's menu while it gives a request extra thought does, is a menu that
 closes by itself and is told to no one. The message from keryx to the director names the session and
-the pane, quotes the dialog and says to answer it with `herdr pane send-keys` if the director's
-human lets it answer the dialogs of the sessions it directs, except for an answer that grants
-something, such as trusting a hook, allowing a permission or changing a setting, which still needs
-that human's word, and otherwise to take it to that human.
+the pane, quotes the dialog and says to answer it at once with `herdr pane send-keys`, unless the
+director's human told it not to: allow once what the session's delegation record grants, never the
+option that changes a setting or stops later prompts, decline what the record does not grant or
+reserves to that human, and take to that human at once only a dialog that neither the record nor
+the human's standing rules cover, or one the director's harness will not let it answer.
 Nothing goes to the session itself, which the dialog stops.
 
 A dialog is told once. Its key is a SHA-256 of the quote with the selection marker taken off each

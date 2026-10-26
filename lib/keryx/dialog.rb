@@ -21,12 +21,12 @@ module Keryx
     CRAMPED = 'is too narrow to tell whether it shows a dialog'
     EDITOR = 'shows a queued message being edited'
     ANSWERED = 'the session joins by itself once it is answered; keryx never answers one'
-    # How a director answers a dialog keryx tells it about, whether or not its human lets it answer one itself.
-    ANSWER = 'keryx never answers a dialog. If your human lets you answer the dialogs of the sessions you direct, ' \
-             "answer it with 'herdr pane send-keys %<pane>s KEY...', except that an answer that grants something, " \
-             'such as trusting a hook, allowing a permission or changing a setting, still needs their word; ' \
-             'declining or continuing without trusting does not. Otherwise take it to your human, and answer it ' \
-             'only on their word.'
+    # How a director answers a dialog keryx tells it about: at once, unless its human told it not to.
+    ANSWER = "keryx never answers a dialog. Answer it now with 'herdr pane send-keys %<pane>s KEY...', unless your " \
+             "human has told you not to. Allow once what the session's delegation record grants, never the option " \
+             'that changes a setting or stops later prompts, and decline what the record does not grant or reserves ' \
+             'to your human. Take it to your human at once, with this text and the pane, only when neither the ' \
+             'record nor their standing rules cover it, or when your harness will not let you answer.'
 
     # A harness that answers a dialog by itself after a while counts down on screen, as in "will automatically deny
     # this request in 0:28", so the count changes every second while the dialog stays the same. Iris reads it so too.

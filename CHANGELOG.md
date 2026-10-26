@@ -96,11 +96,12 @@ All notable changes to this project are documented here. The format follows
   help and SECURITY.md that the first prompt is part of the harness's command line, which any
   local process can read, so it must carry no secret.
 - `keryx spawn` quotes a dialog that stops the new session and sends it as a message from keryx to
-  the address spawn runs as, whose bell rings while spawn still waits. The message says to answer
-  it with `herdr pane send-keys` when the director's human lets it answer the dialogs of the
-  sessions it directs, except for an answer that grants something, such as trusting a hook,
-  allowing a permission or changing a setting, which still needs that human's word, and otherwise
-  to take it to that human, as the skill does.
+  the address spawn runs as, whose bell rings while spawn still waits. The message, as the skill
+  does, says to answer it at once with `herdr pane send-keys` unless the director's human said not
+  to, allowing once what the session's delegation record grants, never the option that changes a
+  setting or stops later prompts, and declining what the record does not grant or reserves to that
+  human; only a dialog that neither the record nor the human's standing rules cover, or one the
+  director's harness will not let it answer, goes to that human, at once.
 - `keryx spawn --workspace LABEL`, which places the new session in the herdr workspace with that
   label, in a tab of its own or, with `--tab`, in a tab of that workspace with that label, and
   creates the workspace, without taking the focus, when none has the label.

@@ -57,11 +57,13 @@ Reply even when you cannot do what was asked, and say why. A request without a r
   and for a request to your own address, which `keryx reply` answers and `keryx withdraw` closes.
 - `keryx withdraw ID` when you no longer need the answer to a request you sent.
 - When a session you direct stops at a dialog, while `keryx spawn` waits for its join or long after
-  it joined, keryx sends you a message with the dialog's text and its herdr pane. If your human
-  lets you answer the dialogs of the sessions you direct, answer it with `herdr pane send-keys`,
-  except that an answer that grants something, such as trusting a hook, allowing a permission or
-  changing a setting, still needs their word; declining or continuing without trusting does not.
-  Otherwise take it to your human, and answer it only on their word.
+  it joined, keryx sends you a message with the dialog's text and its herdr pane. Answer it at once
+  with `herdr pane send-keys`, unless your human has told you not to; a dialog left to time out or
+  to an automatic deny is not an answer. Decide by that session's delegation record and your
+  human's standing rules. Allow once what the record grants, never the option that changes a
+  setting or stops later prompts, and decline what the record does not grant or reserves to your
+  human. Take to your human at once, with the dialog's text and its pane, only a dialog that neither
+  the record nor those rules cover, or one your own harness will not let you answer.
 - Within your team, a bare member such as `orq` is enough; `MEMBER.TEAM` names a member of another
   team on this machine. A person at a terminal is `NAME.local`, and `keryx.system` is keryx itself.
 - If another session took your address with `join --force`, you keep your session address,
