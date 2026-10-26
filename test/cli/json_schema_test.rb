@@ -107,6 +107,19 @@ class JSONSchemaTest < Minitest::Test
                  json('history', 'rev-1.dev', '--sent').map { keys(it) })
   end
 
+  def test_purge_gives_the_counts_or_the_reason_of_a_refusal
+    join_claude('old.dev', 333)
+    alive.delete(333)
+    keryx('retire', 'old.dev')
+    dry_run = json('purge', 'old.dev', '--dry-run', env: @orq)
+    refused = keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq)
+
+    assert_equal %w[address answers_kept outcome purged_at purged_by removed retired_at retired_by schema],
+                 keys(dry_run)
+    assert_equal %w[being_written messages read_marks receipts], keys(dry_run['removed'])
+    assert_equal [1, %w[address error outcome reason schema]], [refused.status, keys(JSON.parse(refused.out))]
+  end
+
   def test_wait
     clock.advance(1)
     keryx('reply', @request, 'Done', env: @rev)

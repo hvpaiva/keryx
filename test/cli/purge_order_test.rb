@@ -74,6 +74,21 @@ class PurgeOrderTest < Minitest::Test
     assert_equal 2, Dir.children(File.join("#{box}.moved", 'mail')).size
   end
 
+  def test_purge_prints_the_refusal_of_a_folder_linked_while_it_waits_for_the_lock
+    box = tmp('state', 'addresses', 'rev-1.dev')
+    swap = lambda do
+      FileUtils.mv(box, "#{box}.moved")
+      File.symlink("#{box}.moved", box)
+    end
+    result = while_purge_waits(swap) { keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq) }
+    error = 'addresses/rev-1.dev is a symbolic link; purge removes only what a folder of the store holds, and ' \
+            'changed nothing'
+
+    assert_equal [1, "error: #{error}\n"], [result.status, result.err]
+    assert_equal({ 'schema' => 1, 'address' => 'rev-1.dev@athena', 'outcome' => 'refused', 'reason' => 'linked',
+                   'error' => error }, JSON.parse(result.out))
+  end
+
   def test_a_purge_killed_during_the_removal_leaves_the_mark_and_a_second_run_finishes_it
     calls = 0
     original = FileUtils.method(:rm_r)
