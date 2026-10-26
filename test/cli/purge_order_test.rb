@@ -89,6 +89,32 @@ class PurgeOrderTest < Minitest::Test
                    'error' => error }, JSON.parse(result.out))
   end
 
+  # Neither a lock that does not come nor a removal that fails is a refusal of purge's own, so -o json prints nothing.
+  def test_a_lock_that_does_not_come_leaves_stdout_empty_with_json
+    File.open(tmp('state', 'occupants.lock'), File::RDWR | File::CREAT) do |file|
+      file.flock(File::LOCK_EX)
+      thread = Thread.new { keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq) }
+      flunk('purge still waits for the lock') unless thread.join(30)
+      result = thread.value
+
+      assert_equal [1, ''], [result.status, result.out]
+      assert_match(/stayed locked by another keryx command for 15s/, result.err)
+    end
+    refute_predicate store.retired('rev-1.dev'), :purged?
+  end
+
+  def test_a_removal_that_fails_after_the_mark_leaves_stdout_empty_with_json
+    original = FileUtils.method(:rm_r)
+    FileUtils.define_singleton_method(:rm_r) { |path, **| raise Errno::EACCES, path }
+    result = keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq)
+
+    assert_equal [1, ''], [result.status, result.out]
+    assert_match(/unexpected Errno::EACCES/, result.err)
+    assert_predicate store.retired('rev-1.dev'), :purged?
+  ensure
+    FileUtils.define_singleton_method(:rm_r, original)
+  end
+
   def test_a_purge_killed_during_the_removal_leaves_the_mark_and_a_second_run_finishes_it
     calls = 0
     original = FileUtils.method(:rm_r)

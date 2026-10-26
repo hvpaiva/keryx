@@ -46,7 +46,8 @@ class PurgeJSONTest < Minitest::Test
       **fields }
   end
 
-  # A refusal prints its document on stdout, and its error goes to stderr as without -o json, with the same exit.
+  # A refusal prints its document on stdout, and its error goes to stderr as without -o json, with the same exit;
+  # without -o json stdout stays empty.
   def assert_refused(argv, address, reason, fields = {})
     before = state
     text = keryx('purge', *argv, env: @orq)
@@ -55,7 +56,7 @@ class PurgeJSONTest < Minitest::Test
     assert_equal 1, result.status
     assert_equal({ 'schema' => 1, 'address' => address, 'outcome' => 'refused', 'reason' => reason,
                    'error' => text.err.lines.first.delete_prefix('error: ').chomp, **fields }, JSON.parse(result.out))
-    assert_equal [1, text.err], [text.status, result.err]
+    assert_equal [1, '', text.err], [text.status, text.out, result.err]
     assert_equal before, state
   end
 
@@ -145,7 +146,7 @@ class PurgeJSONTest < Minitest::Test
     assert_refused(['rev-1.dev', '--dry-run'], 'rev-1.dev@athena', 'not_retired')
   end
 
-  def test_purge_refuses_an_address_purged_already_and_gives_the_mark
+  def test_purge_and_its_dry_run_refuse_an_address_purged_already_and_give_the_mark
     retired
     clock.advance(60)
     purged_at = at(clock.now)
@@ -154,9 +155,10 @@ class PurgeJSONTest < Minitest::Test
     mark = { 'purged_at' => purged_at, 'purged_by' => 'orq.dev@athena' }
 
     assert_refused(['rev-1.dev'], 'rev-1.dev@athena', 'purged_already', mark)
+    assert_refused(['rev-1.dev', '--dry-run'], 'rev-1.dev@athena', 'purged_already', mark)
   end
 
-  def test_purge_refuses_while_requests_wait_either_way_and_names_each
+  def test_purge_and_its_dry_run_refuse_while_requests_wait_either_way_and_name_each
     received = asked('rev-1.dev', 'Review PR #448', env: @orq)
     sent = asked('orq.dev', 'Which branch?', env: @rev)
     alive.delete(222)
@@ -166,16 +168,20 @@ class PurgeJSONTest < Minitest::Test
                 'sent' => [{ 'id' => sent, 'to' => 'orq.dev@athena' }] }
 
     assert_refused(['rev-1.dev'], 'rev-1.dev@athena', 'waiting', waiting)
+    assert_refused(['rev-1.dev', '--dry-run'], 'rev-1.dev@athena', 'waiting', waiting)
   end
 
-  def test_purge_refuses_while_the_outbox_holds_what_the_address_sent_and_names_each_by_host
+  def test_purge_and_its_dry_run_refuse_while_the_outbox_holds_what_the_address_sent_and_name_each_by_host
     remote.down << 'zeus'
     keryx('send', 'port.dev@zeus', 'hello', env: @rev)
     retired
     queued = store.outbox.queued('zeus').map(&:id)
 
     assert_equal 1, queued.size
-    assert_refused(['rev-1.dev'], 'rev-1.dev@athena', 'queued', { 'queued' => [{ 'host' => 'zeus', 'ids' => queued }] })
+    outbox = { 'queued' => [{ 'host' => 'zeus', 'ids' => queued }] }
+
+    assert_refused(['rev-1.dev'], 'rev-1.dev@athena', 'queued', outbox)
+    assert_refused(['rev-1.dev', '--dry-run'], 'rev-1.dev@athena', 'queued', outbox)
   end
 
   def test_an_error_that_is_not_a_refusal_of_purge_leaves_stdout_empty
