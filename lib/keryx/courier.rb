@@ -21,11 +21,11 @@ module Keryx
     # What a join sets and a command that records the session's process again keeps.
     JOIN = %i[harness session_id joined_at ceiling].freeze
 
-    # The director spawn recorded, which the courier tells when the session stops at a dialog, or nil when spawn
-    # recorded none, the session's own address or an address retired here.
-    def self.director(store, name, occupant)
+    # The address the courier tells when the session stops at a dialog, and the one who shows: the director spawn
+    # recorded, settled, or nil when spawn recorded none or the session's own address.
+    def self.director(store, roster, name, occupant, host:)
       director = directed(name, occupant) or return
-      director unless store.retired?(director.split('/', 2).first)
+      settled(store, roster, Address.from_name(director, host:), host:)
     end
 
     # The director spawn recorded, unless it is the session's own address, as when an orchestrator spawned its
@@ -33,6 +33,13 @@ module Keryx
     def self.directed(name, occupant)
       director = occupant&.director or return
       director unless director.split('/', 2).first == name.split('/', 2).first
+    end
+
+    # A director that join --force displaced is told at its session address until that session leaves, and then at
+    # the address it was displaced from, whose holder took its work.
+    def self.settled(store, roster, address, host:)
+      live = ->(name) { roster.live?(store.reporting { store.occupant(name) }) }
+      address.local?(host) && Postman.session_left(store, address, live) ? address.stable : address
     end
 
     # A session that joined the address while the figure was read is not the session the figure belongs to.
@@ -112,10 +119,10 @@ module Keryx
       notice = DialogNotice.new(store: @store, herdr: @herdr, postman: @postman, host: @host, clock: @clock,
                                 errors: @errors)
       roster.entries.filter_map do |entry|
-        director = Courier.directed(entry.name, entry.occupant)
-        next unless director && !entry.ended? && entry.occupant.herdr?
+        next if entry.ended? || !entry.occupant&.herdr?
 
-        notice.tell(entry.name, entry.occupant, settled(roster, Address.from_name(director, host: @host)))
+        director = Courier.director(@store, roster, entry.name, entry.occupant, host: @host)
+        notice.tell(entry.name, entry.occupant, director) if director
       end
     end
 
@@ -136,12 +143,7 @@ module Keryx
       [Address.from_name(name, host: @host), director].compact.uniq
     end
 
-    # A director that join --force displaced is told at its session address until that session leaves, and then at
-    # the address it was displaced from, whose holder took its work.
-    def settled(roster, address)
-      live = ->(name) { roster.live?(@store.reporting { @store.occupant(name) }) }
-      address.local?(@host) && Postman.session_left(@store, address, live) ? address.stable : address
-    end
+    def settled(roster, address) = Courier.settled(@store, roster, address, host: @host)
 
     # Only the requests the incarnation lists, so neither the holder nor a displaced session takes the other's work.
     def oldest_request(roster, name)

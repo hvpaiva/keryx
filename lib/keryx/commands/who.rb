@@ -94,7 +94,10 @@ module Keryx
           'join' => CLI::JoinView.record(entry.occupant) }
       end
 
-      def director(entry) = Keryx::Courier.director(app.store, entry.name, entry.occupant)&.then { app.full(it) }
+      def director(entry)
+        director = Keryx::Courier.director(app.store, app.roster, entry.name, entry.occupant, host: app.host) or return
+        director.to_s unless app.store.retired?(director.key)
+      end
     end
   end
 end

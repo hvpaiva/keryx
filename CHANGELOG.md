@@ -93,8 +93,8 @@ All notable changes to this project are documented here. The format follows
   label, in a tab of its own or, with `--tab`, in a tab of that workspace with that label, and
   creates the workspace, without taking the focus, when none has the label.
 - A DIRECTOR column in `who`, and `director` in its JSON, with the address `keryx spawn` recorded
-  as the director of the session it started, or none when it recorded none, the session's own
-  address or an address retired here.
+  as the director of the session it started, as the courier tells it, or none when it recorded
+  none, the session's own address or an address retired here.
 - `keryx courier` tells that director when the session's herdr pane shows a dialog, such as a
   permission or folder trust question, with the pane and the dialog's text, at any time after the
   join. Each dialog is told once, a new one in the same pane is told again, and so is the same one

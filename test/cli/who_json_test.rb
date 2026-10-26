@@ -48,12 +48,13 @@ class WhoJSONTest < Minitest::Test
     join_claude('orq.dev', 111)
     join_claude('impl.dev', 222)
     join_claude('rev-1.dev', 333)
+    session = occupant('orq.dev')['session']
     direct('impl.dev', 'orq.dev')
-    direct('rev-1.dev', 'orq.dev/abcdef')
+    direct('rev-1.dev', "orq.dev/#{session}")
     rows = keryx('who').out.lines.map(&:split).to_h { [it[0], it[2]] }
 
     assert_equal({ 'orq.dev@athena' => nil, 'impl.dev@athena' => 'orq.dev@athena',
-                   'rev-1.dev@athena' => 'orq.dev@athena/abcdef' }, directors.except('person.local@athena'))
+                   'rev-1.dev@athena' => "orq.dev@athena/#{session}" }, directors.except('person.local@athena'))
     assert_equal %w[- orq.dev@athena], rows.values_at('orq.dev@athena', 'impl.dev@athena')
   end
 
