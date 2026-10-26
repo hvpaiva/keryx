@@ -77,6 +77,17 @@ class SendOnTest < Minitest::Test
     assert_equal(%w[request], inbox(@rev).map { it['kind'] })
   end
 
+  def test_send_on_refuses_a_message_that_is_not_a_request
+    keryx('send', 'rev-1.dev', 'A note', env: @orq)
+    note = last_id(@rev)
+    clock.advance(1)
+    result = keryx('send', '--on', note, 'More', env: @orq)
+
+    assert_equal 1, result.status
+    assert_match(/no request #{note} sent by orq.dev@athena/, result.err)
+    assert_equal(%w[request message], inbox(@rev).map { it['kind'] })
+  end
+
   def test_send_on_reaches_the_recipient_here_of_a_request_from_before_the_machine_was_renamed
     keryx('ask', 'rev-1.dev', 'Port it', env: @orq.merge('KERYX_HOST' => 'lap-0042'))
     id = last_id(@rev)
