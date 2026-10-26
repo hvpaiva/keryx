@@ -20,6 +20,10 @@ module Keryx
     CRAMPED = 'is too narrow to tell whether it shows a dialog'
     EDITOR = 'shows a queued message being edited'
     ANSWERED = 'the session joins by itself once it is answered; keryx never answers one'
+    # How a director answers a dialog keryx tells it about, whether or not its human lets it answer one itself.
+    ANSWER = 'keryx never answers a dialog. If your human lets you answer the dialogs of the sessions you direct, ' \
+             "answer it with 'herdr pane send-keys %<pane>s KEY...'; otherwise take it to your human, and answer " \
+             'it only on their word.'
 
     # The dialog a read of the pane shows below the command herdr typed, as the lines spawn quotes, or nil when it
     # shows none. That command holds the first prompt, whose words could pass for a dialog.
@@ -136,9 +140,7 @@ module Keryx
 
     def tell(text)
       @post.call(@director, "Pane #{@pane}, where spawn started #{@address}, stops at a dialog, and the session " \
-                            'joins once it is answered; keryx never answers one. Its text follows.' \
-                            "\n\n#{text}\n\nTake it to your human, and answer it with 'herdr pane send-keys' only " \
-                            'on their word.')
+                            "joins once it is answered. Its text follows.\n\n#{text}\n\n#{format(ANSWER, pane: @pane)}")
     rescue Error, SystemCallError => e
       @notice.call("spawn could not tell #{@director} about the dialog in pane #{@pane}: #{e.message}.")
     end
