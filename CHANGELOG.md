@@ -152,5 +152,11 @@ All notable changes to this project are documented here. The format follows
   the deny of `AskUserQuestion`, which `keryx spawn` passes on the command line, do not survive
   herdr's relaunch, so a relaunched session gets no stop hook reminders and can ask in a dialog
   again.
+- `keryx expect ADDRESS --harness HARNESS --pane PANE`, for a launcher other than `keryx spawn`,
+  run after it opens a herdr pane and before the harness starts there. It creates the address and
+  records the address it acts as for the director of the session that joins from that pane, as
+  spawn does, in the record `who -o json` gives as `spawned`. Running it again with the same record
+  changes nothing, even once that session joined, and a different record is replaced only with
+  `--replace`.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

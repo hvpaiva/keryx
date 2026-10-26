@@ -152,6 +152,13 @@ class CompletionTest < Minitest::Test
     assert_empty complete('spawn', 'rev-1.dev', '--', '--')
   end
 
+  def test_expect_completes_harnesses_and_nothing_for_the_pane_or_the_socket
+    assert_equal %w[claude codex cursor], complete('expect', 'rev-1.dev', '--harness', '')
+    assert_empty complete('expect', 'rev-1.dev', '--pane', '')
+    assert_empty complete('expect', 'rev-1.dev', '--socket', '')
+    assert_includes complete('expect', '--'), '--replace'
+  end
+
   def test_completion_never_fails
     alive << 999
     result = keryx('__complete', 'read', '', env: claude(999))
