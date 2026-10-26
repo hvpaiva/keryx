@@ -33,9 +33,9 @@ class ExpectTest < Minitest::Test
   def stamp = File.stat(file).then { [it.ino, it.mtime] }
 
   # The session the launcher starts in pane w1:p3 joins the address.
-  def seat_joins(*argv, pid: 500, pane: 'w1:p3', session: claude(pid))
+  def seat_joins(*argv, pid: 500, pane: 'w1:p3', session: claude(pid), socket: SOCKET)
     alive << pid
-    keryx('join', 'rev-1.dev', *argv, env: session.merge(in_pane(SOCKET, pane)))
+    keryx('join', 'rev-1.dev', *argv, env: session.merge(in_pane(socket, pane)))
   end
 
   def test_the_session_in_the_pane_takes_the_director_and_its_join_gives_the_role
@@ -82,6 +82,22 @@ class ExpectTest < Minitest::Test
     assert_equal 2, keryx('expect', 'rev-1.dev/k3m9qz', '--harness', 'claude', '--pane', 'w1:p3', env: orq).status
     assert_equal [1, 1], [as_person.status, unjoined.status]
     refute_path_exists file
+  end
+
+  # herdr gives the pane its socket as it was given, so the record and the join compare one lexical form.
+  def test_a_socket_spelled_another_way_is_recorded_plainly_and_its_session_takes_the_director
+    %w[/./h.sock //h.sock /x/../h.sock].each.with_index(500) do |socket, pid|
+      recorded = expecting('--socket', socket)
+
+      assert_equal [0, SOCKET], [recorded.status, waiting['herdr_socket']], recorded.err
+      assert_equal [0, 'orq.dev@athena'], [seat_joins(pid:).status, entry['director']], socket
+      assert_equal 'joined', JSON.parse(expecting('--socket', socket, '-o', 'json').out)['outcome'], socket
+      keryx('leave', env: claude(pid).merge(in_pane(SOCKET, 'w1:p3')))
+    end
+    expecting
+    seat_joins(pid: 600, socket: '//h.sock')
+
+    assert_equal 'orq.dev@athena', entry['director']
   end
 
   def test_a_retired_address_and_one_a_live_session_holds_are_refused

@@ -19,6 +19,18 @@ class SpawnedTest < Minitest::Test
     end
   end
 
+  def test_one_socket_spelled_another_way_is_the_same_socket_and_links_are_not_followed
+    started = build_occupant(herdr_socket: '/h.sock', herdr_pane: 'w1:p2')
+    File.symlink(tmp('h.sock'), tmp('link.sock'))
+
+    %w[/./h.sock //h.sock /x/../h.sock /h.sock/].each do |socket|
+      assert spawned.with(herdr_socket: socket).started?(started), "recorded as #{socket}"
+      assert spawned.started?(started.with(herdr_socket: socket)), "joined from #{socket}"
+    end
+    refute spawned.started?(started.with(herdr_socket: nil))
+    assert_equal tmp('link.sock'), Keryx::Spawned.socket(tmp('link.sock'))
+  end
+
   def test_the_record_lasts_until_it_is_forgotten_and_a_damaged_one_is_none
     [spawned.with(director: 'orq.dev/k3m9qz'), spawned].each do |record|
       store.record_spawned('impl.dev', record)

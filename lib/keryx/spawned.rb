@@ -19,9 +19,14 @@ module Keryx
 
     def record = to_h.transform_keys(&:to_s)
 
+    # One socket spelled another way, such as /./h.sock or //h.sock for /h.sock, takes one lexical form. Links are not
+    # followed, since herdr gives a pane its socket as it was given and the join reads that.
+    def self.socket(path) = path.to_s.start_with?('/') ? File.expand_path(path.squeeze('/')) : path
+
     # The session spawn started runs the harness spawn started, in the pane it placed.
     def started?(occupant)
-      occupant.harness == harness && occupant.herdr_socket == herdr_socket && occupant.herdr_pane == herdr_pane
+      occupant.harness == harness && occupant.herdr_pane == herdr_pane &&
+        Spawned.socket(occupant.herdr_socket) == Spawned.socket(herdr_socket)
     end
   end
 end

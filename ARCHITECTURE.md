@@ -627,8 +627,10 @@ session holds, and keeps a different record that waits unless `--replace` is giv
 Without `--replace` expect links its record into place only where none is, so a record spawn writes without the lock
 between expect's read and its write is kept, and expect refuses it as it refuses any different record. The same
 record again is left as it is, and so is a session that joined from that pane with that director and took the record;
-both succeed, so a launcher that resumes an opening can run expect again. The role and the ceiling come from the
-session's own join. A command that records the session's process again keeps
+both succeed, so a launcher that resumes an opening can run expect again. expect records the socket in one lexical
+form, without `.`, `..` or doubled slashes and with no link followed, and a join compares the record's socket with the
+session's `HERDR_SOCKET_PATH` in that form, so one socket spelled two ways is the same socket. The role and the
+ceiling come from the session's own join. A command that records the session's process again keeps
 the ceiling and the director, and a new join starts without them.
 
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%

@@ -92,11 +92,11 @@ module Keryx
                           'without spaces'
       end
 
-      # Kept as given, since the join compares it with the HERDR_SOCKET_PATH herdr gives the session's pane.
+      # Recorded in the lexical form the join compares, so one socket spelled two ways is one record.
       def herdr_socket
         socket = options[:socket] || app.caller.herdr_socket or
           raise UsageError, 'missing --socket: give the path of the herdr server, or run expect in a herdr pane'
-        return socket if socket.start_with?('/')
+        return Spawned.socket(socket) if socket.start_with?('/')
 
         raise UsageError, "invalid socket #{socket.inspect}: give an absolute path"
       end
