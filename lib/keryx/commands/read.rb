@@ -15,7 +15,8 @@ module Keryx
                                   'with this command rather than through the files; a sender on another machine ' \
                                   "sees only that it arrived.\n\n" \
                                   'A message carries the context its sender used when it sent it, when keryx could ' \
-                                  "measure it, and read shows it in the same form as keryx who.\n\n" \
+                                  'measure it, and read shows it as keryx who shows the context of a session with ' \
+                                  "no ceiling.\n\n" \
                                   'A session that join --force displaced reads, without ID, only the mail to its ' \
                                   'session address. By ID it also opens the mail to the address it held, so it ' \
                                   'can finish what it took before.',
