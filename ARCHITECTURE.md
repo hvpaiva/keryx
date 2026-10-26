@@ -119,27 +119,36 @@ folder under the root moves its mtime forward: mail, read marks, receipts and be
 outbox's queues, moves and outcomes, `address.json`, `occupant.json`, `spawned.json`,
 `retired.json`, `outgoing/` and what purge removes, whether a command on this machine made it or
 `__receive` stored mail another machine forwarded. Temporaries and lock files do not count, and a
-command that only reads moves nothing. Each write that changed the store notes it once made, in
-`Links` and `Files`, and the process moves the mtime once for all it noted: when its command ends,
-from `Dispatcher#execute`, and before each pause, through the app's sleeper, so `courier` between
-rounds, `wait`, `spawn` waiting for the join and a wait for `occupants.lock` signal their changes
-before they sleep. A reader that saw the mtime move and then runs a command therefore sees every
-change made before it.
+command that only reads moves nothing. Each write that changed the store calls `changed!` once made.
+The helpers of `Links` and `Files` that make a folder, link or rename a file into place or remove
+one do, and so does each create, rename or removal made outside them: `Store#mark_once` and
+`#keep_mark`, `Outbox#settle`, and purge's `remove_tree` and `remove_empty` in `Retirement`. A new
+write outside those helpers must call it too. The process moves the mtime once for all it noted:
+when its command ends, from `Dispatcher#execute`, and before each pause, through the app's sleeper,
+so `courier` between rounds, `wait`, `spawn` waiting for the join and a wait for `occupants.lock`
+signal their changes before they sleep. A reader that saw the mtime move and then runs a command
+therefore sees every change made before it.
 
-`Changes` sets the mtime to the later of the clock and the old mtime plus 1 ms, under a lock on
-the file, so it only moves forward, apart even for two changes in one tick of the clock or after
-the clock stepped back, and by enough for a reader that keeps milliseconds; a filesystem that keeps
-whole seconds gets a second. The mtime is a signal and not the time of a change, and it can run a
-few milliseconds ahead of the clock. A reader stats the file once per poll and reads nothing,
-compares the mtime at full resolution for inequality, which also catches a store made again, and
-takes a missing file as unknown. The file is made `0600` when missing, a link in its place is
-refused as for any write, and `lutime` never follows one. When moving the mtime fails, the change
-stands, the command keeps its exit status and warns on stderr, and the next change moves it. Two
-cases stay unsignaled until the next change: a process killed before its command ended, and a
-failure under `__receive`, whose stderr the sending machine drops when ssh succeeds. No file shows a
-session that ends, which `who` sees from its pid, the context figures and last activity read from
-the harnesses' transcripts, or ages and overdue states, which come from the clock, so a reader still
-polls `who` and `status` for those, more slowly.
+`Changes` sets the mtime to the later of the clock and the old mtime plus 1 ms, under a lock on the
+file, so it only moves forward, apart even for two changes in one tick of the clock or after the
+clock stepped back, and by enough for a reader that keeps milliseconds; a filesystem that keeps
+whole seconds gets a second. The mtime is a signal and not the time of a change, and it runs ahead
+of the clock until the clock catches up: by a millisecond for each change that came within a
+millisecond of the one before, by the whole step after the clock stepped back, and on a filesystem
+that keeps whole seconds by a second for each change in the same second as the one before. A reader
+stats the file once per poll and reads nothing, compares the mtime at full resolution for
+inequality, which also catches a store made again, and takes a missing file as unknown. The file is
+made `0600` when missing, a link in its place is refused as for any write, and `lutime` never
+follows one. The lock is waited for a second at most, since a signal holds it for microseconds. When
+moving the mtime fails, the change stands, the command keeps its exit status and warns on stderr,
+and its changes stay noted, so the process's next signal, or the next command that changes the
+store, moves it. A courier whose signal keeps failing warns once for the life of its process, since
+`App#take_problems` reports each problem once. Two cases stay unsignaled until the next change: a
+process killed before its command ended, and a failure under `__receive`, whose stderr the sending
+machine drops when ssh succeeds. No file shows a session that ends, which `who` sees from its pid,
+the context figures and last activity read from the harnesses' transcripts, or ages and overdue
+states, which come from the clock, so a reader still polls `who` and `status` for those, more
+slowly.
 
 ## Identity
 
