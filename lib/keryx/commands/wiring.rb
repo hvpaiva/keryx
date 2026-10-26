@@ -13,7 +13,9 @@ module Keryx
       ENVIRONMENT = 'environment'
       CODEX_THROUGH = "-c #{Harness::CODEX_ENVIRONMENT}.NAME=VALUE".freeze
       SHELL_WORD = %r{\A[\w@%+=:,./-]+\z}
-      JSON_FIELDS = 'With -o json it gives harness; arguments, the list to add; hooks, null when the arguments ' \
+      JSON_FIELDS = 'With -o json it gives harness; host, the host name this keryx resolves, from KERYX_HOST, ' \
+                    'else host in its config file, else the machine\'s short name; arguments, the list to add; ' \
+                    'hooks, null when the arguments ' \
                     'carry the stop hook, or else entry, the JSON object its file holds, files, where it goes, and ' \
                     'trust, what the harness asks before it runs a new hook, or null; bell, the channels in the ' \
                     'order the bell tries them, of claude, codex and herdr; and environment, with pane and store, ' \
@@ -26,10 +28,13 @@ module Keryx
                        description: 'Print what a launcher gives a session of HARNESS, which is claude, codex or ' \
                                     'cursor, for keryx to reach it: the arguments to add to the command line, the ' \
                                     'stop hook and the files it goes in, the channels the bell tries in order, and ' \
-                                    'the variables of the herdr pane and of the store. keryx spawn gives its ' \
-                                    'sessions the same, from the same source, and the output holds no value of ' \
-                                    'this machine, so it is the same for every launcher on any machine with the ' \
-                                    "same keryx.\n\n" \
+                                    'the variables of the herdr pane and of the store, and the host name this ' \
+                                    'keryx resolves. keryx spawn gives its sessions the same, from the same ' \
+                                    'source, and apart from the host the output holds no value of this machine, ' \
+                                    'so it is the same for every launcher on any machine with the same keryx. A ' \
+                                    'launcher that does not read keryx\'s config file passes the host as ' \
+                                    'KERYX_HOST, so the session uses the same name, and wiring fails as other ' \
+                                    "commands do when the host cannot be resolved.\n\n" \
                                     'Claude Code takes --disallowedTools AskUserQuestion, which denies it the tool ' \
                                     'that asks the person at its terminal in a dialog, so that it asks through keryx ' \
                                     'instead, and --settings with crossSessionInbound accept, which lets the bells ' \
@@ -68,8 +73,8 @@ module Keryx
       private
 
       def record(kind)
-        { 'harness' => kind, 'arguments' => Harness::SESSION_ARGUMENTS.fetch(kind), 'hooks' => hooks(kind),
-          'bell' => Harness::BELL.fetch(kind),
+        { 'harness' => kind, 'host' => app.host, 'arguments' => Harness::SESSION_ARGUMENTS.fetch(kind),
+          'hooks' => hooks(kind), 'bell' => Harness::BELL.fetch(kind),
           'environment' => { 'pane' => variables(Harness::PANE_VARIABLES),
                              'store' => variables(Harness::STORE_VARIABLES),
                              'through' => kind == 'codex' ? CODEX_THROUGH : ENVIRONMENT } }
@@ -88,7 +93,8 @@ module Keryx
                        section('Bell, in the order it tries', rows(data['bell'].to_h { [it, CHANNELS.fetch(it)] })),
                        section('Pane variables, which herdr sets in each pane it starts', rows(environment['pane'])),
                        section('Store variables, for a store other than the default', rows(environment['store'])),
-                       through(environment['through'])].join("\n\n"))
+                       through(environment['through']), "This keryx resolves its host as #{data['host']}."]
+                         .join("\n\n"))
       end
 
       def arguments_section(arguments)

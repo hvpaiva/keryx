@@ -73,20 +73,44 @@ class WiringTest < Minitest::Test
     assert_empty result.out
   end
 
-  def test_the_output_holds_nothing_of_the_environment_it_runs_in
+  def test_the_output_holds_nothing_of_the_environment_it_runs_in_apart_from_the_host
     other = { 'KERYX_HOME' => tmp('other-state'), 'HOME' => tmp('other-home'), 'XDG_CONFIG_HOME' => tmp('other'),
               'KERYX_HOST' => 'zeus', **SpawnHelpers::CALLER }
 
     %w[claude codex cursor].each do |kind|
-      [[kind, '-o', 'json'], [kind]].each do |argv|
-        here = keryx('wiring', *argv)
+      assert_equal 'zeus', wiring(kind, env: other)['host']
+      assert_equal wiring(kind).except('host'), wiring(kind, env: other).except('host')
+      here = keryx('wiring', kind)
 
-        assert_equal here, keryx('wiring', *argv, env: other)
-        refute_includes here.out, tmp
-      end
+      assert_equal here.out.sub('athena.', 'zeus.'), keryx('wiring', kind, env: other).out
+      refute_includes here.out, tmp
     end
 
     refute_path_exists tmp('state')
+  end
+
+  def test_the_host_is_the_one_keryx_resolves_from_keryx_host_the_config_file_or_the_machine_name
+    write_config("host = cfg-host\n")
+    machine = { 'KERYX_HOST' => '', 'XDG_CONFIG_HOME' => tmp('none') }
+    resolved = keryx('whoami', '-o', 'json', env: machine).out.then { JSON.parse(it)['address'][/@(.+)\z/, 1] }
+
+    hosts = [{ 'KERYX_HOST' => 'env-host' }, { 'KERYX_HOST' => '' }].map { wiring('claude', env: it)['host'] }
+
+    assert_equal %w[env-host cfg-host], hosts
+    assert_equal resolved, wiring('codex', env: machine)['host']
+    assert_equal "This keryx resolves its host as cfg-host.\n",
+                 keryx('wiring', 'cursor', env: { 'KERYX_HOST' => '' }).out.lines.last
+  end
+
+  def test_a_host_keryx_cannot_resolve_fails_as_it_does_for_other_commands
+    write_config("host = Bad_Host\n")
+
+    [{ 'KERYX_HOST' => 'Bad_Host' }, { 'KERYX_HOST' => '' }].each do |env|
+      result = keryx('wiring', 'claude', '-o', 'json', env:)
+
+      assert_equal [1, '', keryx('whoami', env:).err], [result.status, result.out, result.err]
+      assert_match(/"Bad_Host" is not a valid host name/, result.err)
+    end
   end
 
   def test_the_harness_completes
