@@ -165,4 +165,30 @@ class MachinesTest < Minitest::Test
     assert_match(/\ARequest \w+ to port.dev@zeus passed its deadline without a reply\.\z/, notice['body'])
     assert_empty keryx('courier', '--once').out
   end
+
+  # A keryx from before team addresses refuses every message this one writes, as not a keryx message.
+  def old_peer
+    @remote = FakeRemote.new do |_host, input|
+      input.lines.map do |line|
+        "#{JSON.generate('id' => JSON.parse(line)['id'], 'status' => 'refused', 'detail' => 'not a keryx message')}\n"
+      end.join
+    end
+  end
+
+  def test_an_old_keryx_elsewhere_refuses_format_2_for_good_and_says_why
+    old_peer
+    sent = keryx('send', 'port.dev@zeus', 'hello', env: @orq)
+    remote.down << 'zeus'
+    keryx('send', 'port.dev@zeus', 'still there?', env: @orq)
+    remote.down.clear
+    courier = keryx('courier', '--once')
+    refused = JSON.parse(keryx('status', '-o', 'json').out)['not_forwarded']
+    reason = 'zeus runs a keryx from before team addresses, which refuses message format 2; upgrade keryx on zeus ' \
+             'and send again'
+
+    assert_equal "error: zeus refused the message; #{reason}\n", sent.err
+    assert_match(/\Azeus refused \w+: #{Regexp.escape(reason)}\n\z/, courier.out)
+    assert_equal([['port.dev@zeus', 'refused', reason]], refused.map { it.values_at('to', 'state', 'detail') })
+    assert_empty keryx('courier', '--once').out
+  end
 end

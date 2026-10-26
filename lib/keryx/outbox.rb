@@ -16,9 +16,10 @@ module Keryx
     LOCK = 'outcomes.lock'
     THREAD_LOCK = 'thread.lock'
 
-    def initialize(root, problems: [])
+    def initialize(root, problems: [], clock: -> { Time.now.utc })
       @base = File.join(root, DIR)
       @problems = problems
+      @clock = clock
     end
 
     def queue(host, message)
@@ -51,13 +52,23 @@ module Keryx
     def outgoing(hosts = self.hosts)
       found = Array(hosts).flat_map do |host|
         STATES.flat_map do |state, folder|
-          messages_in(File.join(dir(host), folder)).map { OutgoingMessage.new(host, it, state) }
+          messages = state == :queued ? queued(host) : messages_in(File.join(dir(host), folder))
+          messages.map { OutgoingMessage.new(host, it, state) }
         end
       end
       found.sort_by { it.message.id }
     end
 
-    def queued(host) = messages_in(File.join(dir(host), STATES.fetch(:queued)))
+    # What new/ holds for HOST that this keryx still sends. A message from before team names, of format 1 or with an
+    # address that has no team, moves to refused/ with its reason the first time it is read, so it holds back no
+    # thread, and the command that moves it reports it once.
+    def queued(host)
+      folder = File.join(dir(host), STATES.fetch(:queued))
+      ids_in(folder).filter_map do |id|
+        reason, message = old(File.join(folder, "#{id}.json"))
+        reason ? refuse_old(host, id, reason) : message
+      end
+    end
 
     def settle(host, id, state)
       target = File.join(dir(host), STATES.fetch(state))
@@ -99,6 +110,34 @@ module Keryx
     def receipt(host, id) = outcome(host, id) || read_receipt(receipt_file(host, id))
 
     private
+
+    # A file of format 1, from before team names, no longer parses, and cur/ and refused/ skip it quietly.
+    def skipped(path, error) = error.is_a?(Message::OldFormat) ? nil : super
+
+    # Why the message at PATH is from before team names, or else nil and the message, which is nil too when the file
+    # cannot be read.
+    def old(path)
+      message = load_message(path)
+      teamless = message.teamless
+      teamless ? [format(Address::TEAMLESS, teamless)] : [nil, message]
+    rescue Message::OldFormat => e
+      [e.message]
+    rescue Errno::ENOENT
+      nil
+    rescue Error => e
+      skipped(path, e)
+      nil
+    end
+
+    # The outcome comes first, as the forwarder writes it, and a decision taken before stays. Nothing is sent.
+    def refuse_old(host, id, reason)
+      write_outcome(host, id, { 'status' => 'refused', 'detail' => reason, 'at' => @clock.call.utc.iso8601 })
+      state = outcome(host, id)&.fetch('status') || 'refused'
+      if settle(host, id, state.to_sym) && state == 'refused'
+        @problems << "moved #{File.join(dir(host), 'new', "#{id}.json")} to refused/: #{reason}"
+      end
+      nil
+    end
 
     def dir(host)
       raise Error, "invalid host #{host.inspect}" unless Address::HOST.match?(host.to_s)

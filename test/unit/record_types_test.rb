@@ -40,8 +40,8 @@ class RecordTypesTest < Minitest::Test
   def test_an_address_file_with_a_name_or_role_that_is_not_text_is_damaged
     store.create_address('rev-1.dev', now: NOW)
     path = tmp('state', 'addresses', 'rev-1.dev', 'address.json')
-    record = { 'name' => 'rev-1.dev', 'role' => 'reviewer', 'created_at' => NOW.iso8601 }
-    [{ 'name' => 5 }, { 'role' => ['reviewer'] }, { 'created_at' => true }].each do |field|
+    record = { 'member' => 'rev-1', 'team' => 'dev', 'role' => 'reviewer', 'created_at' => NOW.iso8601 }
+    [{ 'member' => 5 }, { 'team' => nil }, { 'role' => ['reviewer'] }, { 'created_at' => true }].each do |field|
       File.write(path, JSON.generate(record.merge(field)))
 
       assert_match(/address.json is damaged/, assert_raises(Keryx::Error, field.inspect) { store.address('rev-1.dev') }

@@ -25,21 +25,23 @@ class MessageTest < Minitest::Test
     assert_equal '2026-10-22T17:00:00Z', data['created_at']
   end
 
-  def test_a_message_between_two_addresses_from_before_team_names_keeps_the_old_format
-    flat = build_message(from: 'orq@athena', to: 'port@zeus')
-    data = JSON.parse(flat.to_json)
+  def test_a_stored_message_with_an_address_from_before_team_names_still_reads
+    old = build_message(from: 'orq@athena', to: 'port.ports@zeus')
 
-    assert_equal 1, data['keryx']
-    assert_equal flat, Keryx::Message.from_json(flat.to_json)
-    assert_equal 2, JSON.parse(build_message(from: 'orq@athena', to: 'port.ports@zeus').to_json)['keryx']
-    assert_equal 2, JSON.parse(build_message(from: 'orq.dev@athena/k3m9qz', to: 'port.ports@zeus').to_json)['keryx']
+    assert_equal old, Keryx::Message.from_json(old.to_json)
+    assert_equal 'orq@athena', old.teamless
+    assert_equal 'port@zeus', build_message(from: 'orq.dev@athena/k3m9qz', to: 'port@zeus').teamless
+    assert_nil build_message(from: 'orq.dev@athena/k3m9qz', to: 'port.ports@zeus').teamless
   end
 
-  def test_the_old_format_carries_only_addresses_without_a_team
-    data = JSON.parse(build_message.to_json).merge('keryx' => 1)
+  def test_format_1_is_no_longer_taken_and_says_why
+    data = JSON.parse(build_message(from: 'orq@athena', to: 'port@zeus').to_json)
 
-    error = assert_raises(Keryx::Error) { Keryx::Message.from_json(JSON.generate(data)) }
-    assert_equal 'format 1 carries only addresses without a team', error.message
+    assert_equal 2, data['keryx']
+    old = JSON.generate(data.merge('keryx' => 1))
+
+    error = assert_raises(Keryx::Message::OldFormat) { Keryx::Message.from_json(old) }
+    assert_equal 'message format 1, of the addresses from before team names, is no longer taken', error.message
   end
 
   def test_an_unknown_format_is_not_a_keryx_message

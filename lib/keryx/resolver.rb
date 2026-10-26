@@ -14,11 +14,10 @@ module Keryx
       @host = host
     end
 
-    # SENDER is the store name the command acts as, or nil, or a block that gives it, asked only for a bare member. FLAT
-    # allows a full address from before team names.
-    def resolve(text, sender:, flat: false)
+    # SENDER is the store name the command acts as, or nil, or a block that gives it, asked only for a bare member.
+    def resolve(text, sender:)
       text = text.to_s
-      return full(text, flat) if text.include?('@')
+      return full(text) if text.include?('@')
 
       base, session = text.split('/', 2)
       address = base.include?('.') ? Address.from_key(base, host: @host) : member(base, sender)
@@ -27,9 +26,9 @@ module Keryx
 
     private
 
-    def full(text, flat)
+    def full(text)
       address = Address.parse(text)
-      return address if flat || !address.flat?
+      return address unless address.flat?
 
       raise Error, format(FLAT, address:, member: address.member, host: address.host)
     end

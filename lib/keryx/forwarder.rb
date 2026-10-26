@@ -43,7 +43,7 @@ module Keryx
       if receipt && ARRIVED.include?(receipt['status'])
         finish(host, message, FORWARDED, nil, bell: receipt['bell'])
       elsif receipt && receipt['status'] == REFUSED
-        finish(host, message, REFUSED, refusal(host, message, receipt['detail'].to_s))
+        finish(host, message, REFUSED, refusal(host, receipt['detail'].to_s))
       else
         wait(host, message, waiting_reason(host, message, receipt, answer))
       end
@@ -65,8 +65,8 @@ module Keryx
       settled(host, message.id) || Result.new(status: QUEUED, detail: reason, bell: nil)
     end
 
-    def refusal(host, message, detail)
-      return detail unless detail == OLD_PEER && message.format == Message::FORMAT_VERSION
+    def refusal(host, detail)
+      return detail unless detail == OLD_PEER
 
       "#{host} runs a keryx from before team addresses, which refuses message format #{Message::FORMAT_VERSION}; " \
         "upgrade keryx on #{host} and send again"

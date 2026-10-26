@@ -57,17 +57,21 @@ module Keryx
     end
 
     def read_message(path)
+      load_message(path)
+    rescue Errno::ENOENT, Error => e
+      skipped(path, e) if e.is_a?(Error)
+      nil
+    end
+
+    def load_message(path)
       text = read_regular(path) or raise Error, 'not a regular file'
       message = Message.from_json(text)
       return message if File.basename(path, '.json') == message.id
 
       raise Error, "the file name does not match the message id #{message.id}"
-    rescue Errno::ENOENT
-      nil
-    rescue Error => e
-      @problems << "skipped #{path}: #{e.message}"
-      nil
     end
+
+    def skipped(path, error) = @problems << "skipped #{path}: #{error.message}"
 
     def read_json(path)
       text = read_regular(path) or raise Error, "#{path} is not a regular file"

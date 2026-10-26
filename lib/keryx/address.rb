@@ -5,7 +5,8 @@ require 'socket'
 require_relative 'error'
 
 module Keryx
-  # MEMBER.TEAM@HOST, with /SESSION for one incarnation. An address from before team names has no team.
+  # MEMBER.TEAM@HOST, with /SESSION for one incarnation. An address from before team names, MEMBER@HOST, has no team,
+  # and is read only in the mail it left.
   Address = Data.define(:member, :team, :host, :session) do
     def initialize(member:, host:, team: nil, session: nil) = super
   end
@@ -19,12 +20,15 @@ module Keryx
     SESSION_SIZE = 6
     SESSION = /\A[#{SESSION_ALPHABET}]{#{SESSION_SIZE}}\z/
     KEY = /\A(?<member>#{SEGMENT})(?:\.(?<team>#{SEGMENT}))?\z/
+    TEAM_KEY = /\A#{SEGMENT}\.#{SEGMENT}\z/
     FULL = %r{\A(?<key>[^@/]*)@(?<host>[^@/]*)(?:/(?<session>[^@/]*))?\z}
     NAME_RULE = 'a lowercase letter, then up to 31 lowercase letters, digits or hyphens'
     SPELLING = 'MEMBER.TEAM@HOST'
     LOCAL = 'local'
     SYSTEM = 'system'
     RESERVED = [LOCAL, SYSTEM].freeze
+    # Why a name from before team names is refused wherever one enters or leaves.
+    TEAMLESS = '%s is an address from before team names, which keryx no longer writes to or takes mail from'
 
     # The full spelling, as messages and records carry it.
     def self.parse(text)
@@ -60,13 +64,13 @@ module Keryx
       end
     end
 
-    def self.key?(text) = KEY.match?(text.to_s)
+    # MEMBER.TEAM, the only key keryx keeps an address under.
+    def self.key?(text) = TEAM_KEY.match?(text.to_s)
 
-    # KEY, or KEY/SESSION when the key has a team, as from_name takes it.
+    # KEY, or KEY/SESSION, as from_name takes it.
     def self.name?(text)
       key, session = text.to_s.split('/', 2)
-      parts = KEY.match(key) or return false
-      session.nil? || (!parts[:team].nil? && SESSION.match?(session))
+      key?(key) && (session.nil? || SESSION.match?(session))
     end
 
     def self.valid?(text)

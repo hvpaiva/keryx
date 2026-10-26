@@ -8,7 +8,6 @@ class ThreadOrderTest < Minitest::Test
   include TempDir
   include Factory
   include CLIHelpers
-  include FlatAddresses
 
   class QuietBell
     def ring(*) = Keryx::Bell::Result.new(status: 'rung', channel: 'test', detail: nil, at: Factory::NOW)
@@ -47,15 +46,14 @@ class ThreadOrderTest < Minitest::Test
     assert_empty store.outbox.queued('zeus')
   end
 
-  # port@zeus asked orq@athena for a review before team names.
-  def flat_request_from_zeus(zeus)
+  # port.dev@zeus asked orq.dev@athena, which no session holds, for a review.
+  def request_from_zeus(zeus)
     zeus.create_address('port.dev')
-    flatten('port.dev', state: tmp('zeus'))
-    unheld('orq')
-    build_message(from: 'port@zeus', to: 'orq@athena', kind: 'request').tap do |request|
+    store.create_address('orq.dev')
+    build_message(from: 'port.dev@zeus', to: 'orq.dev@athena', kind: 'request').tap do |request|
       zeus.outbox.queue('athena', request)
       zeus.outbox.settle('athena', request.id, :forwarded)
-      store.deliver('orq', request)
+      store.deliver('orq.dev', request)
     end
   end
 
@@ -72,13 +70,13 @@ class ThreadOrderTest < Minitest::Test
   # zeus cannot write the first two messages it gets.
   def test_a_message_zeus_could_not_write_is_not_overtaken_by_the_reply_that_ends_its_thread
     zeus = Keryx::Store.new(tmp('zeus'))
-    request = flat_request_from_zeus(zeus)
+    request = request_from_zeus(zeus)
     fail_to_write(zeus, 2)
     answered_by(Keryx::Receiver.new(store: zeus, bell: QuietBell.new, host: 'zeus', person: 'person.local'))
-    took, replied = take_and_reply(request, as: ['--as', 'orq@athena'])
+    took, replied = take_and_reply(request, as: ['--as', 'orq.dev'])
 
     assert_equal [0, 0], [took.status, replied.status]
-    assert_sent_in_order(zeus, 'port', replied)
+    assert_sent_in_order(zeus, 'port.dev', replied)
   end
 
   # rev.dev@zeus asked orq.dev@athena from its session abc123.

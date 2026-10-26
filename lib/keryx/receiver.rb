@@ -4,7 +4,6 @@ require 'json'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
-require_relative 'flat_rule'
 require_relative 'identity'
 require_relative 'message'
 require_relative 'postman'
@@ -113,12 +112,14 @@ module Keryx
 
     def refusal(message, to)
       from = Address.parse(message.from)
+      teamless = message.teamless
+      return format(Address::TEAMLESS, teamless) if teamless
       return "#{message.to} is not on #{@host}" unless to.local?(@host)
       return "#{message.from} is on #{@host} and cannot arrive from another machine" if from.local?(@host)
       return retired(message, to) if @store.retired?(to.key)
       return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
-      session_left(message, to) || FlatRule.refusal(@store, message, host: @host)
+      session_left(message, to)
     end
 
     # Only the mail that bound? holds for its session is refused once that session left.

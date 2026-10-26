@@ -29,11 +29,14 @@ module Keryx
                                     'deadline, including those sent to another machine. Its STATE is unread or ' \
                                     'read, queued or forwarded for one sent to another machine, and taken once its ' \
                                     'recipient wrote in its thread with keryx send --re, which keeps it open until ' \
-                                    'the reply. ' \
+                                    'the reply. A request to or from an address from before team names, ' \
+                                    'MEMBER@HOST, is over and left out, since nothing can answer or withdraw it any ' \
+                                    'more. ' \
                                     'NOT RUNG lists unread messages whose bell did not reach a session, and why; ' \
                                     'keryx ring tries those again. NOT FORWARDED lists messages for another ' \
                                     'machine that are still queued or that it refused; keryx courier forwards the ' \
-                                    'queued ones.',
+                                    'queued ones. A message from before team names found queued, of format 1 or ' \
+                                    'with MEMBER@HOST at either end, is refused there and then without being sent.',
                        examples: [['Check whether anything is stuck', 'status'], ['Feed a script', 'status -o json']]
 
       def define_options(parser)
