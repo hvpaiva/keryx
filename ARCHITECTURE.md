@@ -250,7 +250,20 @@ the message is safe whatever happens to the bell.
 `Bell` announces it to the session holding the address, never with the body. The bell for one
 message names its sender, its kind and its id; the one that `keryx ring` or the courier rings again
 for several unread messages gives how many there are and the kind and sender of the latest, and
-points to `keryx inbox`. It tries two ways, in order.
+points to `keryx inbox`. After the sender's address the line says what the sender is, since Claude
+Code shows whatever reaches its peer socket under fixed text of its own, saying another Claude
+session sent it, which keryx cannot change. A person at a terminal (`NAME.local`) and keryx itself
+(`keryx.system`) are told by their scope, on any machine. An agent is told by the harness of the
+session that holds its address on this machine, named from keryx's own table (a Claude Code, Codex
+or Cursor session), and only when that session joined in an earlier second than the message was
+written. `created_at` keeps whole seconds, so a session that took the address with `join --force`
+within that second cannot be told from the writer, and a bell rung again after the writer left must
+not name whoever holds the address now; a session that joins and writes within one second therefore
+shows its address alone. A displaced session writes as its session address, whose own record names
+its harness. An agent on another machine, an address no session holds, a harness outside the table
+and a record keryx cannot open or parse, whatever the reason, give the address alone, and the bell
+still rings. A person who sends from a plain terminal with `--as` an agent's address gets that address's
+harness named, as the message's `from` names that address. It tries two ways, in order.
 
 1. the harness's own channel, the Claude Code peer socket (one JSON line per connection) or
    `codex queue --thread ID`;

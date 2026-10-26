@@ -3,6 +3,7 @@
 require 'json'
 require 'socket'
 require 'time'
+require_relative 'address'
 require_relative 'herdr'
 require_relative 'lookout'
 require_relative 'processes'
@@ -289,14 +290,58 @@ module Keryx
 
     def outcome(status, channel, detail, **) = Result.new(status:, channel:, detail:, at: @clock.call, **)
 
-    def text(messages)
-      latest = messages.last
-      if messages.one?
-        "[keryx] New #{latest.kind} for #{latest.to} from #{latest.from} (#{latest.id}). " \
-          "Run 'keryx read #{latest.id}' to open it."
-      else
-        "[keryx] #{messages.size} unread messages for #{latest.to}, the latest a #{latest.kind} from " \
-          "#{latest.from}. Run 'keryx inbox' to list them."
+    def text(messages) = Line.new(@store).call(messages)
+
+    # The one line a bell carries. It names the sender and, when keryx can tell, what the sender is: Claude Code shows
+    # whatever reaches its peer socket as sent by another Claude session, so the line has to say it.
+    class Line
+      PERSON = 'a person at a terminal'
+      KERYX = 'keryx itself'
+      # A harness outside this table names nothing, so no free text of an occupant record reaches a bell.
+      SESSIONS = { 'claude' => 'a Claude Code session', 'codex' => 'a Codex session',
+                   'cursor' => 'a Cursor session' }.freeze
+
+      def initialize(store)
+        @store = store
+      end
+
+      def call(messages)
+        latest = messages.last
+        from = sender(latest)
+        if messages.one?
+          "[keryx] New #{latest.kind} for #{latest.to} from #{from}. Run 'keryx read #{latest.id}' to open it."
+        else
+          "[keryx] #{messages.size} unread messages for #{latest.to}, the latest a #{latest.kind} from #{from}. " \
+            "Run 'keryx inbox' to list them."
+        end
+      end
+
+      private
+
+      def sender(message)
+        kind = kind(message)
+        kind ? "#{message.from}, #{kind}" : message.from
+      end
+
+      # A person and keryx by their scope, on any machine. An agent by the harness of the session that holds its
+      # address here, if that session joined in an earlier second than the message was written: created_at keeps
+      # whole seconds, so a session that took the address within that second cannot be told from the writer, and a
+      # bell rung again after the writer left must not name whoever holds the address now. A mailbox here holds only
+      # mail to this machine, so the recipient's host is this one. The kind is optional and the bell is not, so a
+      # sender's record that cannot be read or parsed names nothing.
+      def kind(message)
+        from = Address.parse(message.from)
+        case from.team
+        when Address::LOCAL then PERSON
+        when Address::SYSTEM then KERYX
+        else session(@store.occupant(from.name), message) if from.host == Address.parse(message.to).host
+        end
+      rescue Error, SystemCallError, IOError
+        nil
+      end
+
+      def session(occupant, message)
+        SESSIONS[occupant.harness] if occupant && occupant.joined_at.floor < message.created_at.floor
       end
     end
 

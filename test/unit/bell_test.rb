@@ -44,8 +44,8 @@ class BellTest < Minitest::Test
     frame = JSON.parse(line)
 
     assert_equal 'user', frame['type']
-    assert_match(/\A\[keryx\] New request for rev-1.dev@athena from orq.dev@athena \(#{message.id}\)\./,
-                 frame.dig('message', 'content'))
+    assert_equal "[keryx] New request for rev-1.dev@athena from orq.dev@athena. Run 'keryx read #{message.id}' to " \
+                 'open it.', frame.dig('message', 'content')
   end
 
   def test_the_bell_never_carries_the_body

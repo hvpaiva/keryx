@@ -14,14 +14,16 @@ class MailTest < Minitest::Test
   end
 
   def test_ask_delivers_a_request_and_rings_the_recipient_through_its_socket
+    # A bell names the sender's harness only for a message written in a later second than the sender joined.
+    clock.advance(1)
     result = keryx('ask', 'rev-1.dev', 'Review PR #448', '--within', '30m', env: @orq)
     id = last_id(@rev)
 
     assert_equal 0, result.status
     assert_equal "Asked rev-1.dev@athena (#{id}). The bell rang through claude.", result.out.lines.first.chomp
     assert_match(/\AThe reply will ring this session/, result.out.lines[1])
-    assert_equal [['/tmp/cc-222.sock', "[keryx] New request for rev-1.dev@athena from orq.dev@athena (#{id}). " \
-                                       "Run 'keryx read #{id}' to open it."]], sockets.posts
+    assert_equal [['/tmp/cc-222.sock', '[keryx] New request for rev-1.dev@athena from orq.dev@athena, a Claude Code ' \
+                                       "session. Run 'keryx read #{id}' to open it."]], sockets.posts
   end
 
   def codex_in_pane(thread, pane)
