@@ -128,6 +128,38 @@ class ChangesTest < Minitest::Test
     error = assert_raises(Keryx::Error) { signal }
     assert_match(/is not a regular file/, error.message)
   end
+
+  # A link put in place of the file after the check opens nothing through it, so nothing is made where it points.
+  def test_a_link_put_in_place_after_the_check_is_refused_and_makes_nothing
+    outside = tmp('outside')
+    changes.define_singleton_method(:refuse_link) do |path|
+      super(path)
+      File.symlink(outside, path)
+    end
+    error = assert_raises(Keryx::Error) { signal }
+
+    assert_match(/changed is a symbolic link/, error.message)
+    refute_path_exists outside
+    assert_predicate changes, :pending?
+  end
+
+  # A link put in place of the file once it is open takes the stamp itself, and what it points to keeps its time.
+  def test_a_link_put_in_place_of_the_open_file_keeps_the_time_of_its_target
+    signal
+    File.write(tmp('target'), '')
+    File.utime(NOW, NOW, tmp('target'))
+    path = tmp('state', 'changed')
+    clock = lambda do
+      File.symlink?(path) or File.delete(path).then { File.symlink(tmp('target'), path) }
+      @now
+    end
+    racing = Keryx::Changes.new(tmp('state'), clock:)
+    error = assert_raises(Keryx::Error) { racing.tap(&:note).signal }
+
+    assert_match(/changed kept its mtime/, error.message)
+    assert_equal NOW, File.lstat(tmp('target')).mtime
+    assert_predicate racing, :pending?
+  end
 end
 
 # The store notes only the writes that changed it, and reports a signal that failed instead of raising it.
@@ -167,4 +199,40 @@ class StoreChangesTest < Minitest::Test
 
     assert_match(/the store changed, but its readers that watch #{watched} miss it/, store.problems.first)
   end
+
+  # The stop hook prepares its marks and keeps them in one command, so only here is keeping one the only change.
+  def test_a_mark_kept_from_its_pending_file_signals_once_kept
+    id = Keryx::Ulid.generate(NOW)
+    store.create_address('rev-1.dev')
+    store.prepare_mark('rev-1.dev', id, 'nudge')
+    store.signal_changes
+    before = mtime
+    store.keep_mark('rev-1.dev', id, 'nudge')
+    store.signal_changes
+
+    assert store.marked?('rev-1.dev', id, 'nudge')
+    assert_operator mtime, :>, before
+  end
+
+  # keryx purge refuses an address purged already when nothing is left to remove, so only here is removing an empty
+  # folder the only change.
+  def test_an_empty_folder_a_purge_removes_signals_once_removed
+    store.create_address('rev-1.dev')
+    store.retire('rev-1.dev', by: 'orq.dev@athena', now: NOW)
+    purge
+    store.signal_changes
+    before = mtime
+    Dir.mkdir(tmp('state', 'addresses', 'rev-1.dev', 'tmp'))
+    purge
+    store.signal_changes
+
+    refute_path_exists tmp('state', 'addresses', 'rev-1.dev', 'tmp')
+    assert_operator mtime, :>, before
+  end
+
+  private
+
+  def mtime = File.lstat(tmp('state', 'changed')).mtime
+
+  def purge = store.purge('rev-1.dev', store.purge_plan('rev-1.dev', []), by: 'orq.dev@athena', now: NOW)
 end
