@@ -60,6 +60,20 @@ class PurgeOrderTest < Minitest::Test
     refute_predicate store.retired('rev-1.dev'), :purged?
   end
 
+  # A folder swapped for a link after purge found the address is refused in the hold, before anything is removed.
+  def test_an_address_folder_linked_while_purge_waits_for_the_lock_is_refused
+    box = tmp('state', 'addresses', 'rev-1.dev')
+    swap = lambda do
+      FileUtils.mv(box, "#{box}.moved")
+      File.symlink("#{box}.moved", box)
+    end
+    result = while_purge_waits(swap) { keryx('purge', 'rev-1.dev', env: @orq) }
+
+    assert_equal [1, 'error: addresses/rev-1.dev is a symbolic link; purge removes only what a folder of the store ' \
+                     "holds, and changed nothing\n"], [result.status, result.err]
+    assert_equal 2, Dir.children(File.join("#{box}.moved", 'mail')).size
+  end
+
   def test_a_purge_killed_during_the_removal_leaves_the_mark_and_a_second_run_finishes_it
     calls = 0
     original = FileUtils.method(:rm_r)

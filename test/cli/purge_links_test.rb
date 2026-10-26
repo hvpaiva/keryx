@@ -62,14 +62,15 @@ class PurgeLinksTest < Minitest::Test
     assert_equal %w[address.json retired.json], Dir.children(box).sort
   end
 
+  # The store reads no address through a link, so the folder is no address at all.
   def test_purge_refuses_an_address_folder_linked_out_of_the_store
     FileUtils.mv(box, tmp('elsewhere'))
     File.symlink(tmp('elsewhere'), box)
     before = [tree(tmp('elsewhere')), tree(tmp('state'))]
     result = keryx('purge', 'rev-1.dev', env: @orq)
 
-    assert_equal [1, 'error: addresses/rev-1.dev is a symbolic link; purge removes only what a folder of the store ' \
-                     "holds, and changed nothing\n"], [result.status, result.err]
+    assert_equal [1, "error: no address rev-1.dev@athena\n"], [result.status, result.err.lines.first]
+    assert_includes result.err, "skipped #{box}: a symbolic link"
     assert_equal before, [tree(tmp('elsewhere')), tree(tmp('state'))]
   end
 end
