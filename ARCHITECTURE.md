@@ -521,16 +521,18 @@ taking the lock only when the round found a record before reading the pane and r
 the hold finds it as the round read it, so the same dialog shown again later, such as the same
 permission question for a second command, is told again. A pane herdr does not read, a screen too
 narrow to tell and a queued message being edited tell nothing and keep the record, since none of
-them shows that the dialog is gone. A director retired here takes no mail, so the dialog counts as
-told and the courier that marks it says once that it did not tell it. Three costs remain. A round
-that read no record and then the dialog, and claims only after another courier told the dialog and a
-third removed its record on a read with no dialog, finds no record, as it read, and tells the dialog
-a second time. A screen whose dialog text keeps changing in a way the key does not normalize is told
-at each change, and every notice shows in the courier's report line. A screen with no composer and
-no dialog, such as Claude Code's transcript view, is read whole, so words in it that match the
-bell's phrases are told as a dialog. The quote, which can hold a command's arguments, goes into the
-director's mailbox, as spawn's quote does. `keryx who` shows the director the courier tells for each
-session, or none, so a person watching the panes can leave to keryx the sessions that have one.
+them shows that the dialog is gone. A director retired here or with no address here takes no mail,
+so the dialog counts as told and the courier that marks it says once that it did not tell it, while
+a failure that passes, such as a busy lock or a full disk, is an error of each round it happens in.
+Three costs remain. A round that read no record and then the dialog, and claims only after another
+courier told the dialog and a third removed its record on a read with no dialog, finds no record, as
+it read, and tells the dialog a second time. A screen whose dialog text keeps changing in a way the
+key does not normalize is told at each change, and every notice shows in the courier's report line.
+A screen with no composer and no dialog, such as Claude Code's transcript view, is read whole, so
+words in it that match the bell's phrases are told as a dialog. The quote, which can hold a
+command's arguments, goes into the director's mailbox, as spawn's quote does. `keryx who` shows the
+director the courier tells for each session, or none, so a person watching the panes can leave to
+keryx the sessions that have one.
 
 ## The stop hook
 

@@ -108,6 +108,45 @@ class CourierDialogTest < Minitest::Test
     assert_equal [[], []], [second.dialogs, second.errors]
   end
 
+  # Adapted from test_missing_director_is_reported_once in dialog_contract_probe.rb, rev-54's probe in its review of
+  # pull request #42.
+  def test_a_director_with_no_address_here_is_told_nothing_and_reported_once
+    member(director: 'ghost.dev')
+    show(Screens.real('claude-write'))
+    first = courier.round
+    second = courier.round
+
+    assert_equal [[], ['did not tell ghost.dev@athena about the dialog in pane w1:p2 of impl.dev@athena; no address ' \
+                       "ghost.dev@athena; 'keryx who' lists the addresses on athena"]], [first.dialogs, first.errors]
+    assert_equal [[], []], [second.dialogs, second.errors]
+    refute store.address?('ghost.dev')
+  end
+
+  def test_a_director_that_is_the_person_is_told_before_the_person_has_an_address
+    member(director: 'person.local')
+    show(Screens.real('claude-write'))
+
+    assert_equal [['person.local@athena', 'impl.dev', PANE]], dialogs(courier.round)
+    assert_equal 1, bodies('person.local').size
+  end
+
+  # A busy lock and a full disk pass, so each round that meets one says so, and the round after them tells the dialog.
+  def test_a_failure_that_passes_is_reported_in_every_round_it_happens
+    member
+    show(Screens.real('claude-write'))
+    failures = [Keryx::Store::Busy.new('the occupants lock is busy'), Errno::ENOSPC.new]
+    lock = store.method(:with_occupants_lock)
+    store.define_singleton_method(:with_occupants_lock) do |**options, &block|
+      failures.empty? ? lock.call(**options, &block) : raise(failures.shift)
+    end
+    rounds = Array.new(3) { courier.round }
+    about = 'could not tell orq.dev@athena about the dialog in pane w1:p2 of impl.dev@athena'
+
+    assert_equal [["#{about}; the occupants lock is busy"], ["#{about}; No space left on device"], []],
+                 rounds.map(&:errors)
+    assert_equal([0, 0, 1], rounds.map { it.dialogs.size })
+  end
+
   # None of them shows that the dialog told before is gone, so that dialog is not told again after them.
   def test_an_edited_message_a_cramped_screen_or_an_unread_pane_tells_nothing_and_keeps_the_record
     member

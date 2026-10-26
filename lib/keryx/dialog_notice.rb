@@ -5,6 +5,7 @@ require_relative 'bell'
 require_relative 'dialog'
 require_relative 'error'
 require_relative 'identity'
+require_relative 'postman'
 require_relative 'retirement'
 require_relative 'store'
 require_relative 'ulid'
@@ -63,7 +64,7 @@ module Keryx
     def notify(seen, quote)
       key = Dialog.key(quote)
       return if told?(seen, key)
-      return retired(seen, key) if seen.recipient.local?(@host) && @store.retired?(seen.recipient.key)
+      return untold(seen, key, format(Retirement::RETIRED, seen.recipient)) if retired?(seen.recipient)
 
       post(seen, key, body(seen, quote))
     rescue Error, SystemCallError => e
@@ -86,6 +87,8 @@ module Keryx
       return unless @store.mark_once(seen.name, id, TOLD)
 
       Told.new(name: seen.name, recipient: seen.recipient.to_s, pane: seen.pane)
+    rescue Postman::NoAddress => e
+      untold(seen, key, e.message)
     end
 
     # The id the record holds for this dialog, or a fresh one written over a record of another dialog, and none once
@@ -114,13 +117,15 @@ module Keryx
       nil
     end
 
-    # A recipient here that is retired takes no mail, so the dialog counts as told, and the courier that marks it says
-    # once that it did not tell it.
-    def retired(seen, key)
+    def retired?(recipient) = recipient.local?(@host) && @store.retired?(recipient.key)
+
+    # A recipient here that is retired or has no address takes no mail, and trying again would report it in every
+    # round, so the dialog counts as told, and the courier that marks it says once that it did not tell it.
+    def untold(seen, key, reason)
       id = @store.with_occupants_lock { claim(seen, key) } or return
       return unless @store.mark_once(seen.name, id, TOLD)
 
-      @errors << "did not tell #{about(seen)}; #{format(Retirement::RETIRED, seen.recipient)}"
+      @errors << "did not tell #{about(seen)}; #{reason}"
       nil
     end
 
