@@ -30,15 +30,19 @@ module Keryx
                                     'sessions the same, from the same source, and the output holds no value of ' \
                                     'this machine, so it is the same for every launcher on any machine with the ' \
                                     "same keryx.\n\n" \
-                                    'Claude Code takes --settings with crossSessionInbound accept, which lets the ' \
-                                    'bells in, and the stop hook, for that session only, and its bell goes through ' \
-                                    "Claude Code's peer socket and else its herdr pane. Codex reads the stop hook " \
-                                    "from ~/.codex/hooks.json or a project's .codex/hooks.json and runs a new hook " \
-                                    'only after it is trusted in /hooks. Its bell queues through codex queue for a ' \
-                                    'thread herdr shows in its pane and else types into the pane, so a Codex ' \
-                                    'session runs in a herdr pane, which sets HERDR_SOCKET_PATH and HERDR_PANE_ID. ' \
-                                    "Cursor reads the stop hook from ~/.cursor/hooks.json or a project's " \
-                                    ".cursor/hooks.json, and its bell only types into its herdr pane.\n\n" \
+                                    'Claude Code takes --disallowedTools AskUserQuestion, which denies it the tool ' \
+                                    'that asks the person at its terminal in a dialog, so that it asks through keryx ' \
+                                    'instead, and --settings with crossSessionInbound accept, which lets the bells ' \
+                                    'in, and the stop hook, for that session only. The deny is a flag of its own, ' \
+                                    'since a later --settings replaces the permissions of an earlier one, and it ' \
+                                    'comes first, since it reads every word up to the next option as a tool name. ' \
+                                    "Its bell goes through Claude Code's peer socket and else its herdr pane. Codex " \
+                                    "reads the stop hook from ~/.codex/hooks.json or a project's .codex/hooks.json " \
+                                    'and runs a new hook only after it is trusted in /hooks. Its bell queues through ' \
+                                    'codex queue for a thread herdr shows in its pane and else types into the pane, ' \
+                                    'so a Codex session runs in a herdr pane, which sets HERDR_SOCKET_PATH and ' \
+                                    'HERDR_PANE_ID. Cursor reads the stop hook from ~/.cursor/hooks.json or a ' \
+                                    "project's .cursor/hooks.json, and its bell only types into its herdr pane.\n\n" \
                                     'A launcher passes KERYX_HOME, XDG_CONFIG_HOME and KERYX_HOST only when the ' \
                                     'session should use a store other than the default, and the output says what ' \
                                     "spawn sets each one to. Claude Code's and Cursor's commands take them from " \

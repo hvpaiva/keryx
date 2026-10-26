@@ -8,6 +8,30 @@ class SpawnCommandLineTest < Minitest::Test
   include CLIHelpers
   include SpawnHelpers
 
+  # --disallowedTools takes every word up to the next option, so spawn's deny is followed by --settings, and a caller's
+  # own comes after it and adds to it.
+  def test_claude_is_denied_the_tool_that_asks_in_a_dialog_and_the_callers_denials_follow_spawns
+    session_joins
+    spawn('rev-1.dev', '--harness', 'claude', '--', '--disallowedTools', 'WebFetch')
+    typed = herdr.starts.last[:arguments]
+
+    assert_equal ['--disallowedTools', 'AskUserQuestion', '--settings', Keryx::Harness::CLAUDE_SETTINGS,
+                  '--disallowedTools', 'WebFetch', '--'], typed[typed.index('--disallowedTools')...-1]
+  end
+
+  def test_codex_and_cursor_are_denied_no_tool
+    session_joins
+    spawn('impl.dev', '--harness', 'codex')
+    session_runs
+    spawn('rev-1.dev', '--harness', 'cursor', '--timeout', '3s')
+
+    assert_equal(%w[codex cursor], herdr.starts.map { it[:kind] })
+    herdr.starts.each do |start|
+      refute_includes start[:arguments], '--disallowedTools'
+      refute_includes start[:arguments], 'AskUserQuestion'
+    end
+  end
+
   def test_a_prompt_of_two_kibibytes_reaches_the_harness_whole
     session_joins
     prompt = 'x' * 2048

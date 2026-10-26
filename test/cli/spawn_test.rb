@@ -30,8 +30,9 @@ class SpawnTest < Minitest::Test
     start = herdr.starts.first
 
     assert_equal %w[rev-1_dev claude w1:p2], start.values_at(:name, :kind, :pane)
-    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--model', 'haiku', '--settings',
-                  Keryx::Harness::CLAUDE_SETTINGS, '--add-dir', '../site', '--'], start[:arguments][0...-1]
+    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--model', 'haiku', '--disallowedTools',
+                  'AskUserQuestion', '--settings', Keryx::Harness::CLAUDE_SETTINGS, '--add-dir', '../site', '--'],
+                 start[:arguments][0...-1]
     assert_equal "You are rev-1.dev@athena, the code reviewer, started by keryx spawn. Run 'keryx join rev-1.dev " \
                  "--role code\\ reviewer', then run 'keryx skill' and follow it, then run 'keryx inbox'. Focus on " \
                  'retries^[[2J', start[:arguments].last
