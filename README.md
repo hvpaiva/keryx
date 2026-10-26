@@ -47,6 +47,11 @@ Requires Ruby 3.4 or later on Linux or macOS.
 gem install keryx
 ```
 
+keryx carries the messages and leaves to the sessions how a team of them works.
+[nomos](https://github.com/hvpaiva/nomos) is a protocol for that, for how sessions divide work,
+delegate authority, report and hand over, with keryx as its reference binding, and its setup starts
+from a keryx set up as this section shows.
+
 To upgrade, run `gem update keryx` and restart the courier service if the machine runs one. A
 session that joined under an older keryx can record what the new one needs with its next keryx
 command, such as `keryx whoami`, and until it does, a Codex session whose pane shows no session id
