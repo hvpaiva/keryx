@@ -98,5 +98,9 @@ All notable changes to this project are documented here. The format follows
   from before team names given as `NAME@HOST`, format 1 included, read-only and acting as no
   address; `--sent` lists what that address sent instead. It is the one command that reads a folder
   from before team names.
+- `keryx wiring HARNESS`, which prints what a launcher gives a session of Claude Code, Codex or
+  Cursor for keryx to reach it: the arguments, the stop hook and the files it goes in, the bell's
+  channels in order and the variables of the herdr pane and of the store, from the same source
+  `keryx spawn` and `keryx hook --help` use.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

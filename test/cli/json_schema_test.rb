@@ -111,4 +111,14 @@ class JSONSchemaTest < Minitest::Test
 
     assert_equal [*MESSAGE, 'schema'].sort, keys(json('wait', @request, env: @orq))
   end
+
+  def test_wiring
+    codex = json('wiring', 'codex')
+
+    assert_equal %w[arguments bell environment harness hooks schema], keys(codex)
+    assert_equal %w[entry files trust], keys(codex['hooks'])
+    assert_equal %w[pane store through], keys(codex['environment'])
+    assert_equal [%w[name set_to]], codex['environment'].values_at('pane', 'store').flatten.map { keys(it) }.uniq
+    assert_nil json('wiring', 'claude')['hooks']
+  end
 end

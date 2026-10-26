@@ -7,6 +7,7 @@ require_relative 'caller'
 require_relative 'config'
 require_relative 'courier'
 require_relative 'forwarder'
+require_relative 'harness'
 require_relative 'herdr'
 require_relative 'identity'
 require_relative 'lookout'
@@ -23,7 +24,7 @@ require_relative 'store'
 
 module Keryx
   class App
-    HERDR_VARIABLES = %w[HERDR_SOCKET_PATH HERDR_PANE_ID].freeze
+    HERDR_VARIABLES = Harness::PANE_VARIABLES.values.map(&:name).freeze
     SESSION_VARIABLES = { 'codex' => 'CODEX_THREAD_ID', 'cursor' => 'CURSOR_CONVERSATION_ID' }.freeze
 
     attr_reader :env, :cwd, :as, :clock, :sleeper, :processes, :host_os, :monotonic

@@ -13,7 +13,8 @@ module Keryx
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
                       'retire' => :addresses, 'history' => :retired, 'read' => :my_messages, 'reply' => :my_messages,
                       'wait' => :my_open_requests, 'withdraw' => :my_open_requests,
-                      'completion' => :shells, 'hook' => :events, 'help' => :command_names }.freeze
+                      'completion' => :shells, 'hook' => :events, 'wiring' => :harnesses,
+                      'help' => :command_names }.freeze
 
       define '__complete', section: 'Other Commands', arguments: 'WORDS...', max: nil, hidden: true,
                            summary: 'Print completion candidates for the given words'
@@ -143,6 +144,8 @@ module Keryx
       def shells = Completion::SHELLS
 
       def events = Hook::EVENTS
+
+      def harnesses = Harness::KINDS
 
       def command_names = Commands::ALL.reject { it.spec.hidden }.map { it.spec.name }
 

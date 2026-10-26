@@ -8,10 +8,35 @@ require_relative 'text'
 module Keryx
   module Harness
     KINDS = %w[claude codex cursor].freeze
-    CLAUDE_SETTINGS = JSON.generate(
-      'crossSessionInbound' => 'accept',
-      'hooks' => { 'Stop' => [{ 'hooks' => [{ 'type' => 'command', 'command' => 'keryx hook stop' }] }] }
-    )
+    # The stop hook as Cursor's hooks.json lists it; Claude Code's settings and Codex's hooks.json add its type.
+    STOP_HOOK = { 'command' => 'keryx hook stop' }.freeze
+    CLAUDE_HOOKS = { 'hooks' => { 'Stop' => [{ 'hooks' => [{ 'type' => 'command', **STOP_HOOK }] }] } }.freeze
+    # What each harness's settings or hooks file holds to run the stop hook.
+    HOOKS = { 'claude' => CLAUDE_HOOKS, 'codex' => CLAUDE_HOOKS,
+              'cursor' => { 'version' => 1, 'hooks' => { 'stop' => [STOP_HOOK] } } }.freeze
+    CLAUDE_SETTINGS = JSON.generate({ 'crossSessionInbound' => 'accept', **CLAUDE_HOOKS })
+    # What a launcher adds to a harness's command line for keryx, for that session only.
+    SESSION_ARGUMENTS = { 'claude' => ['--settings', CLAUDE_SETTINGS], 'codex' => [], 'cursor' => [] }.freeze
+    # The files a harness reads its hooks from when no argument carries them, a user's and then a project's.
+    HOOK_FILES = { 'codex' => %w[~/.codex/hooks.json .codex/hooks.json],
+                   'cursor' => %w[~/.cursor/hooks.json .cursor/hooks.json] }.freeze
+    # The channels Bell tries for a session of each kind, in the order it tries them.
+    BELL = { 'claude' => %w[claude herdr], 'codex' => %w[codex herdr], 'cursor' => %w[herdr] }.freeze
+    # A variable a launcher sets for a session, and what spawn sets it to, in words.
+    Variable = Data.define(:name, :set_to)
+    # herdr sets these in each pane it starts.
+    PANE_VARIABLES = {
+      socket: Variable.new('HERDR_SOCKET_PATH', 'the socket of the herdr server spawn runs under'),
+      pane: Variable.new('HERDR_PANE_ID', 'the id of the pane spawn opens for the session')
+    }.freeze
+    # A session that should use a store other than the default gets these.
+    STORE_VARIABLES = {
+      home: Variable.new('KERYX_HOME', 'the store spawn itself uses'),
+      config_home: Variable.new('XDG_CONFIG_HOME', 'the directory spawn reads keryx/config under'),
+      host: Variable.new('KERYX_HOST', "spawn's own host, passed only when KERYX_HOST is set for spawn")
+    }.freeze
+    # Codex gives its commands only the variables its shell_environment_policy allows, so the session's go through it.
+    CODEX_ENVIRONMENT = 'shell_environment_policy.set'
     CURSOR_EFFORT = "cursor takes no --effort; give the effort in the model, as in --model 'NAME[effort=high]'"
     PROMPT_BYTES = 2048
     # herdr types into a shell still starting, whose terminal keeps 4095 bytes of a line on Linux and 1024 on macOS.
@@ -64,17 +89,26 @@ module Keryx
 
     def claude(name, model, effort)
       ['-n', name, '--remote-control', name, *option('--model', model), *option('--effort', effort),
-       '--settings', CLAUDE_SETTINGS]
+       *SESSION_ARGUMENTS.fetch('claude')]
     end
 
-    # Codex passes its commands only the variables its shell_environment_policy allows, so the session's go through it.
     def codex(model, effort, env)
       settings = { 'model' => model, 'model_reasoning_effort' => effort }.compact
-      settings.merge!(env.transform_keys { "shell_environment_policy.set.#{it}" })
+      settings.merge!(env.transform_keys { "#{CODEX_ENVIRONMENT}.#{it}" })
       settings.flat_map { |key, value| ['-c', "#{key}=#{JSON.generate(value)}"] }
     end
 
     def option(flag, value) = value ? [flag, value] : []
+
+    def store_env(home:, config_home:, host:) = named(STORE_VARIABLES, { home:, config_home:, host: })
+
+    def pane_env(socket:, pane:) = named(PANE_VARIABLES, { socket:, pane: })
+
+    # The variables by name, leaving out a nil value.
+    def named(variables, values) = variables.to_h { |key, variable| [variable.name, values.fetch(key)] }.compact
+
+    # A hooks file's entry as one line a person can paste.
+    def hooks_line(kind) = JSON.generate(HOOKS.fetch(kind), space: ' ', object_nl: ' ', array_nl: ' ')
 
     def first_prompt(address, name:, role: nil, ceiling: nil, extra: nil)
       join = Shellwords.join(['keryx', 'join', name, *option('--role', role), *option('--ceiling', ceiling)])

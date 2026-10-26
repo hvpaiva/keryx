@@ -2,6 +2,7 @@
 
 require 'json'
 require_relative '../cli/command'
+require_relative '../harness'
 require_relative '../stop_hook'
 require_relative '../text'
 
@@ -9,8 +10,6 @@ module Keryx
   module Commands
     class Hook < CLI::Command
       EVENTS = %w[stop].freeze
-      CLAUDE_SETTINGS = '{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "keryx hook stop"}]}]}}'
-      CURSOR_HOOKS = '{"version": 1, "hooks": {"stop": [{"command": "keryx hook stop"}]}}'
 
       define 'hook', section: 'Other Commands', arguments: 'EVENT', min: 1, max: 1,
                      summary: 'Run the keryx side of a harness hook',
@@ -23,10 +22,12 @@ module Keryx
                                   'reminded about once, and again only when the hook was cut off before it ' \
                                   'answered. Sessions that hold no address are left alone. Claude ' \
                                   "Code's settings.json and Codex's hooks.json enable it with\n\n  " \
-                                  "#{CLAUDE_SETTINGS}\n\n" \
+                                  "#{Harness.hooks_line('claude')}\n\n" \
                                   "and Cursor's hooks.json with\n\n  " \
-                                  "#{CURSOR_HOOKS}\n\n" \
-                                  "Codex runs a new hook only after you trust it in /hooks.\n\n" \
+                                  "#{Harness.hooks_line('cursor')}\n\n" \
+                                  "Codex runs a new hook only after you trust it in /hooks. 'keryx wiring HARNESS' " \
+                                  'prints the entry and the files it goes in, with the rest of what a launcher ' \
+                                  "gives a session.\n\n" \
                                   'The hook never fails the session. A problem in keryx is printed on standard ' \
                                   'error and the turn ends normally.',
                      examples: [['What the harness runs at the end of each turn', 'hook stop < payload.json']]
