@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative 'address'
+require_relative 'changes'
 require_relative 'error'
 require_relative 'files'
 
@@ -16,11 +17,12 @@ module Keryx
     LOCK = 'outcomes.lock'
     THREAD_LOCK = 'thread.lock'
 
-    def initialize(root, problems: [], clock: -> { Time.now.utc })
+    def initialize(root, problems: [], clock: -> { Time.now.utc }, changes: Changes.new(root, clock:))
       @root = root
       @base = File.join(root, DIR)
       @problems = problems
       @clock = clock
+      @changes = changes
     end
 
     def queue(host, message)
@@ -75,6 +77,7 @@ module Keryx
     def settle(host, id, state)
       target = File.join(dir(host), STATES.fetch(state))
       File.rename(File.join(dir(host), 'new', "#{id}.json"), File.join(target, "#{id}.json"))
+      changed!
       [target, File.join(dir(host), 'new')].each { sync_directory(it) }
       true
     rescue Errno::ENOENT
@@ -82,8 +85,8 @@ module Keryx
     end
 
     def discard(host, id)
-      STATES.each_value { FileUtils.rm_f(File.join(dir(host), it, "#{id}.json")) }
-      [receipt_file(host, id), outcome_file(host, id)].each { FileUtils.rm_f(it) }
+      STATES.each_value { remove(File.join(dir(host), it, "#{id}.json")) }
+      [receipt_file(host, id), outcome_file(host, id)].each { remove(it) }
     end
 
     def write_receipt(host, id, data) = write_atomic(receipt_file(host, id), JSON.generate(data))

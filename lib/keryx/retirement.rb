@@ -72,7 +72,7 @@ module Keryx
       write_atomic(retired_file(name), JSON.generate(RetiredRecord.new(retired_at: now, by:).record))
     end
 
-    def revive(name) = FileUtils.rm_f(retired_file(name))
+    def revive(name) = remove(retired_file(name))
 
     # Whether the folder of NAME is a folder of the store itself, and not a link to one elsewhere.
     def own_folder?(name) = File.lstat(box(name)).directory?
@@ -94,7 +94,7 @@ module Keryx
         write_atomic(retired_file(name), JSON.generate(record.with(purged_at: now, purged_by: by).record))
       end
       plan.removed.each do |dir, paths|
-        paths.each { FileUtils.rm_r(it) }
+        paths.each { remove_tree(it) }
         remove_empty(File.join(box(name), dir))
       end
     end
@@ -124,9 +124,17 @@ module Keryx
       false
     end
 
+    # rm_r can stop partway, so the change is noted whether it finished or not.
+    def remove_tree(path)
+      FileUtils.rm_r(path)
+    ensure
+      changed!
+    end
+
     # A folder that still keeps answers stays.
     def remove_empty(path)
       Dir.rmdir(path)
+      changed!
     rescue Errno::ENOTEMPTY, Errno::ENOENT, Errno::ENOTDIR
       nil
     end

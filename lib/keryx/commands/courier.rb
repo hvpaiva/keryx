@@ -51,6 +51,7 @@ module Keryx
         waiting = {}
         loop do
           report(courier.round, waiting)
+          app.signal_changes
           warn_problems
           return nil if options[:once]
 

@@ -46,7 +46,9 @@ module Keryx
       ].freeze
       FILES = [
         ['~/.config/keryx/config', 'Settings as key = value lines, under $XDG_CONFIG_HOME when set'],
-        ['  host = NAME', "The host part of addresses, instead of the machine's name"]
+        ['  host = NAME', "The host part of addresses, instead of the machine's name"],
+        ['~/.local/state/keryx', 'Where the mailboxes live, $KERYX_HOME or $XDG_STATE_HOME/keryx when set'],
+        ["  #{Changes::FILE}", 'Its mtime moves forward after every change keryx makes here']
       ].freeze
       EXIT_STATUSES = [
         ['0', 'Success'],
@@ -82,6 +84,7 @@ module Keryx
       rescue StandardError => e
         unexpected(e)
       ensure
+        @app&.signal_changes
         warn_problems
       end
 

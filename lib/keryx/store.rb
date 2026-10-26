@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
-require 'fileutils'
 require 'json'
 require 'time'
 require_relative 'address'
+require_relative 'changes'
 require_relative 'error'
 require_relative 'files'
 require_relative 'message'
@@ -77,6 +77,16 @@ module Keryx
       @problems = []
       @clock = clock
       @sleeper = sleeper
+      @changes = Changes.new(root, clock:)
+    end
+
+    # Moves the mtime of Changes::FILE once for every change this process made since it last did. The changes stand
+    # when that fails, so the failure is a problem to report, and the command keeps the status it had.
+    def signal_changes
+      @changes.signal
+    rescue Error, SystemCallError => e
+      @problems << "the store changed, but its readers that watch #{@changes.path} miss it until the next change: " \
+                   "#{e.message}"
     end
 
     def address_names
@@ -100,7 +110,7 @@ module Keryx
       address = Address.from_key(name, host: nil)
       current = address(name)
       check_new(address) unless current
-      BOX_DIRS.each { FileUtils.mkdir_p(File.join(box(name), it), mode: DIR_MODE) }
+      BOX_DIRS.each { make_dir(File.join(box(name), it)) }
       return current if current && (role.nil? || role == current.role)
 
       record = current&.with(role:) || AddressRecord.new(member: address.member, team: address.team, role:,
@@ -132,11 +142,11 @@ module Keryx
       write_atomic(occupant_path(name), JSON.generate(occupant.record))
     end
 
-    def unbind(name) = FileUtils.rm_f(occupant_path(name))
+    def unbind(name) = remove(occupant_path(name))
 
     # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
     def with_occupants_lock(within: LOCK_SECONDS)
-      FileUtils.mkdir_p(root, mode: DIR_MODE)
+      make_dir(root)
       open_lock(File.join(root, OCCUPANTS_LOCK)) do |file|
         take(file, within)
         yield
@@ -187,7 +197,7 @@ module Keryx
       raise Error, "no message #{id} in the mailbox of #{name}"
     end
 
-    def outbox = @outbox ||= Outbox.new(root, problems: @problems, clock: @clock)
+    def outbox = @outbox ||= Outbox.new(root, problems: @problems, clock: @clock, changes: @changes)
 
     def all_messages
       kept = address_names.flat_map { |name| stored(name).map { [name, it] } }
@@ -205,11 +215,13 @@ module Keryx
 
     def mark_once(name, id, kind)
       create_file(receipt_file(name, id, kind)) { true }
+      changed!
+      true
     rescue Errno::EEXIST
       false
     end
 
-    def unmark(name, id, kind) = FileUtils.rm_f(receipt_file(name, id, kind))
+    def unmark(name, id, kind) = remove(receipt_file(name, id, kind))
 
     # The first value claimed stays, so every process that claims the same id gets the value the first one wrote.
     def claim(name, id, kind, value, &)
@@ -251,13 +263,14 @@ module Keryx
 
     # Writes and removes a mark in the receipts of NAME, so a bell whose receipt could not be written fails here, before
     # it rings, and is never rung again for want of a receipt.
-    def try_receipts(name, id) = prepare_mark(name, id, 'bell').then { FileUtils.rm_f(pending_mark(name, id, 'bell')) }
+    def try_receipts(name, id) = prepare_mark(name, id, 'bell').then { remove(pending_mark(name, id, 'bell')) }
 
     # Preparing writes and renames in the receipts as keeping does, so a mark that could not be kept fails here.
     def prepare_mark(name, id, kind) = write_atomic(pending_mark(name, id, kind), '')
 
     def keep_mark(name, id, kind)
       File.rename(pending_mark(name, id, kind), receipt_file(name, id, kind))
+      changed!
       sync_directory(File.join(box(name), 'receipts'))
     rescue Errno::ENOENT
       nil
