@@ -49,37 +49,34 @@ class ResolverTest < Minitest::Test
     assert_equal 'rev-1 matches rev-1.alpha@box1 and rev-1.beta@box1; name the team, as rev-1.alpha', error.message
   end
 
-  def test_no_match_is_an_address_from_before_team_names
-    assert_equal 'rev-1@box1', resolve('rev-1', sender: 'person.local')
+  def test_no_match_says_how_to_name_the_team
+    error = assert_raises(Keryx::Error) { resolve('rev-1', sender: 'person.local') }
+    assert_equal 'no address rev-1.TEAM on box1; name the team, as rev-1.TEAM', error.message
   end
 
-  def test_a_current_address_from_before_team_names_comes_before_a_team_for_a_sender_with_no_team
+  def test_a_retired_address_and_one_from_before_team_names_are_no_match
     store.create_address('rev-1.alpha')
-    store.create_address('rev-1')
-
-    [nil, 'person.local', 'orq'].each { assert_equal 'rev-1@box1', resolve('rev-1', sender: it), it.inspect }
-
-    assert_equal 'rev-1.beta@box1', resolve('rev-1', sender: 'orq.beta')
-  end
-
-  def test_a_retired_address_from_before_team_names_leaves_the_name_to_the_one_team_with_it
-    store.create_address('rev-1.alpha')
-    store.create_address('rev-1')
-    store.retire('rev-1', by: 'person.local@box1', now: Time.now)
-
-    assert_equal 'rev-1.alpha@box1', resolve('rev-1', sender: 'orq')
     store.retire('rev-1.alpha', by: 'person.local@box1', now: Time.now)
+    FileUtils.mkdir_p(tmp('state', 'addresses', 'rev-1'))
+    File.write(tmp('state', 'addresses', 'rev-1', 'address.json'),
+               '{"name":"rev-1","created_at":"2026-10-23T00:00:00Z"}')
 
-    assert_equal 'rev-1@box1', resolve('rev-1', sender: 'orq')
+    assert_raises(Keryx::Error) { resolve('rev-1', sender: 'person.local') }
   end
 
-  def test_an_address_without_a_team_is_taken_whole
-    assert_equal 'hvpaiva@box1', resolve('hvpaiva@box1', sender: 'orq.alpha')
-    assert_equal 'orq@zeus', resolve('orq@zeus')
+  def test_an_address_without_a_team_is_refused_with_the_spelling_to_use
+    error = assert_raises(Keryx::Error) { resolve('hvpaiva@box1', sender: 'orq.alpha') }
+    assert_equal 'hvpaiva@box1 has no team: an address is MEMBER.TEAM@HOST, such as hvpaiva.TEAM@box1, and a ' \
+                 'person at a terminal is hvpaiva.local@box1', error.message
+  end
+
+  def test_an_address_without_a_team_is_taken_where_the_caller_allows_it
+    assert_equal 'orq@box1', resolve('orq@box1', flat: true)
+    assert_raises(Keryx::Error) { resolve('orq', flat: true) }
   end
 
   def test_a_host_needs_the_full_address
-    assert_raises(Keryx::Error) { resolve('rev-1.alpha@Zeus', sender: 'orq.alpha') }
+    assert_raises(Keryx::Error) { resolve('rev-1@zeus', sender: 'orq.alpha') }
     assert_raises(Keryx::Error) { resolve('Rev-1', sender: 'orq.alpha') }
   end
 end

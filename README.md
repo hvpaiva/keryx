@@ -100,13 +100,6 @@ From a plain terminal you act as an address of the local scope named after `$USE
 `john-doe.local` for `john_doe`, and `keryx whoami` gives its exact spelling. There
 `keryx send rev-1.dev "..."` and `keryx inbox` work without joining anything.
 
-Addresses from before team names, `NAME@HOST`, keep working beside team addresses, and a person who
-used keryx then keeps acting as `USER@HOST` from a plain terminal until that address is retired. To
-move an address to a team, join `MEMBER.TEAM`, finish what is open at the old address with
-`--as NAME@HOST`, and run `keryx retire NAME@HOST`. Until then, a sender with no team that types the
-bare name still reaches the old address, where mail waits without a bell once no session holds it;
-after the retire, the bare name reaches the one team on that machine with that member.
-
 ## See what is pending
 
 `keryx status` lists the addresses that have a session or mail, the requests still open and the

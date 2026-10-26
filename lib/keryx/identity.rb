@@ -10,11 +10,6 @@ module Keryx
     NOT_JOINED = "this %s session holds no address; run 'keryx join MEMBER.TEAM' in it first"
     # The sender of what keryx itself posts: the courier's notices and spawn's quotes of a dialog.
     SYSTEM = "keryx.#{Address::SYSTEM}".freeze
-    # What keryx posts to an address from before team names comes from the sender it had then, so the message keeps the
-    # format a keryx from before team names reads.
-    FLAT_SYSTEM = 'keryx'
-
-    def self.system(recipient) = recipient.flat? ? FLAT_SYSTEM : SYSTEM
 
     def initialize(store:, caller:, env:, host: nil)
       @store = store
@@ -30,14 +25,8 @@ module Keryx
       return name if name
       raise Error, format(NOT_JOINED, @caller.harness) if @caller.agent?
 
-      flat_person || @store.create_address(human_name, role: HUMAN_ROLE).name
+      @store.create_address(human_name, role: HUMAN_ROLE).name
     end
-
-    # The address a plain terminal acts as when it exists, without creating the person's address as current would.
-    def terminal = flat_person || (human_name if @store.address?(human_name))
-
-    # The names mail to the person at this terminal may go to before the person has an address here.
-    def people = [human_name, flat_human_name]
 
     # The key of the address this session holds, or KEY/SESSION when join --force took the address from it while it
     # ran. The holder is matched first, so a session that took over in the pane of the one it displaced is the holder.
@@ -53,24 +42,15 @@ module Keryx
     end
 
     # A person at a terminal is a member of the local scope, named after USER.
-    def human_name = "#{flat_human_name}.#{Address::LOCAL}"
+    def human_name
+      name = @env['USER'].to_s.downcase.gsub(/[^a-z0-9-]/, '-').sub(/\A[^a-z]+/, '')[0, 32]
+      "#{Address::NAME.match?(name) ? name : 'human'}.#{Address::LOCAL}"
+    end
 
     private
 
-    # The person's address from before team names acts for the terminal while it is current here, so a person who used
-    # keryx before team names keeps the mailbox the others write to until it is retired.
-    def flat_person
-      name = flat_human_name
-      name if @store.address?(name) && !@store.retired?(name)
-    end
-
-    def flat_human_name
-      name = @env['USER'].to_s.downcase.gsub(/[^a-z0-9-]/, '-').sub(/\A[^a-z]+/, '')[0, 32]
-      Address::NAME.match?(name) ? name : 'human'
-    end
-
     def existing(text)
-      address = Resolver.new(store: @store, host: @host).resolve(text, sender: held)
+      address = Resolver.new(store: @store, host: @host).resolve(text, sender: held, flat: true)
       raise Error, "#{address} is on another machine; --as names an address on #{@host}" unless address.local?(@host)
 
       name = address.key

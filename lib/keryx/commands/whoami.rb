@@ -15,8 +15,7 @@ module Keryx
                                     'its session address and shows the address it came from. A person at a ' \
                                     'terminal acts as an address of the local scope named after USER, lowercased ' \
                                     'and with other characters made hyphens, such as john-doe.local for john_doe, ' \
-                                    'unless --as names another, or as USER@HOST, an address from before team names, ' \
-                                    'while that is not retired. It is created on first use, and whoami shows its ' \
+                                    'unless --as names another. It is created on first use, and whoami shows its ' \
                                     'exact spelling.',
                        examples: [['Check which address replies will go to', 'whoami']]
 

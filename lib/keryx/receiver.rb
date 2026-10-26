@@ -4,6 +4,7 @@ require 'json'
 require_relative 'address'
 require_relative 'bell'
 require_relative 'error'
+require_relative 'flat_rule'
 require_relative 'identity'
 require_relative 'message'
 require_relative 'postman'
@@ -22,8 +23,7 @@ module Keryx
       @store = store
       @bell = bell
       @host = host
-      # The name of the person at this terminal, or its names, which mail may go to before the person has an address.
-      @people = Array(person)
+      @person = person
       @live = live
     end
 
@@ -116,8 +116,13 @@ module Keryx
       return "#{message.to} is not on #{@host}" unless to.local?(@host)
       return "#{message.from} is on #{@host} and cannot arrive from another machine" if from.local?(@host)
       return retired(message, to) if @store.retired?(to.key)
-      return "no address #{message.to}" unless @store.address?(to.key) || @people.include?(to.key)
+      return "no address #{message.to}" unless @store.address?(to.key) || to.key == @person
 
+      session_left(message, to) || FlatRule.refusal(@store, message, host: @host)
+    end
+
+    # Only the mail that bound? holds for its session is refused once that session left.
+    def session_left(message, to)
       Postman.session_left(@store, to, @live) if bound?(message, to)
     end
 
