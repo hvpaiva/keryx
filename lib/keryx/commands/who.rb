@@ -4,6 +4,7 @@ require_relative '../cli/activity_view'
 require_relative '../cli/address_view'
 require_relative '../cli/command'
 require_relative '../cli/context_view'
+require_relative '../cli/join_view'
 require_relative '../cli/short_view'
 require_relative '../cli/table'
 
@@ -25,7 +26,8 @@ module Keryx
                'when no session runs. With -o json, last_activity is that time in ISO 8601 UTC, or null.'
       JSON_FIELDS = 'Each of the addresses -o json lists has address, member, team, host, session_address (the ' \
                     'address that reaches its session alone, or null), role, harness, session, last_activity, ' \
-                    'context (an object with used and window, or null), ceiling and unread.'
+                    'context (an object with used and window, or null), ceiling, unread and join. ' \
+                    "#{CLI::JoinView::HELP}".freeze
 
       define 'who', section: 'Session Commands',
                     summary: 'List the addresses on this machine',
@@ -80,7 +82,8 @@ module Keryx
         { 'address' => app.full(entry.name), **CLI::AddressView.record(app, entry.name, entry.occupant),
           'role' => entry.role, 'harness' => entry.occupant&.harness, 'session' => entry.session,
           'last_activity' => CLI::ActivityView.record(app, entry), 'context' => CLI::ContextView.record(app, entry),
-          'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread }
+          'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread,
+          'join' => CLI::JoinView.record(entry.occupant) }
       end
     end
   end

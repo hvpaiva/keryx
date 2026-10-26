@@ -51,8 +51,9 @@ class JSONSchemaTest < Minitest::Test
 
     assert_equal %w[addresses hidden schema view], keys(who)
     assert_equal 1, who['schema']
-    assert_equal [[*ADDRESS, 'harness'].sort], who['addresses'].map { keys(it) }.uniq
+    assert_equal [[*ADDRESS, 'harness', 'join'].sort], who['addresses'].map { keys(it) }.uniq
     assert_equal %w[used window], keys(who['addresses'].first['context'])
+    assert_equal Keryx::CLI::JoinView::FIELDS.sort, keys(who['addresses'].first['join'])
   end
 
   def test_status

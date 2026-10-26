@@ -83,5 +83,8 @@ All notable changes to this project are documented here. The format follows
   object a command prints and in each object of the array `inbox` prints, with each command's
   fields named in its `--help`. Within a schema fields are only added; removing or renaming one, or
   changing its type or meaning, raises it.
+- `join` in each address of `who -o json`, the session it lists, the holder or a displaced one:
+  harness, session_id, pid, started, cwd, transcript, herdr_socket, herdr_pane and joined_at, or null
+  when no session holds it, so a launcher or a page finds the session without reading the store.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main
