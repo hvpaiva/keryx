@@ -22,13 +22,14 @@ All notable changes to this project are documented here. The format follows
   this machine or another, and keryx's notices from another machine, which the holder reads. `who` and `status` list a displaced session
   at its session address beside the address, `whoami` gives the session address of the session
   that runs it, and their JSON gives `member`, `team`, `host` and `session_address`.
-- Message format 2, for team and session addresses. Addresses from before team names finish their
-  open threads in format 1 and start no new work, and a machine that runs an older keryx refuses
-  format 2 for good, with the reason in the sender's error, or in `keryx status` for a message
-  that waited in the outbox.
-- An address from before team names, `NAME@HOST`, moves to a team when its session joins
-  `MEMBER.TEAM` for new work, finishes what is open at the old address with `--as NAME@HOST`, and
-  runs `keryx retire NAME@HOST` once nothing is open there.
+- Message format 2, for team and session addresses, the only format written or taken. A machine
+  that runs an older keryx refuses format 2 for good, with the reason in the sender's error, or in
+  `keryx status` for a message that waited in the outbox.
+- A store from before team names stays as it was written. Its folders without a dot are never
+  listed, read, moved or deleted, mail from an address from before team names, `NAME@HOST`, still
+  reads in a team mailbox, and a request to or from one is over. `NAME@HOST` is refused wherever a
+  name is typed, sent or received, with the reason, and an outbox file of that time still waiting
+  to go moves once to `refused/` with its reason.
 - Mailboxes of plain files under `$XDG_STATE_HOME/keryx`, with atomic delivery, no locks but around
   mail to a session address and the context notices, and each message stored once however often it
   arrives.
