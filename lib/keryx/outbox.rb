@@ -17,6 +17,7 @@ module Keryx
     THREAD_LOCK = 'thread.lock'
 
     def initialize(root, problems: [], clock: -> { Time.now.utc })
+      @root = root
       @base = File.join(root, DIR)
       @problems = problems
       @clock = clock
@@ -35,7 +36,7 @@ module Keryx
     # hold the id the block chose; a taken id is given to the block to choose after, so the message returned was queued.
     def queue_in_thread(host, thread)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
-      File.open(File.join(dir(host), THREAD_LOCK), File::RDWR | File::CREAT, FILE_MODE) do |lock|
+      open_lock(File.join(dir(host), THREAD_LOCK)) do |lock|
         lock.flock(File::LOCK_EX)
         message = yield(queued(host).select { it.thread == thread }.map(&:id).max)
         message = yield(message.id) while queue(host, message) == :duplicate
@@ -44,9 +45,9 @@ module Keryx
     end
 
     def hosts
-      return [] unless File.directory?(@base)
+      return [] unless stored_folder?(@base)
 
-      Dir.children(@base).select { Address::HOST.match?(it) && File.directory?(File.join(@base, it)) }.sort
+      Dir.children(@base).select { Address::HOST.match?(it) && stored_folder?(File.join(@base, it)) }.sort
     end
 
     # READ lists the messages of cur/ and refused/; keryx history gives its own, which takes format 1 there.
@@ -104,7 +105,7 @@ module Keryx
       bad.each { @problems << "#{path} has a bad #{it}; keryx reads the outcome without it" }
       data.except(*bad)
     rescue Error => e
-      @problems << "#{e.message}; it is ignored until keryx writes it again"
+      @problems << ignored(e)
       nil
     end
 
@@ -148,7 +149,7 @@ module Keryx
 
     # Attempts that both found no decision take turns, and the second keeps what the first wrote.
     def replace_undecided(host, id, data)
-      File.open(File.join(dir(host), LOCK), File::RDWR | File::CREAT, FILE_MODE) do |lock|
+      open_lock(File.join(dir(host), LOCK)) do |lock|
         lock.flock(File::LOCK_EX)
         write_atomic(outcome_file(host, id), JSON.generate(data)) unless outcome(host, id)
       end
