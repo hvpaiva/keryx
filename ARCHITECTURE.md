@@ -146,8 +146,9 @@ showed. `Roster` hands the lookout its one listing of the pane's herdr, which th
 live session takes anyway, so judging every session asks each herdr once at most. herdr reports
 no Codex thread id, so a Codex session resumed by hand in its pane counts as gone until its next
 keryx command. Nor does the check bring back keryx's Claude Code stop hook, which spawn passes in
-`--settings` on the command line: herdr's relaunch does not repeat the flags a session was
-launched with, so a relaunched session gets no stop hook reminders.
+`--settings` on the command line, or the deny of `AskUserQuestion`: herdr's relaunch does not repeat
+the flags a session was launched with, so a relaunched session gets no stop hook reminders and can
+ask in a dialog again.
 
 A session holds one address, so join also releases any other address the session holds. It checks
 the address, releases the others and writes the occupant under an exclusive `flock` on
@@ -437,7 +438,14 @@ identity says. `Spawner` then labels the new
 pane with the address's name, and runs
 `herdr agent start`, which types the harness command into the new pane's shell. `Harness` builds
 that command's arguments, and the first prompt goes last, after a `--`, as the harness's own initial
-prompt. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on it once
+prompt. Claude Code gets its name, through `-n` and `--remote-control`, the model and the effort,
+`--disallowedTools AskUserQuestion`, and `--settings` with `crossSessionInbound` and the stop hook.
+The deny keeps a spawned session from asking in a dialog that only a person at its pane can answer,
+so it asks through keryx. It is a flag of its own rather than a `permissions.deny` in those
+settings, because Claude Code takes the permissions of the last `--settings` it is given, so a
+caller's own `--settings` among its arguments would drop the deny, while each `--disallowedTools`
+adds to the list. It comes before `--settings` because it reads every word up to the next option as
+one more tool name, and so no word of the caller's arguments can follow it. A harness that stops at a folder trust or hooks dialog keeps that prompt and acts on it once
 the dialog is answered, so nothing is ever typed into the session itself. herdr's start waits while
 the agent works, and the session starts working on that prompt at once, so it runs in the background
 through `Runner#start` while spawn watches the store, and spawn stops it when it is done. herdr

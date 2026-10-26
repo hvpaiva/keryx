@@ -10,14 +10,16 @@ class HarnessTest < Minitest::Test
   def test_claude_is_named_and_gets_the_keryx_settings_for_that_session
     settings = JSON.parse(arguments('claude').last)
 
-    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--settings'], arguments('claude')[0...-1]
+    assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--disallowedTools', 'AskUserQuestion',
+                  '--settings'], arguments('claude')[0...-1]
     assert_equal 'accept', settings['crossSessionInbound']
     assert_equal 'keryx hook stop', settings.dig('hooks', 'Stop', 0, 'hooks', 0, 'command')
   end
 
   def test_claude_takes_the_model_and_the_effort_as_flags
     assert_equal ['-n', 'rev-1.dev', '--remote-control', 'rev-1.dev', '--model', 'haiku', '--effort', 'low',
-                  '--settings'], arguments('claude', model: 'haiku', effort: 'low')[0...-1]
+                  '--disallowedTools', 'AskUserQuestion', '--settings'],
+                 arguments('claude', model: 'haiku', effort: 'low')[0...-1]
   end
 
   def test_codex_gets_the_model_the_effort_and_the_store_through_its_config
