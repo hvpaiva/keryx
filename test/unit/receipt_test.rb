@@ -31,6 +31,17 @@ class ReceiptTest < Minitest::Test
     assert_match(/#{ids[2]}\.bell has a bad detail/, store.problems[2])
   end
 
+  def test_a_bell_receipt_whose_obstacle_or_evidence_is_not_a_string_is_ignored_and_reported
+    deferred = { 'status' => 'deferred', 'channel' => 'herdr', 'obstacle' => 'dialog', 'evidence' => 'Do you trust' }
+    written = [deferred, deferred.merge('obstacle' => 42), deferred.merge('evidence' => %w[Do you trust])]
+    ids = Array.new(3) { Keryx::Ulid.generate }
+    written.zip(ids).each { |receipt, id| File.write(bell_receipt(id), JSON.generate(receipt)) }
+
+    assert_equal([deferred, nil, nil], ids.map { store.receipt('rev-1.dev', it, 'bell') })
+    assert_match(/#{ids[1]}\.bell has a bad obstacle/, store.problems[0])
+    assert_match(/#{ids[2]}\.bell has a bad evidence/, store.problems[1])
+  end
+
   def test_a_receipt_that_is_not_a_regular_file_is_ignored_without_waiting_on_it
     id = Keryx::Ulid.generate
     File.mkfifo(bell_receipt(id))

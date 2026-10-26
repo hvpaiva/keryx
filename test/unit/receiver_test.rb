@@ -14,6 +14,13 @@ class ReceiverTest < Minitest::Test
     def ring(*) = Keryx::Bell::Result.new(status: 'rung', channel: 'test', detail: nil, at: Factory::NOW)
   end
 
+  class DeferredBell
+    RESULT = Keryx::Bell::Result.new(status: 'deferred', channel: 'herdr', detail: 'a dialog', at: Factory::NOW,
+                                     obstacle: :dialog, evidence: 'Do you trust the contents of this directory?')
+
+    def ring(*) = RESULT
+  end
+
   def store = @store ||= Keryx::Store.new(tmp('zeus')).tap { it.create_address('port.dev') }
 
   def receive(message, bell: QuietBell.new)
@@ -36,6 +43,19 @@ class ReceiverTest < Minitest::Test
     assert_equal ['delivered', 'failed', 'No space left on device - receipts'],
                  [receipt['status'], receipt.dig('bell', 'status'), receipt.dig('bell', 'detail')]
     assert_equal [incoming], store.unread('port.dev')
+  end
+
+  # keryx __receive prints each receipt as a line of JSON, which Remote reads back on the sending machine.
+  def test_a_deferred_bell_comes_back_to_the_sending_machine_with_its_obstacle_and_evidence
+    lines = []
+    receiver = Keryx::Receiver.new(store:, bell: DeferredBell.new, host: 'zeus', person: 'person.local')
+    receiver.receive_all(StringIO.new("#{incoming.to_json}\n")) { lines << "#{JSON.generate(it)}\n" }
+    runner = FakeRunner.new({ ['ssh'] => { out: lines.join } })
+    receipt = Keryx::Remote.new(runner:).deliver('zeus', [incoming]).receipts.fetch(incoming.id)
+
+    assert_equal ['delivered', DeferredBell::RESULT.record], receipt.values_at('status', 'bell')
+    assert_equal ['dialog', 'Do you trust the contents of this directory?'],
+                 receipt['bell'].values_at('obstacle', 'evidence')
   end
 
   def test_mail_for_a_retired_address_is_refused_as_retired
