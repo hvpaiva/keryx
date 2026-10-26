@@ -12,7 +12,9 @@ in a loop.
 
 A tool that starts sessions itself, as `keryx spawn` does, can run `keryx wiring claude`, `codex` or
 `cursor` to learn what to pass, with `-o json` for a program: the arguments, the hook and its files,
-the bell's channels and the variables of the pane and the store, the same that spawn reads.
+the bell's channels and the variables of the pane and the store, the same that spawn reads, and the
+host name keryx resolves. A launcher that does not read keryx's config file passes that name as
+`KERYX_HOST`, so the session joins under the same host.
 
 ## Claude Code
 

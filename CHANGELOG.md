@@ -122,7 +122,8 @@ All notable changes to this project are documented here. The format follows
 - `keryx wiring HARNESS`, which prints what a launcher gives a session of Claude Code, Codex or
   Cursor for keryx to reach it: the arguments, the stop hook and the files it goes in, the bell's
   channels in order and the variables of the herdr pane and of the store, from the same source
-  `keryx spawn` and `keryx hook --help` use.
+  `keryx spawn` and `keryx hook --help` use, and the host name keryx resolves, which a launcher
+  passes as `KERYX_HOST` so the session joins under the same host.
 - A session herdr relaunched in its pane, such as with `--resume` after herdr restarted, stays live
   under its new process while herdr shows the same session id there, so `who` and `status` show it
   and `leave --as`, `retire` and `join` without `--force` refuse its address, before the session
