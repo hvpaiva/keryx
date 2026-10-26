@@ -75,7 +75,9 @@ All notable changes to this project are documented here. The format follows
   address sent, so those requests stay answered, refuses while a request waits on the address or a
   message from it waits for the courier, removes a symbolic link inside the folders it empties
   without following it, and with `--dry-run` says what it would remove. `join --revive` takes a purged
-  address back and says when its mail was purged.
+  address back and says when its mail was purged. With `-o json` purge prints one object for a purge,
+  one that finishes a purge cut short, a dry run or a refusal with its reason, with the counts the
+  text gives and the `purged_at` and `purged_by` of `retired.json`.
 - A short view in `who` and `status`, which leave out the addresses nobody holds and nobody writes
   to and say how many they left out, with `--all` to list every address.
 - The context each session uses in `who` and `status`, and the sender's on each message it sends,

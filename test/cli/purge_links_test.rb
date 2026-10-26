@@ -73,4 +73,15 @@ class PurgeLinksTest < Minitest::Test
     assert_includes result.err, "skipped #{box}: a symbolic link"
     assert_equal before, [tree(tmp('elsewhere')), tree(tmp('state'))]
   end
+
+  def test_purge_prints_no_address_for_a_folder_linked_out_of_the_store
+    FileUtils.mv(box, tmp('elsewhere'))
+    File.symlink(tmp('elsewhere'), box)
+    result = keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq)
+
+    assert_equal 1, result.status
+    assert_equal({ 'schema' => 1, 'address' => 'rev-1.dev@athena', 'outcome' => 'refused', 'reason' => 'no_address',
+                   'error' => 'no address rev-1.dev@athena' }, JSON.parse(result.out))
+    assert_includes result.err, "skipped #{box}: a symbolic link"
+  end
 end

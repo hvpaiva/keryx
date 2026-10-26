@@ -722,7 +722,9 @@ know the field ignores it, and one that cannot read a stamp delivers the message
 parses the global options, finds the command, parses its options with `OptionParser`, checks the
 number of arguments and calls it. A command that passes arguments to another program, as spawn does,
 gets everything after the first `--` unparsed. Every error becomes a message on standard error and
-one of the exit statuses `keryx --help` lists. An unexpected error, a `StandardError` that is not a
+one of the exit statuses `keryx --help` lists. `keryx purge -o json` also prints a refusal of its own
+on standard output, as an object whose outcome is refused and whose reason names it, so a reader
+tells its refusals apart without reading the text. An unexpected error, a `StandardError` that is not a
 `Keryx::Error`, exits 1 with its class and message, and with its backtrace only when `KERYX_DEBUG`
 is set. An interrupt exits 130, Interrupted in that list, after writing only a newline to standard
 error. Help lists the commands of each section in the order of `Commands::ALL`.
