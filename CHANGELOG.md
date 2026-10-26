@@ -144,7 +144,9 @@ All notable changes to this project are documented here. The format follows
 - `keryx history ADDRESS`, which lists the whole mailbox of a retired address, or of an address
   from before team names given as `NAME@HOST`, format 1 included, read-only and acting as no
   address; `--sent` lists what that address sent instead. It is the one command that reads a folder
-  from before team names.
+  from before team names. With no ADDRESS it lists the retired team addresses, with when and by
+  which address each was retired, how many messages its mailbox holds, when the newest was written
+  and when `keryx purge` removed its mail, as a table or with `-o json`.
 - `keryx wiring HARNESS`, which prints what a launcher gives a session of Claude Code, Codex or
   Cursor for keryx to reach it: the arguments, the stop hook and the files it goes in, the bell's
   channels in order and the variables of the herdr pane and of the store, from the same source

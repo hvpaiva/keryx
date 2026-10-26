@@ -6,18 +6,30 @@ require_relative '../cli/command'
 require_relative '../cli/mailbox_view'
 require_relative '../cli/message_view'
 require_relative '../cli/sent_list'
+require_relative '../cli/table'
 
 module Keryx
   module Commands
     class History < CLI::Command
       include CLI::SentList
 
+      RETIRED_HEADERS = ['ADDRESS', 'RETIRED', 'BY', 'MAIL', 'LAST MAIL', 'PURGED'].freeze
       FORMS = 'history takes MEMBER.TEAM, MEMBER.TEAM@HOST, or MEMBER@HOST for an address from before team names'
 
-      define 'history', section: 'Mail Commands', arguments: 'ADDRESS', min: 1, max: 1,
-                        summary: 'List the mail of a retired address',
+      define 'history', section: 'Mail Commands', arguments: '[ADDRESS]', max: 1,
+                        summary: 'List the retired addresses, or the mail of one',
                         description: 'List the mail of a retired address on this machine, read and unread, oldest ' \
                                      "first, or with --sent what it sent.\n\n" \
+                                     'With no ADDRESS, history lists the retired addresses on this machine instead, ' \
+                                     'in name order, so whoever chooses what keryx purge removes sees when each was ' \
+                                     'retired and last had mail: ADDRESS, RETIRED and BY, when and by which address ' \
+                                     'it was retired, MAIL, the messages its mailbox holds, read and unread, LAST ' \
+                                     'MAIL, when the newest of them was written, and PURGED, when keryx purge ' \
+                                     'removed its mail. -o json prints an array with one object per address, with ' \
+                                     'address, retired_at, retired_by, mail, last_mail_at, purged_at and purged_by, ' \
+                                     'times in ISO 8601 and null where there is none. Folders from before team names ' \
+                                     'are left out, since keryx purge takes none of them and history MEMBER@HOST ' \
+                                     "reads each.\n\n" \
                                      'history acts as no address, so it needs no session, --as changes nothing, ' \
                                      'and it marks nothing read and sends nothing. ADDRESS is MEMBER.TEAM or ' \
                                      'MEMBER.TEAM@HOST for an address keryx retire retired, which no command acts ' \
@@ -42,7 +54,8 @@ module Keryx
                                      "outbox. #{CLI::SentList::FILTERS} --to takes an address as ADDRESS does, or " \
                                      "MEMBER alone for a member of the same team. #{CLI::SentList::COLUMNS} " \
                                      "#{CLI::SentList::JSON_FIELDS}\n\n#{SCHEMA_HELP}",
-                        examples: [['Read back the mail of a retired reviewer', 'history rev-1.alpha'],
+                        examples: [['List the retired addresses, with when each last had mail', 'history'],
+                                   ['Read back the mail of a retired reviewer', 'history rev-1.alpha'],
                                    ['List what an address from before team names sent, as JSON',
                                     'history hvpaiva@athena --sent -o json']]
 
@@ -53,6 +66,8 @@ module Keryx
       end
 
       def call(arguments)
+        return list_retired if arguments.empty?
+
         if !options[:sent] && options.keys.intersect?(%i[id thread to])
           raise UsageError, '--id, --thread and --to narrow what --sent lists; add --sent'
         end
@@ -113,6 +128,39 @@ module Keryx
         end
         purged(address)
       end
+
+      def list_retired
+        if options.keys.intersect?(%i[sent id thread to])
+          raise UsageError, '--sent, --id, --thread and --to read one address; give ADDRESS'
+        end
+
+        rows = retired_rows
+        return print_json(rows.map { |row| row.transform_values { it.is_a?(Time) ? it.utc.iso8601 : it } }) if json?
+        return terminal.puts("No retired addresses on #{app.host}.") if rows.empty?
+
+        terminal.puts(CLI::Table.render(terminal, RETIRED_HEADERS, rows.map { retired_cells(it) }))
+      end
+
+      # A retired address whose record cannot be read is reported as a problem and left out.
+      def retired_rows
+        app.store.address_names.select { app.store.retired?(it) }
+           .filter_map { |name| app.store.reporting { retired_row(name) } }
+      end
+
+      def retired_row(name)
+        record = app.store.retired(name)
+        messages = app.store.stored(name).map(&:message)
+        { 'address' => app.full(name), 'retired_at' => record.retired_at, 'retired_by' => record.by,
+          'mail' => messages.size, 'last_mail_at' => messages.max_by(&:id)&.created_at,
+          'purged_at' => record.purged_at, 'purged_by' => record.purged_by }
+      end
+
+      def retired_cells(row)
+        [[:address, row['address']], ago(row['retired_at']), [:address, row['retired_by']], row['mail'].to_s,
+         ago(row['last_mail_at']), ago(row['purged_at'])]
+      end
+
+      def ago(time) = time ? "#{age(time)} ago" : '-'
 
       def purged(address)
         return if address.flat?
