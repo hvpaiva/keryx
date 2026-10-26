@@ -145,6 +145,17 @@ class OldStoreTest < Minitest::Test
     assert_equal "error: #{teamless('port@zeus')}\n", keryx('withdraw', request, env: orq).err
   end
 
+  def test_send_on_refuses_a_request_sent_to_an_address_from_before_team_names
+    orq = join_claude('orq.dev', 111)
+    request = id(1)
+    raw(tmp('state', 'outbox', 'zeus', 'cur', "#{request}.json"),
+        old_message(request, from: 'orq.dev@athena', to: 'port@zeus', format: 2))
+    added = keryx('send', '--on', request, 'one more thing', env: orq)
+
+    assert_equal [1, "error: #{teamless('port@zeus')}\n"], [added.status, added.err]
+    assert_empty Dir.glob(tmp('state', 'outbox', 'zeus', 'new', '*.json'))
+  end
+
   # Two files in new/ from before team names, one of format 1, and one of each in cur/ and refused/.
   def old_outbox
     outbox = tmp('state', 'outbox', 'zeus')
