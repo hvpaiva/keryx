@@ -11,11 +11,12 @@ class CourierDialogTest < Minitest::Test
   SOCKET = '/h.sock'
   PANE = 'w1:p2'
   FREE = "\u2022 Done.\n\n\u276f \n"
-  ANSWER = 'keryx never answers a dialog. If your human lets you answer the dialogs of the sessions you direct, ' \
-           "answer it with 'herdr pane send-keys w1:p2 KEY...', except that an answer that grants something, such " \
-           'as trusting a hook, allowing a permission or changing a setting, still needs their word; declining or ' \
-           'continuing without trusting does not. Otherwise take it to your human, and answer it only on their ' \
-           'word. keryx tells you again only when the pane shows a new dialog.'
+  ANSWER = "keryx never answers a dialog. Answer it now with 'herdr pane send-keys w1:p2 KEY...', unless your " \
+           "human has told you not to. Allow once what the session's delegation record grants, never the option " \
+           'that changes a setting or stops later prompts, and decline what the record does not grant or reserves ' \
+           'to your human. Take it to your human at once, with this text and the pane, only when neither the ' \
+           'record nor their standing rules cover it, or when your harness will not let you answer. keryx tells ' \
+           'you again only when the pane shows a new dialog.'
 
   def member(director: 'orq.dev', pane: PANE, name: 'impl.dev')
     store.create_address(name)
