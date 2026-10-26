@@ -86,6 +86,10 @@ All notable changes to this project are documented here. The format follows
 - Shell completion for bash, zsh and fish.
 - `keryx send --re ID`, which sends a message to the sender of a request in its thread and shows the
   request as taken in `status`, open until the reply, with no reminder from the stop hook.
+- `keryx send --on ID`, which adds a message to a request you sent, in its thread and to its
+  recipient, without marking it read or taken. It is refused once the request is answered or
+  withdrawn, for a request to an address from before team names, and for a request to the
+  sender's own address, which `keryx reply` answers and `keryx withdraw` closes.
 - An ACTIVE column in `who` and `status`, and `last_activity` in their JSON, with when the harness
   last wrote the session's transcript, rollout or Cursor conversation store.
 
