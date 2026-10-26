@@ -10,6 +10,17 @@ class ReservedScopeTest < Minitest::Test
 
   RESERVED = 'is in a reserved scope: NAME.local is a person at a terminal, which acts as it without joining, ' \
              "and keryx.system is keryx's own services\n"
+  AS_PERSON = 'error: an agent session cannot act as person.local@athena, a person at a terminal; a plain ' \
+              "terminal acts as it with no --as\n"
+  AS_SYSTEM = "error: an agent session cannot act as keryx.system@athena, keryx's own services\n"
+  # What the page passes to keryx, with base_env's USER and KERYX_HOST taken out and the host read from the config.
+  PAGE = { 'USER' => nil, 'KERYX_HOST' => nil, 'PATH' => '/usr/bin:/bin', 'LANG' => 'C.UTF-8',
+           'NO_COLOR' => '1' }.freeze
+
+  def outcome(*argv, env:)
+    result = keryx(*argv, env:)
+    [result.status, result.err]
+  end
 
   def test_join_refuses_an_agent_every_reserved_address_the_persons_own_included
     alive << 111
@@ -43,5 +54,55 @@ class ReservedScopeTest < Minitest::Test
     assert_equal 0, keryx('join', 'rev-1.dev', env: claude(111)).status
     assert_nil store.occupant('person.local')
     assert_equal 111, store.occupant('rev-1.dev').pid
+  end
+
+  def test_an_agent_session_cannot_act_as_a_reserved_address_with_as_or_keryx_as
+    rev = join_claude('rev-1.dev', 111)
+    keryx('ask', 'person.local', 'Approve the release?', env: rev)
+    id = store.unread('person.local').first.id
+    [%w[send rev-1.dev approved], ['read', id], %w[inbox], ['reply', id, 'approved'], %w[whoami]].each do |argv|
+      assert_equal [1, AS_PERSON], outcome('--as', 'person.local', *argv, env: rev), argv
+      assert_equal [1, AS_SYSTEM], outcome('--as', 'keryx.system', *argv, env: rev), argv
+    end
+    [%w[send rev-1.dev approved], %w[inbox]].each do |argv|
+      assert_equal [1, AS_PERSON], outcome(*argv, env: rev.merge('KERYX_AS' => 'person.local')), argv
+    end
+
+    assert_equal [id], store.unread('person.local').map(&:id)
+    assert_empty store.unread('rev-1.dev')
+  end
+
+  def test_an_agent_herdr_reports_in_a_pane_without_harness_variables_is_refused_too
+    store.create_address('person.local', role: 'human')
+    herdr.put(SOCKET, 'w1:p1', agent('w1:p1', 'claude', 'idle'))
+
+    assert_equal [1, AS_PERSON], outcome('--as', 'person.local', 'inbox', env: CALLER)
+    assert_equal [1, AS_PERSON],
+                 outcome('--as', 'person.local', 'spawn', 'rev-1.dev', '--harness', 'claude', 'Review it', env: CALLER)
+    assert_empty herdr.splits
+  end
+
+  def test_a_plain_terminal_and_the_page_act_as_the_person_and_mark_the_mail_read
+    rev = join_claude('rev-1.dev', 111)
+    write_config("host = athena\n")
+    keryx('ask', 'person.local', 'Approve the release?', env: rev)
+    clock.advance(1)
+    keryx('send', 'person.local', 'A note', env: rev)
+    request, note = store.unread('person.local').map(&:id)
+
+    assert_equal 0, keryx('--as', 'person.local', 'read', request).status
+    assert_equal 0, keryx('--as', 'person.local@athena', 'reply', request, 'approved', env: PAGE).status
+    assert_equal 0, keryx('--as', 'person.local@athena', 'read', note, env: PAGE).status
+    assert_empty store.unread('person.local')
+    assert_equal ['person.local@athena'], store.unread('rev-1.dev').map(&:from)
+  end
+
+  def test_the_launcher_in_a_pane_herdr_reports_no_agent_in_spawns_as_the_person
+    store.create_address('person.local', role: 'human')
+    session_joins
+    result = keryx('--as', 'person.local', 'spawn', 'rev-1.dev', '--harness', 'claude', 'Review it', env: CALLER)
+
+    assert_equal 0, result.status, result.err
+    assert_equal ['person.local@athena'], store.unread('rev-1.dev').map(&:from)
   end
 end

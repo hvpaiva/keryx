@@ -18,7 +18,9 @@ All notable changes to this project are documented here. The format follows
 - No agent session holds an address in a reserved scope. `keryx join` and `keryx spawn` refuse
   `NAME.local` and `keryx.system`, the person's own `NAME.local` included, since a person acts as it
   from a plain terminal without joining. A session that an older keryx let join a `NAME.local`
-  address acts as no address until it joins a team one.
+  address acts as no address until it joins a team one. `--as` and `KERYX_AS` refuse an address in
+  a reserved scope in every command that acts as an address when an agent session runs it, so only a
+  plain terminal, or a program run from one, acts as the person and marks the person's mail read.
 - Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
   session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
   opens by id and answers the requests it took before. Mail to a session address whose session left

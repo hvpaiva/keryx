@@ -21,7 +21,9 @@ module Keryx
                     'whatever is queued for it with no one watching. A Codex session outside a herdr pane gets no ' \
                     "bell, and its mail waits in the mailbox.\n\n" \
                     '--as ADDRESS, or KERYX_AS, makes a command act as an address on this machine instead of the ' \
-                    'one this session holds, and the address must exist and not be retired. MEMBER alone takes the ' \
+                    'one this session holds, and the address must exist and not be retired. An agent session cannot ' \
+                    'act as an address in a reserved scope, NAME.local or keryx.system; a person acts as their ' \
+                    'NAME.local from a plain terminal with no --as. MEMBER alone takes the ' \
                     'team of the address this session holds, or else the one team on this machine with that ' \
                     'member. An address from before team names, MEMBER@HOST, is refused. ADDRESS/SESSION acts as ' \
                     'that session of the address while it is bound ' \
@@ -33,7 +35,7 @@ module Keryx
       ENVIRONMENT = [
         ['KERYX_HOME', 'Where the mailboxes live, instead of $XDG_STATE_HOME/keryx'],
         ['KERYX_HOST', 'The host part of addresses, instead of host in the config file'],
-        ['KERYX_AS', 'Act as this address, like --as'],
+        ['KERYX_AS', 'Act as this address, like --as and with the same refusals'],
         ['KERYX_SSH', 'The ssh command that reaches other machines, instead of ssh'],
         ['KERYX_REMOTE_COMMAND', 'How to run keryx on the other machine, instead of keryx'],
         ['CLAUDE_CONFIG_DIR', "Where Claude Code keeps its sessions' transcripts, instead of ~/.claude"],

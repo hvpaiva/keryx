@@ -186,7 +186,11 @@ keyboard. A plain terminal acts as a member of the local scope named after `USER
 each character other than a to z, a digit or a hyphen turned into a hyphen, what comes before the
 first letter dropped and the rest cut to 32 characters, or `human` when nothing is left, so
 `USER=john_doe` acts as `john-doe.local`. That address is created on first use or by the first
-message sent to it.
+message sent to it. An agent session cannot act as it, or as any address in a reserved scope, with
+`--as` or `KERYX_AS` either: `Identity#existing` refuses a reserved address to an agent right after
+resolving it, before it reads the store, so only a plain terminal, or a program run from one, acts as
+the person and marks the person's mail read. That holds at keryx's own commands only, as
+[SECURITY.md](SECURITY.md) explains.
 
 An address is `MEMBER.TEAM@HOST`. Two team names are reserved scopes with no authority of their own:
 `local` is a person at a terminal, and `system` is keryx's own services, so the courier's notices and
