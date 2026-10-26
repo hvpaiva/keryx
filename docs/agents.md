@@ -10,6 +10,10 @@ and says what is pending, leaving out a request its sender withdrew. Each messag
 once, and again only when the hook was cut off before it answered, so the hook never holds a session
 in a loop.
 
+A tool that starts sessions itself, as `keryx spawn` does, can run `keryx wiring claude`, `codex` or
+`cursor` to learn what to pass, with `-o json` for a program: the arguments, the hook and its files,
+the bell's channels and the variables of the pane and the store, the same that spawn reads.
+
 ## Claude Code
 
 Start the sessions that use keryx with these settings, saved for example as `keryx.json` and

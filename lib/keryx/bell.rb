@@ -11,8 +11,12 @@ require_relative 'text'
 
 module Keryx
   class Bell
-    Result = Data.define(:status, :channel, :detail, :at) do
-      def record = { 'status' => status, 'channel' => channel, 'detail' => detail, 'at' => at.utc.iso8601 }
+    Result = Data.define(:status, :channel, :detail, :at, :obstacle, :evidence) do
+      # The obstacle and the evidence of the Reading that deferred a bell typed through herdr, the obstacle's key as a
+      # string, and nil for any other outcome.
+      def initialize(obstacle: nil, evidence: nil, **) = super(obstacle: obstacle&.to_s, evidence:, **)
+
+      def record = to_h.transform_keys(&:to_s).merge('at' => at.utc.iso8601)
     end
 
     RUNG = 'rung'
@@ -52,10 +56,13 @@ module Keryx
     OBSTACLES = { dialog: 'the screen shows a dialog', editor: 'the screen shows a queued message being edited',
                   cramped: 'the pane is too narrow to tell whether it shows a dialog' }.freeze
 
-    # An obstacle, as a key of OBSTACLES or nil, and what on the screen showed it: only the words keryx's own patterns
-    # matched and their line, never the rest of the screen.
-    Reading = Data.define(:obstacle, :evidence) do
-      def note = evidence ? "#{OBSTACLES.fetch(obstacle)} (#{evidence})" : OBSTACLES.fetch(obstacle)
+    # An obstacle, as a key of OBSTACLES or nil, what on the screen showed it and where. The evidence holds only the
+    # words keryx's own patterns matched, never the rest of the screen, and is nil for a marked option, whose place
+    # alone is given so that nothing of the option is quoted.
+    Reading = Data.define(:obstacle, :evidence, :place) do
+      def note = place ? "#{OBSTACLES.fetch(obstacle)} (#{shown})" : OBSTACLES.fetch(obstacle)
+
+      def shown = evidence ? %("#{evidence}", #{place}) : place
     end
     Word = Data.define(:text, :row, :column)
 
@@ -70,12 +77,12 @@ module Keryx
       raw = screen.to_s.lines.map(&:chomp)
       box = follow_ups(raw)
       editing = footer(lines, [*cut_off(raw), *box], EDITING)
-      return Reading.new(obstacle: :editor, evidence: editing) if editing
+      return Reading.new(obstacle: :editor, **editing) if editing
 
-      evidence = sighting(lines.each_with_index.map { |line, row| box.cover?(row) ? '' : line })
-      return Reading.new(obstacle: :dialog, evidence:) if evidence
+      dialog = sighting(lines.each_with_index.map { |line, row| box.cover?(row) ? '' : line })
+      return Reading.new(obstacle: :dialog, **dialog) if dialog
 
-      Reading.new(obstacle: (:cramped if cramped?(screen)), evidence: nil)
+      Reading.new(obstacle: (:cramped if cramped?(screen)), evidence: nil, place: nil)
     end
 
     def self.cramped?(screen)
@@ -128,7 +135,7 @@ module Keryx
 
     def self.option(lines, rows)
       row = rows.find { option?(lines, it) } or return
-      "a marked option on line #{row + 1} of #{lines.size}"
+      { evidence: nil, place: "a marked option on line #{row + 1} of #{lines.size}" }
     end
 
     # A marked option and, before a blank line, another option at the same column.
@@ -154,8 +161,8 @@ module Keryx
       shown = (first.row..last.row).map do |row|
         lines[row][(row == first.row ? first.column : 0)..(row == last.row ? last.column : -1)]
       end
-      text = Text.plain(shown.join(' ').split.join(' '))[0, EVIDENCE_CHARACTERS]
-      %("#{text}", line #{first.row + 1} of #{lines.size})
+      { evidence: Text.plain(shown.join(' ').split.join(' '))[0, EVIDENCE_CHARACTERS],
+        place: "line #{first.row + 1} of #{lines.size}" }
     end
 
     # Where the character at offset in the words joined by gap shows on the screen.
@@ -244,17 +251,15 @@ module Keryx
     end
 
     def typed_into(occupant, agent, text)
-      socket = occupant.herdr_socket
-      pane = occupant.herdr_pane
       return outcome(DEFERRED, 'herdr', "the agent is #{agent.status}") unless TYPABLE.include?(agent.status)
 
-      screen = @herdr.screen(socket, pane)
+      screen = @herdr.screen(occupant.herdr_socket, occupant.herdr_pane)
       return outcome(DEFERRED, 'herdr', 'the screen could not be read') if screen.nil?
 
-      reading = Bell.reading(screen)
-      return outcome(DEFERRED, 'herdr', reading.note) if reading.obstacle
+      read = Bell.reading(screen)
+      return outcome(DEFERRED, 'herdr', read.note, obstacle: read.obstacle, evidence: read.evidence) if read.obstacle
 
-      untypable(occupant) || typed(@herdr.prompt(socket, pane, text))
+      untypable(occupant) || typed(@herdr.prompt(occupant.herdr_socket, occupant.herdr_pane, text))
     end
 
     # Reading the screen can take seconds and herdr types into a pane, not a session, so the pane is looked at again.
@@ -282,7 +287,7 @@ module Keryx
       outcome(FAILED, 'herdr', [prompt.code, prompt.detail].compact.join(': '))
     end
 
-    def outcome(status, channel, detail) = Result.new(status:, channel:, detail:, at: @clock.call)
+    def outcome(status, channel, detail, **) = Result.new(status:, channel:, detail:, at: @clock.call, **)
 
     def text(messages)
       latest = messages.last

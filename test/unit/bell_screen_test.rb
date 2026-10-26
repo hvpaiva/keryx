@@ -11,7 +11,8 @@ class BellScreenTest < Minitest::Test
 
   def obstacle(screen) = Keryx::Bell.obstacle(screen)
 
-  def evidence(screen) = Keryx::Bell.reading(screen).evidence
+  # The words a reading quotes and where they or a marked option are.
+  def evidence(screen) = Keryx::Bell.reading(screen).then { [it.evidence, it.place] }
 
   def test_a_codex_screen_whose_transcript_quotes_dialogs_above_its_composer_is_no_dialog
     assert_match(/Hooks need review/, TRANSCRIPT)
@@ -74,8 +75,8 @@ class BellScreenTest < Minitest::Test
   def test_cursor_s_follow_up_editor_is_an_obstacle_above_its_composer
     editor = Keryx::Bell.reading(Screens.session('cursor-follow-up-editor'))
 
-    assert_equal [:editor, "\"editing \u00b7 enter done \u00b7 esc close\", line 9 of 19"],
-                 [editor.obstacle, editor.evidence]
+    assert_equal [:editor, "editing \u00b7 enter done \u00b7 esc close", 'line 9 of 19'],
+                 [editor.obstacle, editor.evidence, editor.place]
     assert_equal :editor, obstacle(Screens::NARROW_EDITOR)
     assert_equal :editor, obstacle(Screens::NARROW_EDITOR.lines.first(6).join)
   end
@@ -115,7 +116,7 @@ class BellScreenTest < Minitest::Test
   def test_codex_s_extra_thought_menu_is_a_dialog
     menu = Screens.session('codex-extra-thought-transcribed')
 
-    assert_equal 'a marked option on line 11 of 15', evidence(menu)
+    assert_equal [nil, 'a marked option on line 11 of 15'], evidence(menu)
     assert_equal :dialog, obstacle(PROMPTED + menu)
   end
 
@@ -123,17 +124,18 @@ class BellScreenTest < Minitest::Test
     phrase = "  ok\n  private words, then Continue without trusting, then more private words\n"
     option = "  Pick one\n\n\u203a 1. private option\n  2. another private option\n"
 
-    assert_equal '"Continue without trusting", line 2 of 2', evidence(phrase)
-    assert_equal 'a marked option on line 3 of 4', evidence(option)
-    assert_equal "\"\u00b7 esc cancel\", line 1 of 1", evidence("  private \u00b7 esc cancel private\n")
-    assert_equal "\"ente r conf irm \u00b7 esc skip\", line 14 of 20", evidence(Screens::TINY_CODEX_HOOKS)
+    assert_equal ['Continue without trusting', 'line 2 of 2'], evidence(phrase)
+    assert_equal [nil, 'a marked option on line 3 of 4'], evidence(option)
+    assert_equal ["\u00b7 esc cancel", 'line 1 of 1'], evidence("  private \u00b7 esc cancel private\n")
+    assert_equal ["ente r conf irm \u00b7 esc skip", 'line 14 of 20'], evidence(Screens::TINY_CODEX_HOOKS)
   end
 
   def test_the_evidence_shows_control_characters
-    assert_equal "\"enterconfirm^G\u00b7 esc skip\", line 1 of 1", evidence("  enterconfirm\a\u00b7 esc skip\n")
+    assert_equal ["enterconfirm^G\u00b7 esc skip", 'line 1 of 1'], evidence("  enterconfirm\a\u00b7 esc skip\n")
   end
 
   def test_a_pane_too_narrow_to_tell_has_no_evidence
-    assert_equal [:cramped, nil], Keryx::Bell.reading(Screens::TINY_QUESTION).to_h.values_at(:obstacle, :evidence)
+    assert_equal [:cramped, nil, nil],
+                 Keryx::Bell.reading(Screens::TINY_QUESTION).to_h.values_at(:obstacle, :evidence, :place)
   end
 end

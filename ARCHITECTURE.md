@@ -39,14 +39,17 @@ ran; it stays until that session leaves, or until a join finds it no longer runn
 
 A store that a keryx from before team names left keeps an address in a folder named `NAME`, with no
 dot, whose `address.json` has a `name`, and mail between two such addresses in format 1. keryx takes
-only `MEMBER.TEAM` as a key, so it never lists, reads, moves or deletes such a folder: it leaves
-`who --all`, `status` and completion and stays on disk as it was written. Mail from such an address,
-`NAME@HOST`, in a team mailbox still lists and reads, but an answer to it is refused, since keryx no
-longer writes to one, and a request with such an address at either end is over. In the outbox, a file
-in `new/` of format 1 or with such an address at either end moves to `refused/` the first time a
-command reads `new/`, with an outcome that gives the reason, and that command reports it once, so it
-is never sent and holds back no thread. `cur/` and `refused/` skip a format 1 file quietly and read
-one of format 2 like any other.
+only `MEMBER.TEAM` as a key, so such a folder still leaves `who --all`, `status` and completion, and
+it is never moved or deleted. `keryx history NAME@HOST` is the one command that reads it, by name and
+read-only, format 1 included. `Archive` reads it apart from `Store`, whose paths refuse a name with
+no dot. It checks NAME against `Address::NAME`, creates, moves and deletes nothing there, and alone
+passes `Message.from_json` the keyword that takes format 1. Mail from
+such an address, `NAME@HOST`, in a team mailbox still lists and reads, but an answer to it is refused,
+since keryx no longer writes to one, and a request with such an address at either end is over. In the
+outbox, a file in `new/` of format 1 or with such an address at either end moves to `refused/` the
+first time a command reads `new/`, with an outcome that gives the reason, and that command reports it
+once, so it is never sent and holds back no thread. `cur/` and `refused/` skip a format 1 file quietly
+and read one of format 2 like any other, and `keryx history --sent` alone reads a format 1 file there.
 
 A message is one JSON file named after its id. It is written whole under `tmp/`, synced, and then
 linked into `mail/`. Linking is atomic, so a reader never sees half a message, and it fails when the
@@ -156,7 +159,12 @@ retired one with an occupant. The address a plain terminal acts as cannot be ret
 command from that terminal would create it again, and an address on another machine is retired
 there, since only that machine sees its session and its mail. `Postman` and `Receiver` refuse new
 mail to a retired recipient, `Identity` refuses it to `--as`, spawn refuses it, and join takes it only with
-`--revive`, which removes `retired.json` in the hold where it binds the session. Delivery to an
+`--revive`, which removes `retired.json` in the hold where it binds the session. `keryx history
+ADDRESS` still lists the mail of a retired address, read and unread, and with `--sent` what it sent.
+It acts as no address, so the refusal of `--as` does not apply, `Identity` never creates the person's
+address for it, and it marks nothing read. It refuses a team address that is not retired, which
+`inbox --all --as` lists, and reads the folder of an address from before team names, `NAME@HOST`,
+retired or not, since no other command reads that folder. Delivery to an
 address takes no lock against retire, so a message whose sender checked the address just before
 `retired.json` landed still lands in its mailbox. That stays visible: a request among such messages
 shows open in its sender's `keryx status`, and `keryx withdraw` settles it, since a withdrawal goes
@@ -275,11 +283,13 @@ points to `keryx inbox`. It tries two ways, in order.
    `codex queue --thread ID` fails, the bell falls back to the pane, which is looked at and read
    again first. The queue itself types nothing into the composer.
 
-   The detail of a deferral for a dialog or an edited message names what matched, the words keryx's own patterns took or
-   a marked option, and the line of the screen it showed on, as in
-   `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt reaches the sender,
-   on whatever machine, so it never holds the rest of that line, and its control characters are
-   made visible.
+   The detail of a deferral for a dialog or an edited message names what matched, the words keryx's
+   own patterns took or a marked option, and the line of the screen it showed on, as in
+   `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt also keeps the
+   obstacle, which is dialog, editor or cramped, and the evidence, which never holds more than the
+   matched words, without their quotes or their line and cut at 60 characters, and is null for a
+   marked option or a cramped pane, which quote none. The receipt reaches the sender, on whatever
+   machine, so it never holds the rest of that line, and its control characters are made visible.
 
 Cursor has no channel of its own, so it is always rung by typing.
 
@@ -302,7 +312,10 @@ watching. A Codex session that the pane shows only by its process is typed into 
 herdr does not show at all, or with no pane, gets no bell; the message waits in the mailbox.
 
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
-each message, and `keryx status` reads the receipts to list what did not ring.
+each message, and `keryx status` reads the receipts to list what did not ring, with `-o json`
+giving each one's obstacle, channel, time and evidence. Every result but a deferral for what the
+screen shows keeps null for the obstacle and the evidence, and a receipt written before keryx kept
+them, or by an older keryx on another machine, reads as null for both.
 
 Mail to a session address is delivered only while that session is bound to the address and runs
 (`Postman.session_left`), here and in `Receiver` for mail from another machine; once it left, the
@@ -566,6 +579,13 @@ error. Help lists the commands of each section in the order of `Commands::ALL`.
 
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
+
+Every `-o json` output carries `schema`, the version of its fields, as the first key of the object a
+command prints, or of each object of the array it prints, so a reader of a list such as `inbox` still
+reads an array. `CLI::Command#print_json` adds it in one place. Within a version fields are only
+added; removing or renaming a field, or changing its type or meaning, raises the version, and the
+first release fixes schema 1. Each command's `--help` names its fields, and a test per command pins
+their keys.
 
 Text that came from a file or from another session (message bodies, roles, herdr states) goes
 through `Text.plain` before it reaches a terminal, so it cannot carry escape sequences.

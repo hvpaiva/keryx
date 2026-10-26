@@ -112,7 +112,8 @@ not ring, with the reason. An address is in use while a session holds it, its ma
 mail or an open request was sent to it or by it, and `--all` adds the rest. Its CONTEXT column,
 which `keryx who` shows too, is how many tokens each session's context holds, read from what its
 harness records. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
-request is answered.
+request is answered. `keryx sent` lists what you sent, where each message is and, for a recipient
+on this machine, when it was read.
 
 ## More
 

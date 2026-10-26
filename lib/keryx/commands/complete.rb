@@ -6,14 +6,15 @@ module Keryx
   module Commands
     class Complete < CLI::Command
       VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
-                         --effort --prompt --ceiling --re].freeze
+                         --effort --prompt --ceiling --re --id --thread --to].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
-                      'retire' => :addresses, 'read' => :my_messages, 'reply' => :my_messages,
+                      'retire' => :addresses, 'history' => :retired, 'read' => :my_messages, 'reply' => :my_messages,
                       'wait' => :my_open_requests, 'withdraw' => :my_open_requests,
-                      'completion' => :shells, 'hook' => :events, 'help' => :command_names }.freeze
+                      'completion' => :shells, 'hook' => :events, 'wiring' => :harnesses,
+                      'help' => :command_names }.freeze
 
       define '__complete', section: 'Other Commands', arguments: 'WORDS...', max: nil, hidden: true,
                            summary: 'Print completion candidates for the given words'
@@ -100,7 +101,7 @@ module Keryx
 
       def value_candidates(option)
         case option
-        when '--as' then addresses
+        when '--as', '--to' then addresses
         when '-o', '--output' then OUTPUTS
         when '--harness' then Harness::KINDS
         when '--split' then Spawn::DIRECTIONS
@@ -126,6 +127,9 @@ module Keryx
         own.team unless own.nil? || own.reserved?
       end
 
+      # The retired addresses here, which keryx history reads; a folder from before team names is left out.
+      def retired = app.store.address_names.select { app.store.retired?(it) }
+
       def my_messages
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }
       end
@@ -140,6 +144,8 @@ module Keryx
       def shells = Completion::SHELLS
 
       def events = Hook::EVENTS
+
+      def harnesses = Harness::KINDS
 
       def command_names = Commands::ALL.reject { it.spec.hidden }.map { it.spec.name }
 

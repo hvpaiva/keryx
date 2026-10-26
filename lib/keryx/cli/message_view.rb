@@ -11,6 +11,11 @@ module Keryx
       TIME_FORMAT = '%Y-%m-%d %H:%M:%S UTC'
       # A message names the request it was sent in the thread of with keryx send --re, which it does not answer.
       IN_REPLY_TO = { 'withdrawal' => 'withdraws', 'message' => 're' }.freeze
+      JSON_HELP = 'A message in JSON has id, kind, from, to, thread, in_reply_to (the request a reply, a withdrawal ' \
+                  'or a message sent with --re names, else null), created_at, due_at (null unless the request has a ' \
+                  'deadline), both ISO 8601 in UTC, and body, plus context, an object with used and window, only ' \
+                  "when keryx measured its sender's context. A request also has withdrawn_by, the id of the " \
+                  'withdrawal that withdrew it, or null.'
 
       module_function
 

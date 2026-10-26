@@ -92,5 +92,28 @@ All notable changes to this project are documented here. The format follows
   sender's own address, which `keryx reply` answers and `keryx withdraw` closes.
 - An ACTIVE column in `who` and `status`, and `last_activity` in their JSON, with when the harness
   last wrote the session's transcript, rollout or Cursor conversation store.
+- `schema` on every `-o json` output, the version of its fields, 1 in this release, first in the
+  object a command prints and in each object of the array `inbox` prints, with each command's
+  fields named in its `--help`. Within a schema fields are only added; removing or renaming one, or
+  changing its type or meaning, raises it.
+- `join` in each address of `who -o json`, the session it lists, the holder or a displaced one:
+  harness, session_id, pid, started, cwd, transcript, herdr_socket, herdr_pane and joined_at, or null
+  when no session holds it, so a launcher or a page finds the session without reading the store.
+- `obstacle`, `channel`, `at` and `evidence` in each `not_rung` record of `status -o json`, from a
+  bell's receipt, which now keeps the obstacle that kept the bell from typing into a herdr pane
+  (dialog, editor or cramped) and the words on the screen that showed it, cut at 60 characters, or
+  null when it quotes none. A receipt written before, or by an older keryx, reads with null for both.
+- `keryx sent`, which lists what the address you act as sent, oldest first, from every mailbox on
+  this machine and the outbox, with `delivery` (delivered, queued, forwarded or refused) and, for a
+  recipient on this machine, `read_at`, the time its read mark was made, read from the mark's change
+  time. `--id`, `--thread` and `--to` narrow the list.
+- `keryx history ADDRESS`, which lists the whole mailbox of a retired address, or of an address
+  from before team names given as `NAME@HOST`, format 1 included, read-only and acting as no
+  address; `--sent` lists what that address sent instead. It is the one command that reads a folder
+  from before team names.
+- `keryx wiring HARNESS`, which prints what a launcher gives a session of Claude Code, Codex or
+  Cursor for keryx to reach it: the arguments, the stop hook and the files it goes in, the bell's
+  channels in order and the variables of the herdr pane and of the store, from the same source
+  `keryx spawn` and `keryx hook --help` use.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

@@ -40,11 +40,12 @@ module Keryx
                                    'KERYX_HOST passed on when it is set. Claude Code also gets the settings that let ' \
                                    'the bells in and run the stop hook, for that session only. Codex runs a new hook ' \
                                    'only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
-                                   "spawn installs no hook for them; 'keryx hook --help' shows how to add it. " \
-                                   'Arguments after -- go to the harness unchanged. They and the first prompt, ' \
-                                   "--prompt included, are part of the harness's command line, which any local " \
-                                   'process can read, so none of them may carry a secret; the request goes to the ' \
-                                   'mailbox, in files only your user can read. spawn refuses a command line over ' \
+                                   "spawn installs no hook for them; 'keryx hook --help' shows how to add it. 'keryx " \
+                                   "wiring HARNESS' prints what spawn gives a session of HARNESS, for a launcher of " \
+                                   'your own. Arguments after -- go to the harness unchanged. They and the first ' \
+                                   "prompt, --prompt included, are part of the harness's command line, which any " \
+                                   'local process can read, so none of them may carry a secret; the request goes to ' \
+                                   'the mailbox, in files only your user can read. spawn refuses a command line over ' \
                                    "4000 bytes on Linux or 1000 on macOS, which the pane's terminal would cut.\n\n" \
                                    "#{CLI::SpawnHelp::WAITING}\n\n" \
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
@@ -181,12 +182,11 @@ module Keryx
 
       def session_env
         host = app.env['KERYX_HOST'].to_s.empty? ? nil : app.host
-        { 'KERYX_HOME' => app.store.root, 'XDG_CONFIG_HOME' => Paths.new(app.env).config_home,
-          'KERYX_HOST' => host }.compact
+        Harness.store_env(home: app.store.root, config_home: Paths.new(app.env).config_home, host:)
       end
 
       def harness_arguments(name, pane)
-        env = session_env.merge('HERDR_SOCKET_PATH' => herdr_caller.herdr_socket, 'HERDR_PANE_ID' => pane)
+        env = session_env.merge(Harness.pane_env(socket: herdr_caller.herdr_socket, pane:))
         [*Harness.arguments(options[:harness], name:, model: options[:model], effort: options[:effort], env:),
          *passthrough, '--', first_prompt(name)]
       end

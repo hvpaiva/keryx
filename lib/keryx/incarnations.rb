@@ -66,7 +66,7 @@ module Keryx
     private
 
     # KEY, or KEY/SESSION for one incarnation of the address. A folder from before team names, with no dot, is never
-    # a key, so keryx never reads, moves or deletes one.
+    # a key, so Store never reads, moves or deletes one; only keryx history reads one, through Archive.
     def split(name)
       return name.to_s.split('/', 2) if Address.name?(name)
 

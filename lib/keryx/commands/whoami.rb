@@ -6,6 +6,10 @@ require_relative '../cli/command'
 module Keryx
   module Commands
     class Whoami < CLI::Command
+      JSON_FIELDS = 'With -o json it gives address, member, team, host, session_address, role, unread and session, ' \
+                    'the record keryx keeps of the session holding the address or null: harness, session_id, pid, ' \
+                    'started, claude_socket, herdr_socket, herdr_pane, cwd, joined_at, transcript, ceiling, director ' \
+                    'and session.'
       define 'whoami', section: 'Session Commands',
                        summary: 'Show the address this session acts as',
                        description: 'Show the address this session acts as and what keryx knows about the ' \
@@ -16,7 +20,7 @@ module Keryx
                                     'terminal acts as an address of the local scope named after USER, lowercased ' \
                                     'and with other characters made hyphens, such as john-doe.local for john_doe, ' \
                                     'unless --as names another. It is created on first use, and whoami shows its ' \
-                                    'exact spelling.',
+                                    "exact spelling.\n\n#{JSON_FIELDS} #{SCHEMA_HELP}",
                        examples: [['Check which address replies will go to', 'whoami']]
 
       def define_options(parser) = output_option(parser)

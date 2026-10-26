@@ -19,7 +19,8 @@ module Keryx
                                   "no ceiling.\n\n" \
                                   'A session that join --force displaced reads, without ID, only the mail to its ' \
                                   'session address. By ID it also opens the mail to the address it held, so it ' \
-                                  'can finish what it took before.',
+                                  "can finish what it took before.\n\n#{CLI::MessageView::JSON_HELP} " \
+                                  "#{SCHEMA_HELP}",
                      examples: [['Open the next unread message', 'read'], ['Open one message', 'read 01JB8Y2Q']]
 
       def define_options(parser) = output_option(parser)
