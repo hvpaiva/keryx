@@ -11,9 +11,10 @@ module Keryx
     MESSAGE_FILE = /\A(?<id>[0-9A-HJKMNP-TV-Z]{26})\.json\z/
     DIR_MODE = 0o700
     FILE_MODE = 0o600
-    # The fields of Bell::Result#record.
+    # The fields of Bell::Result#record. One written before obstacle and evidence, or by an older keryx on another
+    # machine, lacks both, which then read as nil.
     BELL = { 'status' => [String], 'channel' => [String, NilClass], 'detail' => [String, NilClass],
-             'at' => [String, NilClass] }.freeze
+             'at' => [String, NilClass], 'obstacle' => [String, NilClass], 'evidence' => [String, NilClass] }.freeze
     RECEIPT = BELL.merge('attempts' => [Integer, NilClass]).freeze
 
     def self.bell?(value) = value.is_a?(Hash) && BELL.all? { |name, types| types.any? { value[name].is_a?(it) } }

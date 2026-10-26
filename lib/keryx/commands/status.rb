@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require_relative '../bell'
 require_relative '../cli/activity_view'
 require_relative '../cli/address_view'
 require_relative '../cli/command'
@@ -11,13 +12,24 @@ require_relative '../cli/table'
 module Keryx
   module Commands
     class Status < CLI::Command
-      Unrung = Data.define(:message, :status, :detail)
+      Unrung = Data.define(:message, :bell) do
+        def status = bell['status']
+
+        def detail = bell['detail']
+      end
+      NEVER_RUNG = { 'status' => 'none', 'detail' => 'never rung' }.freeze
+      # What a not_rung record gives of its bell's receipt besides the status and the detail.
+      BELL_FIELDS = %w[obstacle channel at evidence].freeze
       JSON_FIELDS = 'With -o json, view and hidden come first, then one list per section. Each of addresses has ' \
                     'address, member, team, host, session_address, role, session, last_activity, context, ceiling, ' \
                     'unread and waiting, as keryx who gives them. Each of open_requests is the request with state ' \
                     'and overdue, true once its deadline passed. Each of not_rung has id, to, from, bell, the status ' \
-                    'of the last bell or none, and detail. Each of not_forwarded has id, to, from, state, attempts ' \
-                    'and detail.'
+                    "of the last bell or none, detail, and that bell's obstacle (dialog, editor or cramped when it " \
+                    'waited because its pane showed a dialog, a queued message being edited or too few columns to ' \
+                    'tell, else null), channel, at (when it was tried, ISO 8601 in UTC) and evidence (the words that ' \
+                    "showed the obstacle on the screen, at most #{Bell::EVIDENCE_CHARACTERS} characters, or null " \
+                    'when no words are quoted, as for a marked option or a cramped pane), the four null for a ' \
+                    'message never rung. Each of not_forwarded has id, to, from, state, attempts and detail.'.freeze
 
       define 'status', section: 'Overview Commands',
                        summary: 'Show what is pending on this machine',
@@ -81,8 +93,8 @@ module Keryx
       def not_rung
         app.store.current_names.flat_map do |name|
           app.store.unread(name).filter_map do |message|
-            bell = app.store.receipt(name, message.id, 'bell') || { 'status' => 'none', 'detail' => 'never rung' }
-            Unrung.new(message, bell['status'], bell['detail']) unless bell['status'] == Bell::RUNG
+            bell = app.store.receipt(name, message.id, 'bell') || NEVER_RUNG
+            Unrung.new(message, bell) unless bell['status'] == Bell::RUNG
           end
         end
       end
@@ -133,7 +145,7 @@ module Keryx
 
       def unrung_record(unrung)
         { 'id' => unrung.message.id, 'to' => unrung.message.to, 'from' => unrung.message.from,
-          'bell' => unrung.status, 'detail' => unrung.detail }
+          'bell' => unrung.status, 'detail' => unrung.detail, **BELL_FIELDS.to_h { [it, unrung.bell[it]] } }
       end
 
       def section(title, headers, rows)

@@ -62,7 +62,7 @@ class JSONSchemaTest < Minitest::Test
     assert_equal %w[addresses hidden not_forwarded not_rung open_requests schema view], keys(status)
     assert_equal [[*ADDRESS, 'waiting'].sort], status['addresses'].map { keys(it) }.uniq
     assert_equal([[*MESSAGE, 'context', 'overdue', 'state'].sort], status['open_requests'].map { keys(it) })
-    assert_equal([%w[bell detail from id to]], status['not_rung'].map { keys(it) })
+    assert_equal([%w[at bell channel detail evidence from id obstacle to]], status['not_rung'].map { keys(it) })
     assert_equal([%w[attempts detail from id state to]], status['not_forwarded'].map { keys(it) })
   end
 

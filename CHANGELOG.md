@@ -86,5 +86,9 @@ All notable changes to this project are documented here. The format follows
 - `join` in each address of `who -o json`, the session it lists, the holder or a displaced one:
   harness, session_id, pid, started, cwd, transcript, herdr_socket, herdr_pane and joined_at, or null
   when no session holds it, so a launcher or a page finds the session without reading the store.
+- `obstacle`, `channel`, `at` and `evidence` in each `not_rung` record of `status -o json`, from a
+  bell's receipt, which now keeps the obstacle that kept the bell from typing into a herdr pane
+  (dialog, editor or cramped) and the words on the screen that showed it, cut at 60 characters, or
+  null when it quotes none. A receipt written before, or by an older keryx, reads with null for both.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

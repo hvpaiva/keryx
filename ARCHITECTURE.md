@@ -269,11 +269,13 @@ points to `keryx inbox`. It tries two ways, in order.
    `codex queue --thread ID` fails, the bell falls back to the pane, which is looked at and read
    again first. The queue itself types nothing into the composer.
 
-   The detail of a deferral for a dialog or an edited message names what matched, the words keryx's own patterns took or
-   a marked option, and the line of the screen it showed on, as in
-   `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt reaches the sender,
-   on whatever machine, so it never holds the rest of that line, and its control characters are
-   made visible.
+   The detail of a deferral for a dialog or an edited message names what matched, the words keryx's
+   own patterns took or a marked option, and the line of the screen it showed on, as in
+   `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt also keeps the
+   obstacle, which is dialog, editor or cramped, and the evidence, which never holds more than the
+   matched words, without their quotes or their line and cut at 60 characters, and is null for a
+   marked option or a cramped pane, which quote none. The receipt reaches the sender, on whatever
+   machine, so it never holds the rest of that line, and its control characters are made visible.
 
 Cursor has no channel of its own, so it is always rung by typing.
 
@@ -296,7 +298,10 @@ watching. A Codex session that the pane shows only by its process is typed into 
 herdr does not show at all, or with no pane, gets no bell; the message waits in the mailbox.
 
 The result (rung, deferred, failed or absent, with the reason) is written as a receipt against
-each message, and `keryx status` reads the receipts to list what did not ring.
+each message, and `keryx status` reads the receipts to list what did not ring, with `-o json`
+giving each one's obstacle, channel, time and evidence. Every result but a deferral for what the
+screen shows keeps null for the obstacle and the evidence, and a receipt written before keryx kept
+them, or by an older keryx on another machine, reads as null for both.
 
 Mail to a session address is delivered only while that session is bound to the address and runs
 (`Postman.session_left`), here and in `Receiver` for mail from another machine; once it left, the

@@ -19,6 +19,10 @@ class BellTest < Minitest::Test
     Screens::NARROW_BOX => '"Do you trust", line 1 of 3',
     Screens::WRAPPED_OPTIONS => 'a marked option on line 3 of 4'
   }.freeze
+  # The words a detail quotes, without their quotes and their line; a marked option's detail quotes none.
+  QUOTED = /\A"(?<words>.*)", line \d+ of \d+\z/
+  # A receipt for a bell that no screen kept from typing writes both fields as null.
+  NO_OBSTACLE = { 'obstacle' => nil, 'evidence' => nil }.freeze
 
   def with_claude_socket
     path = tmp('cc.sock')
@@ -53,6 +57,8 @@ class BellTest < Minitest::Test
 
     refute_includes line, message.body
   end
+
+  def bell_receipt(message) = store.receipt('rev-1.dev', message.id, 'bell')
 
   def test_the_result_is_recorded_against_every_message
     first = deliver
@@ -112,6 +118,7 @@ class BellTest < Minitest::Test
       store.bind('rev-1.dev', pane_occupant)
 
       assert_equal 'rung', bell(herdr: herdr_with(status)).ring('rev-1.dev', [message]).status, status
+      assert_equal(NO_OBSTACLE, bell_receipt(message).slice('obstacle', 'evidence'), status)
     end
   end
 
@@ -134,6 +141,8 @@ class BellTest < Minitest::Test
     assert_equal 'deferred', result.status
     assert_equal "the screen shows a queued message being edited (\"editing \u00b7 enter done \u00b7 esc close\", " \
                  'line 9 of 19)', result.detail
+    assert_equal ['editor', "editing \u00b7 enter done \u00b7 esc close"],
+                 bell_receipt(message).values_at('obstacle', 'evidence')
     assert_empty herdr.prompts
   end
 
@@ -145,6 +154,7 @@ class BellTest < Minitest::Test
       result = bell(herdr:).ring('rev-1.dev', [message])
 
       assert_equal 'deferred', result.status
+      assert_equal(NO_OBSTACLE, bell_receipt(message).slice('obstacle', 'evidence'), status)
       assert_empty herdr.prompts
     end
   end
@@ -156,6 +166,7 @@ class BellTest < Minitest::Test
       herdr = herdr_with('idle', screen:)
 
       assert_equal "the screen shows a dialog (#{evidence})", bell(herdr:).ring('rev-1.dev', [message]).detail, screen
+      assert_equal ['dialog', evidence[QUOTED, :words]], bell_receipt(message).values_at('obstacle', 'evidence'), screen
       assert_empty herdr.prompts
     end
   end
@@ -168,6 +179,7 @@ class BellTest < Minitest::Test
 
       assert_equal 'the pane is too narrow to tell whether it shows a dialog',
                    bell(herdr:).ring('rev-1.dev', [message]).detail, screen
+      assert_equal ['cramped', nil], bell_receipt(message).values_at('obstacle', 'evidence'), screen
       assert_empty herdr.prompts
     end
   end
@@ -214,6 +226,7 @@ class BellTest < Minitest::Test
     result = bell.ring('rev-1.dev', [message])
 
     assert_equal ['absent', 'no agent runs in pane w1:p2'], [result.status, result.detail]
+    assert_equal(NO_OBSTACLE, bell_receipt(message).slice('obstacle', 'evidence'))
   end
 
   def test_an_occupant_with_no_channel_is_absent
