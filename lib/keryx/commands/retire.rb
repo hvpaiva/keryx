@@ -19,7 +19,8 @@ module Keryx
                                     "instead.\n\n" \
                                     'Once retired, the address is gone from keryx who and keryx status, even with ' \
                                     '--all, new mail to it is refused, from this machine and from others, and no ' \
-                                    'command acts as it with --as. A request that reached it as it was retired ' \
+                                    'command acts as it with --as, though keryx history ADDRESS still lists its ' \
+                                    'mail, and with --sent what it sent. A request that reached it as it was retired ' \
                                     'stays open for its sender, and the withdrawal of that request still reaches ' \
                                     'it, from here or from another machine, so its sender stops waiting. Its ' \
                                     'files stay where they were, under ' \

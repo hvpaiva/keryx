@@ -94,5 +94,9 @@ All notable changes to this project are documented here. The format follows
   this machine and the outbox, with `delivery` (delivered, queued, forwarded or refused) and, for a
   recipient on this machine, `read_at`, the time its read mark was made, read from the mark's change
   time. `--id`, `--thread` and `--to` narrow the list.
+- `keryx history ADDRESS`, which lists the whole mailbox of a retired address, or of an address
+  from before team names given as `NAME@HOST`, format 1 included, read-only and acting as no
+  address; `--sent` lists what that address sent instead. It is the one command that reads a folder
+  from before team names.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

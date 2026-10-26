@@ -16,7 +16,7 @@ module Keryx
   class Message
     KINDS = %w[message request reply withdrawal].freeze
     # Format 2 spells team and session addresses. Format 1, which carried only addresses from before team names, is
-    # neither written nor taken.
+    # neither written nor taken, and only keryx history reads it.
     FORMAT_VERSION = 2
     OLD_FORMAT = 1
     OLD_FORMAT_REFUSED = "message format #{OLD_FORMAT}, of the addresses from before team names, is no longer " \
@@ -28,10 +28,12 @@ module Keryx
 
     class OldFormat < Error; end
 
-    def self.from_json(text)
+    # With OLD_FORMAT, format 1 reads as a message of the same fields; keryx history alone passes it, and it writes
+    # nothing.
+    def self.from_json(text, old_format: false)
       data = JSON.parse(text)
       raise Error, 'not a keryx message' unless data.is_a?(Hash) && [OLD_FORMAT, FORMAT_VERSION].include?(data['keryx'])
-      raise OldFormat, OLD_FORMAT_REFUSED if data['keryx'] == OLD_FORMAT
+      raise OldFormat, OLD_FORMAT_REFUSED if data['keryx'] == OLD_FORMAT && !old_format
 
       build(data)
     rescue JSON::ParserError => e

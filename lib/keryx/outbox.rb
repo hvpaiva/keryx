@@ -49,10 +49,11 @@ module Keryx
       Dir.children(@base).select { Address::HOST.match?(it) && File.directory?(File.join(@base, it)) }.sort
     end
 
-    def outgoing(hosts = self.hosts)
+    # READ lists the messages of cur/ and refused/; keryx history gives its own, which takes format 1 there.
+    def outgoing(hosts = self.hosts, read: method(:messages_in))
       found = Array(hosts).flat_map do |host|
         STATES.flat_map do |state, folder|
-          messages = state == :queued ? queued(host) : messages_in(File.join(dir(host), folder))
+          messages = state == :queued ? queued(host) : read.call(File.join(dir(host), folder))
           messages.map { OutgoingMessage.new(host, it, state) }
         end
       end

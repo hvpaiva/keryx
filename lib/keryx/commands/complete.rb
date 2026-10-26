@@ -11,7 +11,7 @@ module Keryx
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
-                      'retire' => :addresses, 'read' => :my_messages, 'reply' => :my_messages,
+                      'retire' => :addresses, 'history' => :retired, 'read' => :my_messages, 'reply' => :my_messages,
                       'wait' => :my_open_requests, 'withdraw' => :my_open_requests,
                       'completion' => :shells, 'hook' => :events, 'help' => :command_names }.freeze
 
@@ -125,6 +125,9 @@ module Keryx
         own = (@as ? me : app.own_address)&.then { Address.from_name(it, host: app.host) }
         own.team unless own.nil? || own.reserved?
       end
+
+      # The retired addresses here, which keryx history reads; a folder from before team names is left out.
+      def retired = app.store.address_names.select { app.store.retired?(it) }
 
       def my_messages
         app.store.mailbox(me).sort_by { it.state == :unread ? 0 : 1 }.map { it.message.id }

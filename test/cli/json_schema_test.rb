@@ -93,6 +93,18 @@ class JSONSchemaTest < Minitest::Test
     assert_equal(%w[delivered queued], sent.map { it['delivery'] })
   end
 
+  def test_history_gives_the_records_of_inbox_and_with_sent_those_of_sent
+    keryx('withdraw', @request, env: @orq)
+    keryx('leave', env: @rev)
+    keryx('retire', 'rev-1.dev', env: @orq)
+    history = json('history', 'rev-1.dev')
+
+    assert_equal([[*MESSAGE, 'context', 'schema', 'state', 'withdrawn_by'].sort,
+                  [*MESSAGE, 'context', 'schema', 'state'].sort], history.map { keys(it) })
+    assert_equal([[*MESSAGE, 'delivery', 'read_at', 'schema'].sort],
+                 json('history', 'rev-1.dev', '--sent').map { keys(it) })
+  end
+
   def test_wait
     clock.advance(1)
     keryx('reply', @request, 'Done', env: @rev)

@@ -44,6 +44,14 @@ class MessageTest < Minitest::Test
     assert_equal 'message format 1, of the addresses from before team names, is no longer taken', error.message
   end
 
+  def test_format_1_reads_with_the_same_fields_only_when_asked
+    message = build_message(from: 'orq@athena', to: 'port@zeus')
+    old = JSON.generate(JSON.parse(message.to_json).merge('keryx' => 1))
+
+    assert_equal message, Keryx::Message.from_json(old, old_format: true)
+    assert_raises(Keryx::Error) { Keryx::Message.from_json(JSON.generate('keryx' => 1, 'id' => 'x'), old_format: true) }
+  end
+
   def test_an_unknown_format_is_not_a_keryx_message
     data = JSON.parse(build_message.to_json).merge('keryx' => 3)
 
