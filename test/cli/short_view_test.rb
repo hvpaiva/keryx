@@ -33,8 +33,8 @@ class ShortViewTest < Minitest::Test
     output = keryx('who').out
 
     assert_equal %w[orq.dev@athena], addresses(output)
-    assert_equal "2 addresses with no session and no mail are hidden; 'keryx who --all' lists them.\n",
-                 output.lines.last
+    assert_equal '2 addresses with no session, no unread mail and no open request are hidden; ' \
+                 "'keryx who --all' lists them.\n", output.lines.last
     assert_equal %w[orq.dev@athena person.local@athena rev-1.dev@athena], addresses(keryx('who', '--all').out)
     refute_match(/hidden/, keryx('who', '-a').out)
   end
@@ -59,12 +59,12 @@ class ShortViewTest < Minitest::Test
     alive << 333
     keryx('join', 'rev-1.dev', env: claude(333))
 
-    assert_equal "1 address with no session and no mail is hidden; 'keryx who --all' lists it.\n",
-                 keryx('who').out.lines.last
+    assert_equal '1 address with no session, no unread mail and no open request is hidden; ' \
+                 "'keryx who --all' lists it.\n", keryx('who').out.lines.last
     [111, 333].each { alive.delete(it) }
 
-    assert_equal "3 addresses with no session and no mail are hidden; 'keryx who --all' lists them.\n",
-                 keryx('who').out
+    assert_equal '3 addresses with no session, no unread mail and no open request are hidden; ' \
+                 "'keryx who --all' lists them.\n", keryx('who').out
   end
 
   def test_json_says_which_view_it_is
@@ -82,9 +82,11 @@ class ShortViewTest < Minitest::Test
     none = keryx('status').out.split("\n\n").first.lines
 
     assert_equal ['orq.dev@athena', 4], [shown[2].split.first, shown.size]
-    assert_equal "2 addresses with no session and no mail are hidden; 'keryx status --all' lists them.", shown.last
+    assert_equal '2 addresses with no session, no unread mail and no open request are hidden; ' \
+                 "'keryx status --all' lists them.", shown.last
     assert_equal ["ADDRESSES\n", "none\n",
-                  "3 addresses with no session and no mail are hidden; 'keryx status --all' lists them."], none
+                  '3 addresses with no session, no unread mail and no open request are hidden; ' \
+                  "'keryx status --all' lists them."], none
     assert_equal %w[orq.dev@athena person.local@athena rev-1.dev@athena],
                  addresses(keryx('status', '--all').out.lines.drop(1).join)
   end

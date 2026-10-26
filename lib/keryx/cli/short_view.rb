@@ -13,7 +13,9 @@ module Keryx
              "never listed ('keryx retire --help')."
 
       def self.option(parser, options)
-        parser.on('-a', '--all', 'List the addresses with no session and no mail too') { options[:all] = true }
+        parser.on('-a', '--all', 'List the addresses with no session, no unread mail and no open request too') do
+          options[:all] = true
+        end
       end
 
       # The open requests are looked up only for the short view, which needs them.
@@ -31,8 +33,8 @@ module Keryx
         return if hidden.zero?
 
         one = hidden == 1
-        "#{hidden} #{one ? 'address' : 'addresses'} with no session and no mail #{one ? 'is' : 'are'} hidden; " \
-          "'keryx #{command} --all' lists #{one ? 'it' : 'them'}."
+        "#{hidden} #{one ? 'address' : 'addresses'} with no session, no unread mail and no open request " \
+          "#{one ? 'is' : 'are'} hidden; 'keryx #{command} --all' lists #{one ? 'it' : 'them'}."
       end
     end
   end

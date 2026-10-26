@@ -19,9 +19,10 @@ All notable changes to this project are documented here. The format follows
   session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
   opens by id and answers the requests it took before. Mail to a session address whose session left
   is refused with the stable address to write to, except the withdrawal of a request it holds, from
-  this machine or another, and keryx's notices from another machine, which the holder reads. `who` and `status` list a displaced session
-  at its session address beside the address, `whoami` gives the session address of the session
-  that runs it, and their JSON gives `member`, `team`, `host` and `session_address`.
+  this machine or another, and keryx's notices from another machine, which the holder reads. `who`
+  and `status` list a displaced session at its session address beside the address, `whoami` gives
+  the session address of the session that runs it, and their JSON gives `member`, `team`, `host`
+  and `session_address`.
 - Message format 2, for team and session addresses, the only format written or taken. A machine
   that runs an older keryx refuses format 2 for good, with the reason in the sender's error, or in
   `keryx status` for a message that waited in the outbox.

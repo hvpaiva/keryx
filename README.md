@@ -24,11 +24,11 @@ on another machine goes over SSH, and waits while that machine is unreachable.
 ```console
 $ keryx status
 ADDRESSES
-ADDRESS            ROLE           SESSION   CONTEXT         UNREAD   WAITING
-impl.dev@athena    implementer    unknown   unknown         0        1
-orq.dev@athena     orchestrator   idle      303k            0        0
-rev-1.dev@athena   reviewer       working   137k/258k 53%   0        1
-1 address with no session and no mail is hidden; 'keryx status --all' lists it.
+ADDRESS            ROLE           SESSION   ACTIVE    CONTEXT         UNREAD   WAITING
+impl.dev@athena    implementer    unknown   unknown   unknown         0        1
+orq.dev@athena     orchestrator   idle      4s ago    303k            0        0
+rev-1.dev@athena   reviewer       working   1s ago    137k/258k 53%   0        1
+1 address with no session, no unread mail and no open request is hidden; 'keryx status --all' lists it.
 
 OPEN REQUESTS
 ID                           FROM             TO                 AGE   DUE     STATE   SUMMARY
@@ -46,6 +46,11 @@ Requires Ruby 3.4 or later on Linux or macOS.
 ```sh
 gem install keryx
 ```
+
+keryx carries the messages and leaves to the sessions how a team of them works.
+[nomos](https://github.com/hvpaiva/nomos) is a protocol for that, for how sessions divide work,
+delegate authority, report and hand over, with keryx as its reference binding; its setup on keryx
+starts from a keryx set up as this section shows.
 
 To upgrade, run `gem update keryx` and restart the courier service if the machine runs one. A
 session that joined under an older keryx can record what the new one needs with its next keryx
@@ -102,9 +107,11 @@ From a plain terminal you act as an address of the local scope named after `$USE
 
 ## See what is pending
 
-`keryx status` lists the addresses that have a session or mail, the requests still open and the
-messages whose bell did not ring, with the reason, and `--all` adds the addresses nobody uses. Its CONTEXT column, which `keryx who` shows too, is how many tokens each
-session's context holds, read from what its harness records. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
+`keryx status` lists the addresses in use, the requests still open and the messages whose bell did
+not ring, with the reason. An address is in use while a session holds it, its mailbox has unread
+mail or an open request was sent to it or by it, and `--all` adds the rest. Its CONTEXT column,
+which `keryx who` shows too, is how many tokens each session's context holds, read from what its
+harness records. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
 request is answered.
 
 ## More
