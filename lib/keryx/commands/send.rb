@@ -30,7 +30,9 @@ module Keryx
                                   '--on ID adds to a request you sent, in its thread and to its original recipient, ' \
                                   'and takes no ADDRESS. The message does not mark the request read or taken, and ' \
                                   'the request stays open until the recipient replies or you withdraw it. A request ' \
-                                  'already answered or withdrawn is refused, and so is an id you did not send.',
+                                  'already answered or withdrawn is refused, and so are an id you did not send and ' \
+                                  'a request to your own address, which keryx reply answers and keryx withdraw ' \
+                                  'closes.',
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md'],
                                 ['Say you took a request whose work goes on', 'send --re 01JB8Y2Q "On it, PR by 3pm"'],
@@ -82,8 +84,17 @@ module Keryx
         raise UsageError, ON_ADDRESS if arguments.size > 1
 
         holder, request = Wait.sent_request(app, app.me, options[:on])
+        refuse_own(request, holder)
         refuse_closed(request)
         told(complement(request, holder, body(arguments[0])), request)
+      end
+
+      # An addition to a request to one's own address would read as its recipient taking it, and adds for no one.
+      def refuse_own(request, holder)
+        return unless holder && Address.parse(request.to).key == Address.from_name(app.me, host: app.host).key
+
+        raise Error, "#{request.id} is a request to your own address, so there is no one to add to; answer it with " \
+                     "'keryx reply #{request.id}' or close it with 'keryx withdraw #{request.id}'"
       end
 
       # A request held in a mailbox here goes to its recipient here, though it may name this machine by a name it no

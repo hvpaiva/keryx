@@ -58,9 +58,7 @@ Nothing else records state. A request is answered when some mailbox holds a repl
 recipient, in its thread, whose `in_reply_to` is the request's id; it is withdrawn when one holds a
 withdrawal from its sender to its recipient the same way; it is open until either; while open, it is
 taken when one holds a plain message from its recipient to its sender the same way, which
-`keryx send --re` writes; and it is read when its name is in `read/`. A request to its sender's own
-address is taken only once it is also read, since `keryx send --on` writes the same message there
-without marking the request read, as `keryx send --re` does. A taken request still waits
+`keryx send --re` writes; and it is read when its name is in `read/`. A taken request still waits
 for its reply, so `keryx wait` keeps waiting and `keryx retire` still counts it as open.
 `keryx send --re` refuses a request whose reply or withdrawal it sees in a mailbox here or in the
 outbox. A withdrawal still on its way from another machine is not seen yet, so the message goes, and

@@ -103,15 +103,17 @@ class SendOnTest < Minitest::Test
     assert_empty store.outbox.outgoing('lap-0042')
   end
 
-  def test_send_on_to_a_request_to_ones_own_address_leaves_it_untaken_while_send_re_takes_it
+  def test_send_on_refuses_a_request_to_ones_own_address
     keryx('ask', 'orq.dev', 'Remember the release notes', env: @orq)
     id = last_id(@orq)
     clock.advance(1)
+    result = keryx('send', '--on', id, 'And the changelog', env: @orq)
 
-    assert_equal 0, keryx('send', '--on', id, 'And the changelog', env: @orq).status
+    assert_equal 1, result.status
+    assert_equal "error: #{id} is a request to your own address, so there is no one to add to; answer it with " \
+                 "'keryx reply #{id}' or close it with 'keryx withdraw #{id}'\n", result.err
+    assert_equal(%w[request], inbox(@orq).map { it['kind'] })
     assert_equal ['unread', :unread], [states.fetch(id), store.find('orq.dev', id).state]
-    assert_equal 0, keryx('send', '--re', id, 'On it', env: @orq).status
-    assert_equal ['taken', :read], [states.fetch(id), store.find('orq.dev', id).state]
   end
 
   def test_the_skill_tells_the_sender_how_to_add_to_a_request
