@@ -40,6 +40,8 @@ working on it.
   the reply rings this session when it arrives. Use `keryx wait ID` only when you cannot go on
   without the answer.
 - `keryx send ADDRESS TEXT` for updates that need no answer.
+- `keryx send --on ID TEXT` adds to a request you sent, in its thread and to its recipient. The
+  request stays open and is not marked taken. It is refused once the request is answered or withdrawn.
 - `keryx withdraw ID` when you no longer need the answer to a request you sent.
 - When a session you started with `keryx spawn` stops at a dialog, keryx sends you a message with
   the dialog's text. Read it and take it to your human, and answer the dialog with
