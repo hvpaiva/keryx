@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 
+require 'digest'
 require_relative 'bell'
 require_relative 'error'
 require_relative 'text'
@@ -20,12 +21,43 @@ module Keryx
     CRAMPED = 'is too narrow to tell whether it shows a dialog'
     EDITOR = 'shows a queued message being edited'
     ANSWERED = 'the session joins by itself once it is answered; keryx never answers one'
+    # How a director answers a dialog keryx tells it about, whether or not its human lets it answer one itself.
+    ANSWER = 'keryx never answers a dialog. If your human lets you answer the dialogs of the sessions you direct, ' \
+             "answer it with 'herdr pane send-keys %<pane>s KEY...', except that an answer that grants something, " \
+             'such as trusting a hook, allowing a permission or changing a setting, still needs their word; ' \
+             'declining or continuing without trusting does not. Otherwise take it to your human, and answer it ' \
+             'only on their word.'
+
+    # A harness that answers a dialog by itself after a while counts down on screen, as in "will automatically deny
+    # this request in 0:28", so the count changes every second while the dialog stays the same. Iris reads it so too.
+    COUNTDOWN = /\b(?:automatically|auto-?(?:deny|denies|approve|approves|accept|reject))\b/i
+    TIMER = /\b\d{1,2}:\d{2}\b|\b\d+\s?s(?:ec(?:onds?)?)?\b/
+    # A menu that closes by itself and needs no answer, such as the one Codex shows while it gives a request extra
+    # thought.
+    NO_ACTION = /no action is required/i
 
     # The dialog a read of the pane shows below the command herdr typed, as the lines spawn quotes, or nil when it
     # shows none. That command holds the first prompt, whose words could pass for a dialog.
     def self.excerpt(read, prompt)
       lines = below(read, prompt)
       block(lines).filter_map { quoted(it) }.last(LINES) if dialog?(lines)
+    end
+
+    # The dialog a read of a joined session's pane shows, as the lines the courier quotes, or nil when it shows none or
+    # a menu that needs no answer. The command herdr typed no longer shows, so a dialog with no box top or rule above
+    # it is quoted from below the last composer, whose place it takes, and the transcript above stays out.
+    def self.shown(read)
+      lines = lines_of(read)
+      return unless dialog?(lines)
+
+      quote = block(lines, below_composer(lines)).filter_map { quoted(it) }.last(LINES)
+      quote unless quote.any? { NO_ACTION.match?(it) }
+    end
+
+    # What makes two quotes the same dialog: a moved selection or a countdown's next second makes no new one.
+    def self.key(quote)
+      steady = quote.map { it.sub(Bell::MARKER, '') }.map { COUNTDOWN.match?(it) ? it.gsub(TIMER, '#') : it }
+      Digest::SHA256.hexdigest(steady.join("\n"))
     end
 
     def self.cramped?(read, prompt) = Bell.cramped?(below(read, prompt).join("\n"))
@@ -35,7 +67,7 @@ module Keryx
 
     # The lines after the one where the typed command ends, which the last letters and digits of the first prompt end.
     def self.below(read, prompt)
-      lines = String.new(read.to_s, encoding: Encoding::UTF_8).scrub(Text::REPLACEMENT).lines(chomp: true)
+      lines = lines_of(read)
       tail = letters(prompt).chars.last(TAIL).join
       pieces = lines.map { letters(it) }
       at = pieces.join.rindex(tail) unless tail.empty?
@@ -45,11 +77,20 @@ module Keryx
       lines.drop(pieces.index { (seen += it.size) >= at + tail.size } + 1)
     end
 
-    # From the last box top or rule that still has the dialog below it, else from the first line.
-    def self.block(lines)
+    # From the last box top or rule that still has the dialog below it, else the lines given for none.
+    def self.block(lines, otherwise = lines)
       borders = lines.each_index.select { border?(lines[it]) }
       start = borders.reverse.find { dialog?(lines.drop(it + 1)) }
-      start ? lines.drop(start + 1) : lines
+      start ? lines.drop(start + 1) : otherwise
+    end
+
+    def self.below_composer(lines)
+      row = Bell.composer(lines.map { it.gsub(Bell::BOX_DRAWING, ' ') })
+      row ? lines.drop(row + 1) : lines
+    end
+
+    def self.lines_of(read)
+      String.new(read.to_s, encoding: Encoding::UTF_8).scrub(Text::REPLACEMENT).lines(chomp: true)
     end
 
     def self.border?(line) = TOP.match?(line.lstrip) || RULE.match?(line.strip)
@@ -64,7 +105,7 @@ module Keryx
 
     def self.dialog?(lines) = Bell.obstacle(lines.join("\n")) == :dialog
     def self.letters(text) = text.to_s.gsub(/[^[:alnum:]]/, '')
-    private_class_method :below, :block, :dialog?, :border?, :quoted, :letters
+    private_class_method :below, :block, :below_composer, :lines_of, :dialog?, :border?, :quoted, :letters
 
     def initialize(herdr:, socket:, pane:, address:, director:, prompt:, notice:, post:)
       @herdr = herdr
@@ -136,9 +177,7 @@ module Keryx
 
     def tell(text)
       @post.call(@director, "Pane #{@pane}, where spawn started #{@address}, stops at a dialog, and the session " \
-                            'joins once it is answered; keryx never answers one. Its text follows.' \
-                            "\n\n#{text}\n\nTake it to your human, and answer it with 'herdr pane send-keys' only " \
-                            'on their word.')
+                            "joins once it is answered. Its text follows.\n\n#{text}\n\n#{format(ANSWER, pane: @pane)}")
     rescue Error, SystemCallError => e
       @notice.call("spawn could not tell #{@director} about the dialog in pane #{@pane}: #{e.message}.")
     end

@@ -35,8 +35,8 @@ class DamagedRecordsTest < Minitest::Test
     who, status, courier = runs = overview
 
     assert_warned_once(runs, file('occupant.json'))
-    assert_equal %w[broken.dev@athena - - unknown unknown unknown 1], row(who.out, 'broken.dev')
-    assert_equal %w[healthy.dev@athena - claude live unknown unknown 1], row(who.out, 'healthy.dev')
+    assert_equal %w[broken.dev@athena - - - unknown unknown unknown 1], row(who.out, 'broken.dev')
+    assert_equal %w[healthy.dev@athena - - claude live unknown unknown 1], row(who.out, 'healthy.dev')
     assert_equal %w[broken.dev@athena - unknown unknown unknown 1 0], row(status.out, 'broken.dev')
     assert_equal "rang healthy.dev@athena: rung\n", courier.out
   end
@@ -46,8 +46,8 @@ class DamagedRecordsTest < Minitest::Test
     who, status, courier = runs = overview
 
     assert_warned_once(runs, file('address.json'))
-    assert_equal %w[broken.dev@athena - - none - - 1], row(who.out, 'broken.dev')
-    assert_equal %w[healthy.dev@athena - claude live unknown unknown 1], row(who.out, 'healthy.dev')
+    assert_equal %w[broken.dev@athena - - - none - - 1], row(who.out, 'broken.dev')
+    assert_equal %w[healthy.dev@athena - - claude live unknown unknown 1], row(who.out, 'healthy.dev')
     assert_equal %w[broken.dev@athena - none - - 1 0], row(status.out, 'broken.dev')
     assert_equal "rang healthy.dev@athena: rung\n", courier.out
   end

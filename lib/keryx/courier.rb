@@ -2,6 +2,7 @@
 
 require_relative 'address'
 require_relative 'bell'
+require_relative 'dialog_notice'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'postman'
@@ -11,7 +12,7 @@ require_relative 'ulid'
 
 module Keryx
   class Courier
-    Round = Data.define(:forwarded, :rung, :overdue, :context, :errors)
+    Round = Data.define(:forwarded, :rung, :overdue, :context, :dialogs, :errors)
     Notice = Data.define(:name, :recipient, :stage, :context, :ceiling)
     NAME = Identity::SYSTEM
     OVERDUE_MARK = 'overdue'
@@ -20,7 +21,36 @@ module Keryx
     # What a join sets and a command that records the session's process again keeps.
     JOIN = %i[harness session_id joined_at ceiling].freeze
 
-    def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:)
+    # The address the courier tells when the session stops at a dialog, and the one who shows: the director spawn
+    # recorded, settled, or nil when spawn recorded none or the session's own address.
+    def self.director(store, roster, name, occupant, host:)
+      director = directed(name, occupant) or return
+      settled(store, roster, Address.from_name(director, host:), host:)
+    end
+
+    # The director spawn recorded, unless it is the session's own address, as when an orchestrator spawned its
+    # successor under its own name.
+    def self.directed(name, occupant)
+      director = occupant&.director or return
+      director unless director.split('/', 2).first == name.split('/', 2).first
+    end
+
+    # A director that join --force displaced is told at its session address until that session leaves, and then at
+    # the address it was displaced from, whose holder took its work.
+    def self.settled(store, roster, address, host:)
+      live = ->(name) { roster.live?(store.reporting { store.occupant(name) }) }
+      address.local?(host) && Postman.session_left(store, address, live) ? address.stable : address
+    end
+
+    # A session that joined the address while the figure was read is not the session the figure belongs to.
+    def self.same_join?(current, occupant)
+      current && JOIN.all? { current.public_send(it) == occupant.public_send(it) }
+    end
+
+    # The join itself, so two joins that share an instant and a ceiling are two.
+    def self.join_of(occupant) = [*JOIN.map { occupant.public_send(it) }, occupant.session].join(' ')
+
+    def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:, herdr:)
       @store = store
       @forwarder = forwarder
       @bell = bell
@@ -29,6 +59,7 @@ module Keryx
       @host = host
       @clock = clock
       @meter = meter
+      @herdr = herdr
     end
 
     def round
@@ -37,7 +68,7 @@ module Keryx
       @errors = []
       @open_requests = nil
       Round.new(forwarded: forward, rung: ring_again(roster), overdue: remind_overdue(roster),
-                context: tell_context(roster), errors: @errors)
+                context: tell_context(roster), dialogs: tell_dialogs(roster), errors: @errors)
     end
 
     private
@@ -82,6 +113,19 @@ module Keryx
       end
     end
 
+    # Only a session that runs in a herdr pane is read, and only when spawn recorded a director for it other than
+    # itself, so the dialogs of a session with none stay with whoever watches its pane.
+    def tell_dialogs(roster)
+      notice = DialogNotice.new(store: @store, herdr: @herdr, postman: @postman, host: @host, clock: @clock,
+                                errors: @errors)
+      roster.entries.filter_map do |entry|
+        next if entry.ended? || !entry.occupant&.herdr?
+
+        director = Courier.director(@store, roster, entry.name, entry.occupant, host: @host)
+        notice.tell(entry.name, entry.occupant, director) if director
+      end
+    end
+
     # Only a session with a ceiling is read, and only while it runs.
     def measured(entry)
       ceiling = entry.occupant&.ceiling
@@ -99,12 +143,7 @@ module Keryx
       [Address.from_name(name, host: @host), director].compact.uniq
     end
 
-    # A director that join --force displaced is told at its session address until that session leaves, and then at
-    # the address it was displaced from, whose holder took its work.
-    def settled(roster, address)
-      live = ->(name) { roster.live?(@store.reporting { @store.occupant(name) }) }
-      address.local?(@host) && Postman.session_left(@store, address, live) ? address.stable : address
-    end
+    def settled(roster, address) = Courier.settled(@store, roster, address, host: @host)
 
     # Only the requests the incarnation lists, so neither the holder nor a displaced session takes the other's work.
     def oldest_request(roster, name)
@@ -157,13 +196,10 @@ module Keryx
       stage == :near && @store.marked?(name, context_mark(occupant, :ceiling, recipient), kind)
     end
 
-    # A session that joined the address while the figure was read is not the session the figure belongs to.
-    def same_join?(current, occupant) = current && JOIN.all? { current.public_send(it) == occupant.public_send(it) }
+    def same_join?(current, occupant) = Courier.same_join?(current, occupant)
 
-    # Keyed on the join itself, so two joins that share an instant and a ceiling are two.
     def context_mark(occupant, stage, recipient)
-      join = [*JOIN.map { occupant.public_send(it) }, occupant.session].join(' ')
-      Ulid.derive(occupant.joined_at, "context #{stage} #{recipient} #{join}")
+      Ulid.derive(occupant.joined_at, "context #{stage} #{recipient} #{Courier.join_of(occupant)}")
     end
 
     # Asked in the post's hold of the occupants lock, and none for a notice no longer due. A ceiling's id sorts after

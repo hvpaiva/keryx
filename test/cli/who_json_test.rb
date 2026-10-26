@@ -36,4 +36,36 @@ class WhoJSONTest < Minitest::Test
     assert_equal [222, 'session-222'], displaced['join'].values_at('pid', 'session_id')
     assert_equal [333, 'session-333'], addresses.fetch('rev-1.dev@athena')['join'].values_at('pid', 'session_id')
   end
+
+  def direct(key, director)
+    path = tmp('state', 'addresses', key, 'occupant.json')
+    File.write(path, JSON.generate(JSON.parse(File.read(path)).merge('director' => director)))
+  end
+
+  def directors = addresses.transform_values { it['director'] }
+
+  def test_a_session_gives_the_director_spawn_recorded_and_the_text_view_shows_it
+    join_claude('orq.dev', 111)
+    join_claude('impl.dev', 222)
+    join_claude('rev-1.dev', 333)
+    session = occupant('orq.dev')['session']
+    direct('impl.dev', 'orq.dev')
+    direct('rev-1.dev', "orq.dev/#{session}")
+    rows = keryx('who').out.lines.map(&:split).to_h { [it[0], it[2]] }
+
+    assert_equal({ 'orq.dev@athena' => nil, 'impl.dev@athena' => 'orq.dev@athena',
+                   'rev-1.dev@athena' => "orq.dev@athena/#{session}" }, directors.except('person.local@athena'))
+    assert_equal %w[- orq.dev@athena], rows.values_at('orq.dev@athena', 'impl.dev@athena')
+  end
+
+  def test_a_director_that_is_the_session_s_own_address_or_retired_here_is_none
+    join_claude('orq.dev', 111)
+    join_claude('impl.dev', 222)
+    Keryx::Store.new(tmp('state')).create_address('gone.dev')
+    direct('orq.dev', 'orq.dev/abcdef')
+    direct('impl.dev', 'gone.dev')
+    Keryx::Store.new(tmp('state')).retire('gone.dev', by: 'person.local', now: NOW)
+
+    assert_equal [nil, nil], directors.values_at('orq.dev@athena', 'impl.dev@athena')
+  end
 end

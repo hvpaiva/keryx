@@ -84,10 +84,22 @@ All notable changes to this project are documented here. The format follows
   help and SECURITY.md that the first prompt is part of the harness's command line, which any
   local process can read, so it must carry no secret.
 - `keryx spawn` quotes a dialog that stops the new session and sends it as a message from keryx to
-  the address spawn runs as, whose bell rings while spawn still waits.
+  the address spawn runs as, whose bell rings while spawn still waits. The message says to answer
+  it with `herdr pane send-keys` when the director's human lets it answer the dialogs of the
+  sessions it directs, except for an answer that grants something, such as trusting a hook,
+  allowing a permission or changing a setting, which still needs that human's word, and otherwise
+  to take it to that human, as the skill does.
 - `keryx spawn --workspace LABEL`, which places the new session in the herdr workspace with that
   label, in a tab of its own or, with `--tab`, in a tab of that workspace with that label, and
   creates the workspace, without taking the focus, when none has the label.
+- A DIRECTOR column in `who`, and `director` in its JSON, with the address `keryx spawn` recorded
+  as the director of the session it started, as the courier tells it, or none when it recorded
+  none, the session's own address or an address retired here.
+- `keryx courier` tells that director when the session's herdr pane shows a dialog, such as a
+  permission or folder trust question, with the pane and the dialog's text, at any time after the
+  join. Each dialog is told once, a new one in the same pane is told again, and so is the same one
+  after a read showed the pane without it; a moved selection or a countdown makes no new dialog,
+  and a menu that says no action is required is told to no one.
 - `keryx spawn` starts every Claude Code session with `--disallowedTools AskUserQuestion`, so a
   spawned session asks its questions through keryx rather than in a dialog that only a person at
   its pane can answer, and `keryx wiring claude` lists the flag among the arguments a launcher adds.

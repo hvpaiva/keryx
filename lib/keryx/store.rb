@@ -223,6 +223,8 @@ module Keryx
       false
     end
 
+    def unmark(name, id, kind) = FileUtils.rm_f(receipt_file(name, id, kind))
+
     # The first value claimed stays, so every process that claims the same id gets the value the first one wrote.
     def claim(name, id, kind, value, &)
       return value if write_once(receipt_file(name, id, kind), value) == :delivered

@@ -485,6 +485,55 @@ only when that read fails, worded as what the pane showed when spawn read it ear
 may no longer show it. A join recorded after that moment counts as too late, however soon spawn
 notices it.
 
+After the join, the courier takes over telling the director about dialogs (`DialogNotice`). Each
+round reads, with the same `herdr pane read --source visible`, the pane of every running session
+whose record names a director other than the session's own address, one read per such session and
+none for the others, since an orchestrator that spawned its successor under its own name has no one
+else to tell. A director is a name with no host, so it is always on the session's machine, and one
+recorded with a session address whose session left is told at the address that session held, as the
+context notice is. A read the bell's rule takes for a dialog is quoted from the last box top or rule
+with the dialog below it, as spawn's quote is, or else from below the last composer, since the
+command herdr typed no longer shows and a dialog takes the composer's place; a quote that says no
+action is required, as Codex's menu while it gives a request extra thought does, is a menu that
+closes by itself and is told to no one. The message from keryx to the director names the session and
+the pane, quotes the dialog and says to answer it with `herdr pane send-keys` if the director's
+human lets it answer the dialogs of the sessions it directs, except for an answer that grants
+something, such as trusting a hook, allowing a permission or changing a setting, which still needs
+that human's word, and otherwise to take it to that human.
+Nothing goes to the session itself, which the dialog stops.
+
+A dialog is told once. Its key is a SHA-256 of the quote with the selection marker taken off each
+line and the time on a countdown line replaced, so a moved selection or a dialog that answers itself
+after a count makes no new one. `receipts/J.dialog-shown` in the session's mailbox, where J derives
+from the join and the director as the context notice's mark does, holds the key of the dialog last
+told and the id its notice took, and `receipts/ID.dialog` marks the notice once it is posted. Each
+round reads the record before the pane, and every change to the record is made in a hold of the
+occupants lock, so a hold that finds the record other than the round read it knows that the round's
+read of the pane may be older than the change; it changes nothing, and the next round reads both
+again. A round whose record holds the key and its mark does nothing. Otherwise the post claims in
+its hold of the occupants lock. It reads the occupant again and posts nothing for another join or
+for a record that changed, so of two couriers that found the dialog untold together only the first
+to claim posts it. Else it gives back the id the record holds for the same key, so a courier that
+stopped between its post and its mark leaves one copy, or writes a fresh id over the record of
+another dialog or one that does not parse, which is a problem and an error of the round. Only the
+courier that writes the mark reports the notice. A read with no obstacle at all removes the record,
+taking the lock only when the round found a record before reading the pane and removing it only when
+the hold finds it as the round read it, so the same dialog shown again later, such as the same
+permission question for a second command, is told again. A pane herdr does not read, a screen too
+narrow to tell and a queued message being edited tell nothing and keep the record, since none of
+them shows that the dialog is gone. A director retired here or with no address here takes no mail,
+so the dialog counts as told and the courier that marks it says once that it did not tell it, while
+a failure that passes, such as a busy lock or a full disk, is an error of each round it happens in.
+Three costs remain. A round that read no record and then the dialog, and claims only after another
+courier told the dialog and a third removed its record on a read with no dialog, finds no record, as
+it read, and tells the dialog a second time. A screen whose dialog text keeps changing in a way the
+key does not normalize is told at each change, and every notice shows in the courier's report line.
+A screen with no composer and no dialog, such as Claude Code's transcript view, is read whole, so
+words in it that match the bell's phrases are told as a dialog. The quote, which can hold a
+command's arguments, goes into the director's mailbox, as spawn's quote does. `keryx who` shows the
+director the courier tells for each session, or none, so a person watching the panes can leave to
+keryx the sessions that have one.
+
 ## The stop hook
 
 Claude Code, Codex and Cursor run `keryx hook stop` when a session is about to end its turn.
@@ -586,7 +635,8 @@ a notice's own claim is damaged, the courier writes the fresh id over it in the 
 next courier reads that id back and the store keeps one copy. A notice posted under the damaged id and never marked
 then goes out twice, which costs less than a notice held back for good. Each damage is an error of the round and a
 problem, and `keryx status` reports a damaged claim until a courier writes over it or someone removes it. The bell
-and the forward happen after the hold.
+and the forward happen after the hold. The dialog notice, under "Starting a session", claims its id in the same hold the same way, and
+writes over its record of the dialog last told instead of keeping the first value.
 
 A message a session sends carries its figure in an optional `context` field, measured as the message is
 composed and only when the sending command runs in the session that holds the address. A build that does not

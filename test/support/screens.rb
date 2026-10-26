@@ -46,5 +46,10 @@ module Screens
   # request extra thought, was transcribed by hand from a screenshot, not captured.
   def self.session(name) = unescaped(File.read(File.join(SESSIONS, "#{name}.txt")))
 
+  # Dialogs read from real Claude Code and Codex panes on 2026-10-26 with their rules shortened, copied from Iris's
+  # test/support/real_dialogs.rb in ~/dev/personal/inbox, at branch ui/attention 39800b4 (commit 01438b0), which is not
+  # on its main: claude-write, claude-review, codex-approval and codex-hooks.
+  def self.real(name) = unescaped(File.read(File.join(CAPTURES, 'real', "#{name}.txt")))
+
   def self.unescaped(text) = text.gsub(/\\u(\h{4})/) { ::Regexp.last_match(1).hex.chr('UTF-8') }
 end

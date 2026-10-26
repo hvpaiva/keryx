@@ -12,6 +12,8 @@ require_relative 'ulid'
 module Keryx
   class Postman
     Posted = Data.define(:message, :bell, :forward)
+    # Mail to an address this machine does not have and that is not the person's, which the first message makes.
+    class NoAddress < Error; end
     SESSION_LEFT = 'mail to %<address>s is refused: its session left; write to %<stable>s'
 
     def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
@@ -167,7 +169,7 @@ module Keryx
       raise Error, format(Address::TEAMLESS, recipient) if recipient.flat?
       return unless recipient.local?(@host)
       raise Error, format(Retirement::RETIRED, recipient) if @store.retired?(recipient.key)
-      raise Error, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}" unless
+      raise NoAddress, "no address #{recipient}; 'keryx who' lists the addresses on #{@host}" unless
         @store.address?(recipient.key) || recipient.key == @person
 
       left = Postman.session_left(@store, recipient, @live)
