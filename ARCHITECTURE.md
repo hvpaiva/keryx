@@ -220,8 +220,10 @@ stable one to give instead.
 `Postman` composes the message, checks the recipient, and delivers it before ringing anything, so
 the message is safe whatever happens to the bell.
 
-`Bell` announces it to the session holding the address. The bell text names the sender, the kind
-and the id, never the body. It tries two ways, in order.
+`Bell` announces it to the session holding the address, never with the body. The bell for one
+message names its sender, its kind and its id; the one that `keryx ring` or the courier rings again
+for several unread messages gives how many there are and the kind and sender of the latest, and
+points to `keryx inbox`. It tries two ways, in order.
 
 1. the harness's own channel, the Claude Code peer socket (one JSON line per connection) or
    `codex queue --thread ID`;
@@ -551,8 +553,9 @@ know the field ignores it, and one that cannot read a stamp delivers the message
 parses the global options, finds the command, parses its options with `OptionParser`, checks the
 number of arguments and calls it. A command that passes arguments to another program, as spawn does,
 gets everything after the first `--` unparsed. Every error becomes a message on standard error and
-one of the exit statuses `keryx --help` lists, never a backtrace. Help lists the commands of each
-section in the order of `Commands::ALL`.
+one of the exit statuses `keryx --help` lists. An unexpected error, any but a `Keryx::Error`,
+exits 1 with its class and message, and with its backtrace only when `KERYX_DEBUG` is set. Help
+lists the commands of each section in the order of `Commands::ALL`.
 
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
