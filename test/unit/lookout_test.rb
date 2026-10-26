@@ -20,6 +20,8 @@ class LookoutTest < Minitest::Test
 
   def codex(session) = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'codex', status: 'unknown', session:)
 
+  def claude(session) = Keryx::Herdr::Agent.new(pane: 'w1:p2', kind: 'claude', status: 'working', session:)
+
   def test_a_recorded_process_is_live_while_it_runs_with_its_start_time
     processes.alive << 7
 
@@ -61,5 +63,38 @@ class LookoutTest < Minitest::Test
 
     assert_equal :live, presence(harness: 'codex', session_id: 't-1', **in_pane(codex('t-2')))
     assert_equal :unknown, presence(harness: 'codex', session_id: 't-1')
+  end
+
+  def test_a_session_relaunched_in_its_pane_stays_live_after_its_process_ended
+    relaunched = { harness: 'claude', session_id: 's-1', pid: 7, started: 'started 7' }
+
+    assert_equal :gone, presence(**relaunched)
+    assert_equal :live, presence(**relaunched, **in_pane(claude('s-1')))
+    processes.alive << 7
+    processes.starts[7] = 'started later'
+
+    assert_equal :live, presence(**relaunched, **in_pane(claude('s-1')))
+  end
+
+  def test_an_ended_process_whose_pane_shows_nothing_or_another_session_is_gone
+    ended = { harness: 'claude', session_id: 's-1', pid: 7, started: 'started 7' }
+
+    assert_equal :gone, presence(**ended, **in_pane(nil))
+    assert_equal :gone, presence(**ended, **in_pane(claude('s-2')))
+    assert_equal :gone, presence(**ended, **in_pane(claude(nil)))
+    assert_equal :gone, presence(**ended, **in_pane(codex('s-1')))
+    assert_equal :gone, presence(**ended.except(:session_id), session_id: nil, **in_pane(claude(nil)))
+    herdr.unanswered << [SOCKET, 'w1:p2']
+
+    assert_equal :gone, presence(**ended, **in_pane(claude('s-1')))
+  end
+
+  def test_a_listing_the_caller_holds_answers_for_the_pane_instead_of_herdr
+    occupant = build_occupant(harness: 'claude', session_id: 's-1', pid: 7, started: 'started 7', **in_pane(nil))
+    lookout = Keryx::Lookout.new(herdr:, processes:)
+
+    assert_equal :live, lookout.presence(occupant) { claude('s-1') }
+    assert_equal :gone, lookout.presence(occupant) { Keryx::Herdr::NONE }
+    assert_equal :gone, lookout.presence(occupant)
   end
 end

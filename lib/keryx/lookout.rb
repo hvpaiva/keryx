@@ -34,9 +34,12 @@ module Keryx
       by_process(occupant, agent)
     end
 
-    # Only what herdr or ps showed counts as gone; a session keryx cannot see at all is unknown.
-    def presence(occupant)
-      return by_pid(occupant) if occupant.pid
+    # Only what herdr or ps showed counts as gone; a session keryx cannot see at all is unknown. A harness relaunched in
+    # its pane runs the same session under a new process, so a recorded process that ended leaves the session live
+    # while herdr shows it there. A caller that already listed the agents of the pane's herdr gives the pane's agent
+    # in a block.
+    def presence(occupant, &)
+      return by_pid(occupant) == :live || relaunched?(occupant, &) ? :live : :gone if occupant.pid
       return :unknown unless occupant.herdr?
 
       in_pane(occupant).verdict == :elsewhere ? :gone : :live
@@ -82,6 +85,15 @@ module Keryx
 
       started = @processes.started(occupant.pid)
       started.nil? || started == occupant.started ? :live : :gone
+    end
+
+    # Only herdr's session id shows it, since the pane's process is a new one; a herdr that does not answer leaves the
+    # session gone, as its ended process showed.
+    def relaunched?(occupant)
+      return false unless occupant.herdr? && occupant.session_id
+
+      agent = block_given? ? yield(occupant) : @herdr.look(occupant.herdr_socket, occupant.herdr_pane)
+      agent.is_a?(Herdr::Agent) && agent.kind == occupant.harness && agent.session == occupant.session_id
     end
 
     def label(occupant) = LABELS.fetch(occupant.harness, 'session')

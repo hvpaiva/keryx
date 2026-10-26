@@ -37,14 +37,14 @@ module Keryx
     def session(occupant)
       return 'none' unless occupant
 
-      presence = @lookout.presence(occupant)
+      presence = presence_of(occupant)
       return presence.to_s unless presence == :live
 
       agent = occupant.herdr? && agents_on(occupant.herdr_socket)[occupant.herdr_pane]
       agent && agent.kind == occupant.harness && ACTIVITY.include?(agent.status) ? agent.status : 'live'
     end
 
-    def live?(occupant) = !occupant.nil? && @lookout.presence(occupant) == :live
+    def live?(occupant) = !occupant.nil? && presence_of(occupant) == :live
 
     # A request its recipient wrote a message in the thread of stays open, in the state taken.
     def open_requests
@@ -82,6 +82,12 @@ module Keryx
         occupant = @store.occupant(name)
         { occupant:, session: session(occupant) }
       end
+    end
+
+    # A pane whose recorded process ended is looked up in the listing of its herdr that a live session's activity takes
+    # anyway, so judging it asks herdr once per socket at most.
+    def presence_of(occupant)
+      @lookout.presence(occupant) { agents_on(it.herdr_socket).fetch(it.herdr_pane, Herdr::NONE) }
     end
 
     def agents_on(socket) = @agents[socket] ||= @herdr.agents(socket).to_h { [it.pane, it] }
