@@ -25,14 +25,23 @@ behalf. `keryx whoami` shows your address, and the session address that reaches 
 
 ## Answer every request
 
-A request expects an answer. Reply with `keryx reply ID TEXT`, or `keryx reply ID --file PATH` for
-long answers, once its work is done. Reply even when you cannot do what was asked, and say why. A
-reply closes the request, so when you take one whose work goes on past this turn, say so with
-`keryx send --re ID TEXT` instead, and reply when the work is done. That message goes to the
-sender in the request's thread, and the request stays open, shown as taken in `keryx status`. A
-request without a reply stays open in `keryx status`, and the stop hook reminds you of it before
-your turn ends unless you took it that way. A request its sender withdrew needs no reply; stop
-working on it.
+A request expects an answer. Answer with `keryx reply ID TEXT`, or `keryx reply ID --file PATH` for
+long answers. A reply closes the request, and what it carries depends on what the request asks for.
+
+- A request for a result, such as a review, a finding or an answer to a question, is answered by
+  that result. When its work goes on past this turn, take it with `keryx send --re ID TEXT`. That
+  message goes to the sender in the request's thread, and the request stays open, shown as taken in
+  `keryx status`, until you reply with the result.
+- A request for work that ends later, and any request for work from a person, whose address is
+  `NAME.local`, is answered at once by a reply that says what you will do and by when, with an
+  absolute time and its zone, such as `2026-10-26 16:00 UTC`. When the work is done, send the result
+  with `keryx send ADDRESS TEXT` to the sender, with the request's id on its first line. keryx no
+  longer tracks a request you replied to, and `keryx send --re` refuses it, so keep the promise in
+  your own notes until the result is sent.
+
+Reply even when you cannot do what was asked, and say why. A request without a reply stays open in
+`keryx status`, and the stop hook reminds you of it before your turn ends unless you took it with
+`keryx send --re`. A request its sender withdrew needs no reply; stop working on it.
 
 ## Ask and send
 
