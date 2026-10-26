@@ -50,6 +50,28 @@ class SpawnedTest < Minitest::Test
     assert_equal [written.ino, written.mtime], [now.ino, now.mtime]
   end
 
+  # spawn writes outside the occupants lock, so its record can land between the read and the write of one that does not
+  # replace.
+  def test_a_record_written_after_the_read_is_kept_and_given_back_without_replace
+    other = spawned.with(harness: 'codex', herdr_pane: 'w1:p4')
+    reads = 0
+    store.define_singleton_method(:spawned) do |name|
+      super(name).tap { record_spawned(name, other) if (reads += 1) == 1 }
+    end
+
+    assert_equal other, store.record_spawned('impl.dev', spawned, replace: false)
+    assert_equal other, Keryx::Store.new(tmp('state')).spawned('impl.dev')
+  end
+
+  def test_a_damaged_record_is_written_over_without_replace
+    damaged = tmp('state', 'addresses', 'impl.dev', 'spawned.json')
+    store
+    File.write(damaged, '{')
+
+    assert_nil store.record_spawned('impl.dev', spawned, replace: false)
+    assert_equal spawned, store.spawned('impl.dev')
+  end
+
   # spawn writes with no keyword, over whatever waits, and a caller passing replace: false keeps a different record.
   def test_a_different_record_is_kept_only_when_not_replaced_and_given_back_either_way
     other = spawned.with(herdr_pane: 'w1:p3')

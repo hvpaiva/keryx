@@ -11,7 +11,7 @@ require_relative 'occupant'
 require_relative 'outbox'
 require_relative 'incarnations'
 require_relative 'retirement'
-require_relative 'spawned'
+require_relative 'spawned_records'
 
 module Keryx
   # The record names its member and team apart.
@@ -34,6 +34,7 @@ module Keryx
     include Files
     include Incarnations
     include Retirement
+    include SpawnedRecords
 
     class Busy < Error; end
     class Damaged < Error; end
@@ -132,25 +133,6 @@ module Keryx
     end
 
     def unbind(name) = FileUtils.rm_f(occupant_path(name))
-
-    # What spawn or expect recorded about the session they expect, until a session joins the address. A damaged record
-    # is none, and so is one keryx cannot open, since the join that reads it removes it.
-    def spawned(name)
-      Spawned.from_record(read_json(spawned_file(name)))
-    rescue Error, SystemCallError
-      nil
-    end
-
-    # The one writer of the record, for spawn and expect. It returns the record that waited, and leaves it as it is when
-    # it is the same, or when it differs and replace is false.
-    def record_spawned(name, spawned, replace: true)
-      require_address(name)
-      waiting = self.spawned(name)
-      write_atomic(spawned_file(name), JSON.generate(spawned.record)) unless waiting == spawned || (waiting && !replace)
-      waiting
-    end
-
-    def forget_spawned(name) = FileUtils.rm_f(spawned_file(name))
 
     # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
     def with_occupants_lock(within: LOCK_SECONDS)
@@ -299,8 +281,6 @@ module Keryx
     def address_file(name) = File.join(box(name), 'address.json')
 
     def occupant_file(name) = File.join(box(name), 'occupant.json')
-
-    def spawned_file(name) = File.join(box(name), 'spawned.json')
 
     def receipt_file(name, id, kind) = File.join(box(name), 'receipts', "#{id}.#{kind}")
 

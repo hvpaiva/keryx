@@ -623,10 +623,12 @@ own starts: the launcher opens the pane, runs expect with the harness, the pane 
 harness. expect asks herdr for the pane first, so a record never names a pane that server lacks, and then works under
 the occupants lock, which spawn avoids for its timeout and expect, with no timeout to keep, can wait for, so a join
 comes either before its checks or after its record. It refuses what spawn refuses, a retired address and one a live
-session holds, and keeps a different record that waits unless `--replace` is given, where spawn writes over it. The
-same record again is left as it is, and so is a session that joined from that pane with that director and took the
-record; both succeed, so a launcher that resumes an opening can run expect again. The role and the ceiling come from
-the session's own join. A command that records the session's process again keeps
+session holds, and keeps a different record that waits unless `--replace` is given, where spawn writes over it.
+Without `--replace` expect links its record into place only where none is, so a record spawn writes without the lock
+between expect's read and its write is kept, and expect refuses it as it refuses any different record. The same
+record again is left as it is, and so is a session that joined from that pane with that director and took the record;
+both succeed, so a launcher that resumes an opening can run expect again. The role and the ceiling come from the
+session's own join. A command that records the session's process again keeps
 the ceiling and the director, and a new join starts without them.
 
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
