@@ -11,7 +11,7 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 ```text
 addresses/KEY/address.json     the address: its role and when it was created
 addresses/KEY/occupant.json    the session holding it, while one does
-addresses/KEY/spawned.json     the director, harness and herdr pane of the session spawn started, until a session joins
+addresses/KEY/spawned.json     the director, harness and herdr pane spawn or expect recorded, until a session joins
 addresses/KEY/retired.json     when the address was retired and by which address, and when keryx purge removed its
                                mail and by which, until join --revive
 addresses/KEY/outgoing/        sessions join --force displaced, one SESSION.json each, while they stay bound
@@ -638,7 +638,21 @@ come between the write and the join, and then who shows the record beside that s
 record that does not parse, lacks a field or cannot be opened is none, to join and to who, and the next join removes
 it. `who -o json` gives the record as `spawned` on the address's own entry, never a session address's, so a launcher
 finds the pane of a session that a dialog stops before its join, whether spawn still waits or gave up. A spawn with
-no address to run as removes what an earlier spawn left. A command that records the session's process again keeps
+no address to run as removes what an earlier spawn left.
+
+`keryx expect` writes the same record, through the same `Store#record_spawned`, for a session that a launcher of its
+own starts: the launcher opens the pane, runs expect with the harness, the pane and the socket, and then starts the
+harness. expect asks herdr for the pane first, so a record never names a pane that server lacks, and then works under
+the occupants lock, which spawn avoids for its timeout and expect, with no timeout to keep, can wait for, so a join
+comes either before its checks or after its record. It refuses what spawn refuses, a retired address and one a live
+session holds, and keeps a different record that waits unless `--replace` is given, where spawn writes over it.
+Without `--replace` expect links its record into place only where none is, so a record spawn writes without the lock
+between expect's read and its write is kept, and expect refuses it as it refuses any different record. The same
+record again is left as it is, and so is a session that joined from that pane with that director and took the record;
+both succeed, so a launcher that resumes an opening can run expect again. expect records the socket in one lexical
+form, without `.`, `..` or doubled slashes and with no link followed, and a join compares the record's socket with the
+session's `HERDR_SOCKET_PATH` in that form, so one socket spelled two ways is the same socket. The role and the
+ceiling come from the session's own join. A command that records the session's process again keeps
 the ceiling and the director, and a new join starts without them.
 
 In each round `Courier` reads the figure of every running session that has a ceiling. Once the context reaches 80%
