@@ -24,7 +24,8 @@ module Keryx
                                     'stays open for its sender, and the withdrawal of that request still reaches ' \
                                     'it, from here or from another machine, so its sender stops waiting. Its ' \
                                     'files stay where they were, under ' \
-                                    'addresses/MEMBER.TEAM in the keryx state directory, and ' \
+                                    'addresses/MEMBER.TEAM in the keryx state directory, until keryx purge removes ' \
+                                    'its mail, and ' \
                                     "'keryx join MEMBER.TEAM --revive' " \
                                     "brings it back with its mailbox as it was.\n\n" \
                                     'An address is retired on the machine that has it, since only that machine ' \

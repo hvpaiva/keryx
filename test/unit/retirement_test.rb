@@ -56,4 +56,21 @@ class RetirementTest < Minitest::Test
     assert_empty store.current_names
     assert_match(/retired.json is damaged/, assert_raises(Keryx::Error) { store.retired('rev-1.dev') }.message)
   end
+
+  def test_the_purge_mark_reads_back_and_is_damaged_when_half_of_it_is_missing
+    store.create_address('rev-1.dev')
+    store.retire('rev-1.dev', by: 'orq.dev@athena', now: NOW)
+    record = store.retired('rev-1.dev').with(purged_at: NOW + 60, purged_by: 'person.local@athena')
+    path = tmp('state', 'addresses', 'rev-1.dev', 'retired.json')
+    File.write(path, JSON.generate(record.record))
+
+    assert_equal record, store.retired('rev-1.dev')
+    assert_predicate record, :purged?
+    assert_equal '2026-10-22 17:01:00 UTC by person.local@athena', record.purge_stamp
+    [{ 'purged_by' => nil }, { 'purged_at' => nil }, { 'purged_by' => 'nobody' }].each do |change|
+      File.write(path, JSON.generate(record.record.merge(change).compact))
+
+      assert_match(/retired.json is damaged/, assert_raises(Keryx::Error) { store.retired('rev-1.dev') }.message)
+    end
+  end
 end

@@ -28,6 +28,10 @@ module Keryx
                                      'command that takes MEMBER@HOST and the one that reads that folder, by name ' \
                                      'and without changing it, its mail of message format 1 included. An address ' \
                                      "on another machine is read there.\n\n" \
+                                     'Once keryx purge removed the mail of an address, history ADDRESS lists only ' \
+                                     'the answers to the requests it sent, which purge keeps, and says when its mail ' \
+                                     'was purged, so whatever shows that history, such as a page, shows less, with ' \
+                                     "no error.\n\n" \
                                      'Each message lists with its STATE, unread or read, as keryx inbox --all lists ' \
                                      'it, and with -o json it prints an array with one object per message, the ' \
                                      'message with state, as keryx inbox --all -o json does. ' \
@@ -101,9 +105,23 @@ module Keryx
         stored = archive.held(address.key)
         withdrawn = Store.withdrawn(stored.map(&:message), stored.map(&:message))
         return print_json(CLI::MailboxView.records(stored, withdrawn)) if json?
-        return terminal.puts("No messages for #{address}.") if stored.empty?
 
-        terminal.puts(CLI::MailboxView.table(terminal, stored, withdrawn, app.now, state: true))
+        if stored.empty?
+          terminal.puts("No messages for #{address}.")
+        else
+          terminal.puts(CLI::MailboxView.table(terminal, stored, withdrawn, app.now, state: true))
+        end
+        purged(address)
+      end
+
+      def purged(address)
+        return if address.flat?
+
+        record = app.store.reporting { app.store.retired(address.key) }
+        return unless record&.purged?
+
+        terminal.puts("#{address} was purged at #{record.purge_stamp}; history lists only the answers to the " \
+                      'requests it sent, which purge keeps.')
       end
     end
   end

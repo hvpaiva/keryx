@@ -4,6 +4,7 @@ require_relative 'commands/join'
 require_relative 'commands/spawn'
 require_relative 'commands/leave'
 require_relative 'commands/retire'
+require_relative 'commands/purge'
 require_relative 'commands/whoami'
 require_relative 'commands/who'
 require_relative 'commands/send'
@@ -29,7 +30,7 @@ require_relative 'commands/receive'
 
 module Keryx
   module Commands
-    ALL = [Join, Spawn, Leave, Retire, Whoami, Who, Send, Ask, Inbox, Sent, History, Read, Reply, Wait, Withdraw,
-           Status, Ring, Courier, Hook, Wiring, Skill, Completion, Version, Help, Complete, Receive].freeze
+    ALL = [Join, Spawn, Leave, Retire, Purge, Whoami, Who, Send, Ask, Inbox, Sent, History, Read, Reply, Wait,
+           Withdraw, Status, Ring, Courier, Hook, Wiring, Skill, Completion, Version, Help, Complete, Receive].freeze
   end
 end

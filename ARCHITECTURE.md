@@ -12,10 +12,11 @@ All state lives under one directory, `$KERYX_HOME` or `$XDG_STATE_HOME/keryx`.
 addresses/KEY/address.json     the address: its role and when it was created
 addresses/KEY/occupant.json    the session holding it, while one does
 addresses/KEY/spawned.json     the director, harness and herdr pane of the session spawn started, until a session joins
-addresses/KEY/retired.json     when the address was retired and by which address, until join --revive
+addresses/KEY/retired.json     when the address was retired and by which address, and when keryx purge removed its
+                               mail and by which, until join --revive
 addresses/KEY/outgoing/        sessions join --force displaced, one SESSION.json each, while they stay bound
 addresses/KEY/tmp/             messages being written
-addresses/KEY/mail/            every message, under its id, never moved
+addresses/KEY/mail/            every message, under its id, never moved; keryx purge removes all but the answers it keeps
 addresses/KEY/read/            a hard link for each message read
 addresses/KEY/receipts/        bell results and hook reminders, one file per message, and context notice marks
 occupants.lock                 locked while a command changes which session holds an address
@@ -40,7 +41,7 @@ ran; it stays until that session leaves, or until a join finds it no longer runn
 A store that a keryx from before team names left keeps an address in a folder named `NAME`, with no
 dot, whose `address.json` has a `name`, and mail between two such addresses in format 1. keryx takes
 only `MEMBER.TEAM` as a key, so such a folder still leaves `who --all`, `status` and completion, and
-it is never moved or deleted. `keryx history NAME@HOST` is the one command that reads it, by name and
+it is never moved or deleted, and `keryx purge` refuses it. `keryx history NAME@HOST` is the one command that reads it, by name and
 read-only, format 1 included. `Archive` reads it apart from `Store`, whose paths refuse a name with
 no dot. It checks NAME against `Address::NAME`, creates, moves and deletes nothing there, and alone
 passes `Message.from_json` the keyword that takes format 1. Mail from
@@ -87,7 +88,7 @@ so a directory listing is already in order.
 An address is retired while `retired.json` stands in its directory, whatever the file holds, so a
 record that cannot be read never brings an address back. `Store#address_names` still lists a retired
 address, because its mailbox holds the replies to the requests it sent, and `Store#all_messages`
-must see them to count those requests answered. `Store#current_names` leaves it out, and the roster,
+must see them to count those requests answered. `keryx purge` keeps those replies for the same reason. `Store#current_names` leaves it out, and the roster,
 and through it who, status and the courier's rounds, walks that list, as do ring and completion.
 
 `Store` and `Outbox` are the only code that touches these paths, and they validate every address
@@ -195,6 +196,27 @@ then freed the name of an address no session held. A retire can still land after
 spawn carries no request, since then nothing holds the address while the harness starts. The
 session's join is refused, and spawn stops at its next look for the join, saying the session runs
 with no address, rather than wait for it until its timeout.
+
+`keryx purge ADDRESS` removes the mail of a retired address and keeps its name retired. It takes a
+team address on this machine only, and makes its checks, writes its mark and removes the files in one
+hold of the occupants lock, so a `join --revive` lands wholly before it, and purge refuses an address
+that is not retired, or wholly after, and the revive says when the mail was purged. In that hold it
+refuses an address folder that is a symbolic link, since removing the link would take the tombstone
+with it and free the name, refuses while an open request waits on the address either way, and while
+a message from the address waits in `outbox/HOST/new/`. From the same read of every mailbox it finds
+the messages of the address that settle a request held outside it, here or in the outbox, which are
+the answers to the requests it sent: without them those requests would read open again, so purge
+keeps them, with their read marks. It then adds `purged_at` and `purged_by` to `retired.json`, before
+it removes anything, and empties `tmp/`, `receipts/`, `read/` and `mail/` in that order. Each folder
+and each entry in it is read with lstat: a link goes and its target stays, and `FileUtils.rm_r`
+removes a link inside a folder without following it. `address.json` and `retired.json` stay, so mail
+to the address is still refused as to a retired one. A purge cut short leaves the mark and part of
+the mail; every reader treats the address as purged, and the next purge, which keeps the first mark,
+removes the rest. A revive before that keeps what is left. Delivery takes no lock against purge, as
+against retire, so a message whose sender checked the address before it was retired can still land
+in the purged folder after the purge; as with retire, a request among such messages shows open for
+its sender, `keryx withdraw` settles it, and a second purge removes it. A process of the same user
+that swaps a folder for a link between the lstat and the removal is outside SECURITY.md's model.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
 make, and then fails, so a stopped holder cannot block it for good. spawn waits as long, but not

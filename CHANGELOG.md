@@ -70,6 +70,12 @@ All notable changes to this project are documented here. The format follows
   on. It leaves `who` and `status`, new mail to it is refused from this machine and from others,
   though the withdrawal of a request that reached it as it was retired still settles that request,
   and its files stay until `keryx join --revive` takes it back.
+- `keryx purge`, which removes the mail of a retired address for good and keeps its name retired,
+  with when and by which address in `retired.json`. It keeps the answers to the requests the
+  address sent, so those requests stay answered, refuses while a request waits on the address or a
+  message from it waits for the courier, removes a symbolic link in the address's folder without
+  following it, and with `--dry-run` says what it would remove. `join --revive` takes a purged
+  address back and says when its mail was purged.
 - A short view in `who` and `status`, which leave out the addresses nobody holds and nobody writes
   to and say how many they left out, with `--all` to list every address.
 - The context each session uses in `who` and `status`, and the sender's on each message it sends,

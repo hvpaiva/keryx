@@ -47,8 +47,7 @@ module Keryx
     def live?(occupant) = !occupant.nil? && presence_of(occupant) == :live
 
     # A request its recipient wrote a message in the thread of stays open, in the state taken.
-    def open_requests
-      all = @store.all_messages
+    def open_requests(all = @store.all_messages)
       responses = all.map { it.last.message }.select(&:in_reply_to).group_by(&:in_reply_to)
       all.filter_map do |holder, stored|
         request = stored.message

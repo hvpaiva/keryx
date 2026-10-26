@@ -11,7 +11,8 @@ module Keryx
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/
       POSITIONALS = { 'send' => :addresses, 'ask' => :addresses, 'join' => :addresses, 'ring' => :addresses,
-                      'retire' => :addresses, 'history' => :retired, 'read' => :my_messages, 'reply' => :my_messages,
+                      'retire' => :addresses, 'purge' => :retired, 'history' => :retired, 'read' => :my_messages,
+                      'reply' => :my_messages,
                       'wait' => :my_open_requests, 'withdraw' => :my_open_requests,
                       'completion' => :shells, 'hook' => :events, 'wiring' => :harnesses,
                       'help' => :command_names }.freeze
