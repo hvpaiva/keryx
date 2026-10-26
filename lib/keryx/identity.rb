@@ -71,11 +71,17 @@ module Keryx
     def refuse_reserved(address)
       case address.team
       when Address::LOCAL
-        raise Error, "an agent session cannot act as #{address}, a person at a terminal; a plain terminal acts as " \
-                     'it with no --as'
+        raise Error, "an agent session cannot act as #{address}, a person at a terminal; #{terminal_way(address)}"
       when Address::SYSTEM
         raise Error, "an agent session cannot act as #{address}, keryx's own services"
       end
+    end
+
+    # A plain terminal acts as the address named after USER on its own, and as another person's only when told to.
+    def terminal_way(address)
+      return 'a plain terminal acts as it with no --as' if address.key == human_name
+
+      'only a plain terminal acts as it, with --as'
     end
 
     # The holder's session acts as the address; a displaced one acts as its session address.

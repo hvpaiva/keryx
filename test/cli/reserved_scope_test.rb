@@ -72,6 +72,15 @@ class ReservedScopeTest < Minitest::Test
     assert_empty store.unread('rev-1.dev')
   end
 
+  def test_the_refusal_names_the_way_out_for_this_terminals_address_and_for_another_persons
+    rev = join_claude('rev-1.dev', 111).merge('USER' => 'person')
+    other = 'error: an agent session cannot act as other.local@athena, a person at a terminal; only a plain ' \
+            "terminal acts as it, with --as\n"
+
+    assert_equal [1, AS_PERSON], outcome('--as', 'person.local', 'whoami', env: rev)
+    assert_equal [1, other], outcome('--as', 'other.local', 'whoami', env: rev)
+  end
+
   def test_an_agent_herdr_reports_in_a_pane_without_harness_variables_is_refused_too
     store.create_address('person.local', role: 'human')
     herdr.put(SOCKET, 'w1:p1', agent('w1:p1', 'claude', 'idle'))
