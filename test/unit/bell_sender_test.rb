@@ -99,4 +99,34 @@ class BellSenderTest < Minitest::Test
     assert_equal '[keryx] 2 unread messages for rev-1.dev@athena, the latest a reply from hvpaiva.local@athena, a ' \
                  "person at a terminal. Run 'keryx inbox' to list them.", typed_line(earlier, latest)
   end
+
+  # The channel a bell for MESSAGE took to OCCUPANT at rev-1.dev, and every line that reached a channel. The socket
+  # /tmp/gone.sock refuses, and so does the thread named by GONE_THREAD.
+  def carried(message, occupant, herdr: FakeHerdr.new, gone_thread: nil)
+    sockets = CLIHelpers::FakeClaudeSockets.new.tap { it.gone << '/tmp/gone.sock' }
+    queue.queued.clear
+    queue.gone.replace([gone_thread].compact)
+    store.bind('rev-1.dev', occupant)
+    result = bell(herdr:, claude_socket: sockets).ring('rev-1.dev', [message])
+    [result.channel, [*sockets.posts, *queue.queued, *herdr.prompts].map(&:last)]
+  end
+
+  def test_every_channel_and_its_fallback_carries_the_same_line
+    message = request_from('hvpaiva.local@athena')
+    store.create_address('rev-1.dev')
+    store.deliver('rev-1.dev', message)
+    line = '[keryx] New request for rev-1.dev@athena from hvpaiva.local@athena, a person at a terminal. ' \
+           "Run 'keryx read #{message.id}' to open it."
+    codex = pane_occupant(harness: 'codex', session_id: 'thread-1')
+    codex_pane = -> { herdr_with('working', kind: 'codex', session: 'thread-1') }
+
+    assert_equal({ claude: ['claude', [line]], claude_to_herdr: ['herdr', [line]], codex: ['codex', [line]],
+                   codex_to_herdr: ['herdr', [line]], herdr: ['herdr', [line]] },
+                 { claude: carried(message, build_occupant(claude_socket: '/tmp/cc.sock')),
+                   claude_to_herdr: carried(message, pane_occupant(harness: 'claude', claude_socket: '/tmp/gone.sock'),
+                                            herdr: herdr_with('idle', kind: 'claude')),
+                   codex: carried(message, codex, herdr: codex_pane.call),
+                   codex_to_herdr: carried(message, codex, herdr: codex_pane.call, gone_thread: 'thread-1'),
+                   herdr: carried(message, pane_occupant, herdr: herdr_with('idle')) })
+  end
 end
