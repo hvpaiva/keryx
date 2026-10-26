@@ -21,6 +21,9 @@ All notable changes to this project are documented here. The format follows
   address acts as no address until it joins a team one. `--as` and `KERYX_AS` refuse an address in
   a reserved scope in every command that acts as an address when an agent session runs it, so only a
   plain terminal, or a program run from one, acts as the person and marks the person's mail read.
+  These are refusals at keryx's own commands and not a guarantee: a process of the same user can
+  strip the variables that tell an agent apart or write the mailbox files directly, as
+  [SECURITY.md](SECURITY.md#what-keryx-protects-and-what-it-does-not) explains.
 - Session addresses, `MEMBER.TEAM@HOST/SESSION`, which reach one session of an address alone. A
   session that `keryx join --force` displaced stays reachable at its own until it leaves, and still
   opens by id and answers the requests it took before. Mail to a session address whose session left
