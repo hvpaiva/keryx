@@ -86,6 +86,9 @@ All notable changes to this project are documented here. The format follows
 - `keryx spawn --workspace LABEL`, which places the new session in the herdr workspace with that
   label, in a tab of its own or, with `--tab`, in a tab of that workspace with that label, and
   creates the workspace, without taking the focus, when none has the label.
+- A DIRECTOR column in `who`, and `director` in its JSON, with the address `keryx spawn` recorded
+  as the director of the session it started, or none when it recorded none, the session's own
+  address or an address retired here.
 - Shell completion for bash, zsh and fish.
 - `keryx send --re ID`, which sends a message to the sender of a request in its thread and shows the
   request as taken in `status`, open until the reply, with no reminder from the stop hook.

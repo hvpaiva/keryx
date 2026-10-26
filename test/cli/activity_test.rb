@@ -46,7 +46,7 @@ class ActivityTest < Minitest::Test
   end
 
   def test_active_follows_session_in_both_tables
-    assert_equal %w[ADDRESS ROLE HARNESS SESSION ACTIVE CONTEXT UNREAD], keryx('who').out.lines.first.split
+    assert_equal %w[ADDRESS ROLE DIRECTOR HARNESS SESSION ACTIVE CONTEXT UNREAD], keryx('who').out.lines.first.split
     assert_equal %w[ADDRESS ROLE SESSION ACTIVE CONTEXT UNREAD WAITING], keryx('status').out.lines[1].split
   end
 

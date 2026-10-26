@@ -20,6 +20,14 @@ module Keryx
     # What a join sets and a command that records the session's process again keeps.
     JOIN = %i[harness session_id joined_at ceiling].freeze
 
+    # The director spawn recorded, which the courier tells when the session stops at a dialog, or nil when spawn
+    # recorded none, the session's own address or an address retired here.
+    def self.director(store, name, occupant)
+      director = occupant&.director or return
+      key = director.split('/', 2).first
+      director unless key == name.split('/', 2).first || store.retired?(key)
+    end
+
     def initialize(store:, forwarder:, bell:, roster:, postman:, host:, clock:, meter:)
       @store = store
       @forwarder = forwarder

@@ -7,6 +7,7 @@ require_relative '../cli/context_view'
 require_relative '../cli/join_view'
 require_relative '../cli/short_view'
 require_relative '../cli/table'
+require_relative '../courier'
 
 module Keryx
   module Commands
@@ -25,8 +26,9 @@ module Keryx
                'tool call looks quiet; it is not a liveness check. It is unknown when keryx could not tell, and - ' \
                'when no session runs. With -o json, last_activity is that time in ISO 8601 UTC, or null.'
       JSON_FIELDS = 'Each of the addresses -o json lists has address, member, team, host, session_address (the ' \
-                    'address that reaches its session alone, or null), role, harness, session, last_activity, ' \
-                    'context (an object with used and window, or null), ceiling, unread and join. ' \
+                    'address that reaches its session alone, or null), role, director (as DIRECTOR shows it, or ' \
+                    'null for -), harness, session, last_activity, context (an object with used and window, or ' \
+                    'null), ceiling, unread and join. ' \
                     "#{CLI::JoinView::HELP}".freeze
 
       define 'who', section: 'Session Commands',
@@ -35,6 +37,10 @@ module Keryx
                                  "#{CLI::ShortView::HELP} The last line says how many it left out, and --all " \
                                  'lists every address. With -o json, view says which list it is, short or all, and ' \
                                  "hidden how many addresses it left out.\n\n" \
+                                 'DIRECTOR is the address keryx spawn recorded as the director of the session it ' \
+                                 'started, which the courier tells when the session stops at a dialog (keryx ' \
+                                 "courier --help). It is - when spawn recorded none, recorded the session's own " \
+                                 "address, or recorded an address retired here.\n\n" \
                                  'SESSION is none when no session holds the address, gone when the session ended, ' \
                                  "live when its process runs, or herdr's view of the agent (idle, working, " \
                                  'blocked, done) when herdr sees it in its pane, which a session herdr relaunched ' \
@@ -65,14 +71,14 @@ module Keryx
       def print_table(entries)
         return if entries.empty?
 
-        terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE HARNESS SESSION ACTIVE CONTEXT UNREAD],
+        terminal.puts(CLI::Table.render(terminal, %w[ADDRESS ROLE DIRECTOR HARNESS SESSION ACTIVE CONTEXT UNREAD],
                                         entries.map { row(it) }))
       end
 
       def json(view) = { 'view' => view.name, 'hidden' => view.hidden, 'addresses' => view.entries.map { record(it) } }
 
       def row(entry)
-        [[:address, app.full(entry.name)], entry.role || '-', entry.occupant&.harness || '-',
+        [[:address, app.full(entry.name)], entry.role || '-', director(entry) || '-', entry.occupant&.harness || '-',
          [SESSION_ROLES[entry.session], entry.session], CLI::ActivityView.cell(app, entry),
          CLI::ContextView.cell(app, entry), unread(entry.unread)]
       end
@@ -81,11 +87,14 @@ module Keryx
 
       def record(entry)
         { 'address' => app.full(entry.name), **CLI::AddressView.record(app, entry.name, entry.occupant),
-          'role' => entry.role, 'harness' => entry.occupant&.harness, 'session' => entry.session,
+          'role' => entry.role, 'director' => director(entry), 'harness' => entry.occupant&.harness,
+          'session' => entry.session,
           'last_activity' => CLI::ActivityView.record(app, entry), 'context' => CLI::ContextView.record(app, entry),
           'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread,
           'join' => CLI::JoinView.record(entry.occupant) }
       end
+
+      def director(entry) = Keryx::Courier.director(app.store, entry.name, entry.occupant)&.then { app.full(it) }
     end
   end
 end
