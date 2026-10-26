@@ -15,8 +15,9 @@ module Keryx
   # it, such as the same permission question asked a second time. keryx never answers one.
   class DialogNotice
     Told = Data.define(:name, :recipient, :pane)
-    # A session whose pane the round read, the director it tells and the mark of its record for that join.
-    Seen = Data.define(:name, :occupant, :recipient, :mark) do
+    # A session whose pane the round read, the director it tells, the mark of its record for that join and that record
+    # as the round read it before the pane, or nil for none.
+    Seen = Data.define(:name, :occupant, :recipient, :mark, :record) do
       def pane = occupant.herdr_pane
     end
     NAME = Identity::SYSTEM
@@ -39,9 +40,8 @@ module Keryx
     # the record, since none of them shows that the dialog told before is gone. Only a screen with no obstacle clears
     # it.
     def tell(name, occupant, recipient)
+      seen = seen(name, occupant, recipient) or return
       read = @herdr.visible(occupant.herdr_socket, occupant.herdr_pane) or return
-      mark = Ulid.derive(occupant.joined_at, "dialog #{recipient} #{Courier.join_of(occupant)}")
-      seen = Seen.new(name:, occupant:, recipient:, mark:)
       obstacle = Bell.obstacle(read)
       return clear(seen) if obstacle.nil?
 
@@ -50,6 +50,15 @@ module Keryx
     end
 
     private
+
+    # The record is read before the pane, for the hold that changes it to compare; see unchanged?.
+    def seen(name, occupant, recipient)
+      mark = Ulid.derive(occupant.joined_at, "dialog #{recipient} #{Courier.join_of(occupant)}")
+      Seen.new(name:, occupant:, recipient:, mark:, record: @store.claimed(name, mark, SHOWN))
+    rescue Error, SystemCallError => e
+      @errors << "could not read the dialog record of #{full(name)}; #{e.message}"
+      nil
+    end
 
     def notify(seen, quote)
       key = Dialog.key(quote)
@@ -63,12 +72,13 @@ module Keryx
     end
 
     def told?(seen, key)
-      shown = shown(seen, quiet: true)
+      shown = parse(seen.record)
       shown&.first == key && @store.marked?(seen.name, shown.last, TOLD)
     end
 
-    # The claim runs in the post's hold of the occupants lock, so every courier that tells the same dialog posts it
-    # under the id the first one wrote, and the store keeps one copy.
+    # The claim runs in the post's hold of the occupants lock, so of the couriers that found the same dialog untold only
+    # the first to claim posts it, a courier that posts it after one stopped before its mark uses the id that one
+    # wrote, and the store keeps one copy.
     def post(seen, key, body)
       id = nil
       claim = -> { id = claim(seen, key) }
@@ -79,9 +89,9 @@ module Keryx
     end
 
     # The id the record holds for this dialog, or a fresh one written over a record of another dialog, and none once
-    # another session joined the address.
+    # another session joined the address or the record changed since the round read it.
     def claim(seen, key)
-      return unless Courier.same_join?(@store.occupant(seen.name), seen.occupant)
+      return unless Courier.same_join?(@store.occupant(seen.name), seen.occupant) && unchanged?(seen)
 
       shown = shown(seen)
       return shown.last if shown&.first == key
@@ -89,17 +99,18 @@ module Keryx
       Ulid.generate(@clock.call).tap { @store.reclaim(seen.name, seen.mark, SHOWN, "#{key} #{it}") }
     end
 
+    # Every change to the record is made in a hold of the occupants lock, so a hold that finds it as the round read it
+    # knows that no courier changed it since. One that finds it changed changes nothing, since the round's read of the
+    # pane may be older than the change, and the next round reads both again.
+    def unchanged?(seen) = @store.claimed(seen.name, seen.mark, SHOWN) == seen.record
+
     # The key and id the record holds, or nil. A damaged record is a problem and an error of the round, said by the
     # read in the lock that writes over it.
-    def shown(seen, quiet: false)
-      record = @store.claimed(seen.name, seen.mark, SHOWN) { RECORD.match?(it) && Ulid.valid?(it.split.last) }
-      found = RECORD.match(record) if record
-      [found[:key], found[:id]] if found
+    def shown(seen)
+      parse(@store.claimed(seen.name, seen.mark, SHOWN) { parse(it) })
     rescue Store::Damaged => e
-      unless quiet
-        @store.problems << e.message
-        @errors << "the dialog notice of #{full(seen.name)} writes over its damaged record; #{e.message}"
-      end
+      @store.problems << e.message
+      @errors << "the dialog notice of #{full(seen.name)} writes over its damaged record; #{e.message}"
       nil
     end
 
@@ -113,17 +124,21 @@ module Keryx
       nil
     end
 
-    # Checked outside the lock first, so a pane with no dialog and nothing to clear takes no lock.
+    # A pane with no dialog and no record read before it takes no lock.
     def clear(seen)
-      return unless @store.marked?(seen.name, seen.mark, SHOWN)
+      return unless seen.record
 
-      @store.with_occupants_lock do
-        @store.unmark(seen.name, seen.mark, SHOWN) if @store.marked?(seen.name, seen.mark, SHOWN)
-      end
+      @store.with_occupants_lock { @store.unmark(seen.name, seen.mark, SHOWN) if unchanged?(seen) }
       nil
     rescue Error, SystemCallError => e
       @errors << "could not clear the dialog record of #{full(seen.name)}; #{e.message}"
       nil
+    end
+
+    # The key and id of RECORD, or nil for none or one that does not parse.
+    def parse(record)
+      found = RECORD.match(record.to_s) or return
+      [found[:key], found[:id]] if Ulid.valid?(found[:id])
     end
 
     def about(seen) = "#{seen.recipient} about the dialog in pane #{seen.pane} of #{full(seen.name)}"

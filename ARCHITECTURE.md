@@ -506,25 +506,31 @@ A dialog is told once. Its key is a SHA-256 of the quote with the selection mark
 line and the time on a countdown line replaced, so a moved selection or a dialog that answers itself
 after a count makes no new one. `receipts/J.dialog-shown` in the session's mailbox, where J derives
 from the join and the director as the context notice's mark does, holds the key of the dialog last
-told and the id its notice took, and `receipts/ID.dialog` marks the notice once it is posted. A round
-that finds the key and its mark does nothing. Otherwise the post claims in its hold of the occupants
-lock: it reads the occupant again and posts nothing for another join, and it gives back the id the
-record holds for the same key, so two couriers that found the dialog untold together post one copy,
-or writes a fresh id over the record of another dialog. Only the courier that writes the mark
-reports the notice. A read with no obstacle at all removes the record, taking the lock only when a
-record exists and checking again inside it, so the same dialog shown again later, such as the same
+told and the id its notice took, and `receipts/ID.dialog` marks the notice once it is posted. Each
+round reads the record before the pane, and every change to the record is made in a hold of the
+occupants lock, so a hold that finds the record other than the round read it knows that the round's
+read of the pane may be older than the change; it changes nothing, and the next round reads both
+again. A round whose record holds the key and its mark does nothing. Otherwise the post claims in
+its hold of the occupants lock. It reads the occupant again and posts nothing for another join or
+for a record that changed, so of two couriers that found the dialog untold together only the first
+to claim posts it. Else it gives back the id the record holds for the same key, so a courier that
+stopped between its post and its mark leaves one copy, or writes a fresh id over the record of
+another dialog or one that does not parse, which is a problem and an error of the round. Only the
+courier that writes the mark reports the notice. A read with no obstacle at all removes the record,
+taking the lock only when the round found a record before reading the pane and removing it only when
+the hold finds it as the round read it, so the same dialog shown again later, such as the same
 permission question for a second command, is told again. A pane herdr does not read, a screen too
 narrow to tell and a queued message being edited tell nothing and keep the record, since none of
 them shows that the dialog is gone. A director retired here takes no mail, so the dialog counts as
-told and the courier that marks it says once that it did not tell it. Three costs remain. A courier
-that read the dialog before it was answered and claims only after another told it and a third saw
-the pane clear tells it a second time. A screen whose dialog text keeps changing in a way the key
-does not normalize is told at each change, and every notice shows in the courier's report line. A
-screen with no composer and no dialog, such as Claude Code's transcript view, is read whole, so
-words in it that match the bell's phrases are told as a dialog. The quote, which can hold a
-command's arguments, goes into the director's mailbox, as spawn's quote does. `keryx who` shows the
-director the courier tells for each session, or none, so a person watching the panes can leave to
-keryx the sessions that have one.
+told and the courier that marks it says once that it did not tell it. Three costs remain. A round
+that read no record and then the dialog, and claims only after another courier told the dialog and a
+third removed its record on a read with no dialog, finds no record, as it read, and tells the dialog
+a second time. A screen whose dialog text keeps changing in a way the key does not normalize is told
+at each change, and every notice shows in the courier's report line. A screen with no composer and
+no dialog, such as Claude Code's transcript view, is read whole, so words in it that match the
+bell's phrases are told as a dialog. The quote, which can hold a command's arguments, goes into the
+director's mailbox, as spawn's quote does. `keryx who` shows the director the courier tells for each
+session, or none, so a person watching the panes can leave to keryx the sessions that have one.
 
 ## The stop hook
 
