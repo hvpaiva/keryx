@@ -30,8 +30,11 @@ module Keryx
 
     # The key of the address this session holds, or KEY/SESSION when join --force took the address from it while it
     # ran. The holder is matched first, so a session that took over in the pane of the one it displaced is the holder.
+    # An agent holds no address in a reserved scope, even one an older keryx let it join.
     def held
       @store.address_names.each do |name|
+        next if @caller.agent? && reserved?(name)
+
         found = @store.incarnations(name).find do |incarnation|
           occupant = @store.reporting { @store.occupant(incarnation) }
           occupant && @caller.holds?(occupant)
@@ -49,8 +52,11 @@ module Keryx
 
     private
 
+    def reserved?(name) = Address.from_key(name, host: @host).reserved?
+
     def existing(text)
       address = Resolver.new(store: @store, host: @host).resolve(text, sender: held)
+      refuse_reserved(address) if @caller.agent?
       raise Error, "#{address} is on another machine; --as names an address on #{@host}" unless address.local?(@host)
 
       name = address.key
@@ -58,6 +64,24 @@ module Keryx
       raise Error, "#{address} is retired; 'keryx join #{name} --revive' brings it back" if @store.retired?(name)
 
       address.session ? incarnation(address) : name
+    end
+
+    # A person acts as their local address from a plain terminal, and only keryx posts as the system one, whatever the
+    # store holds.
+    def refuse_reserved(address)
+      case address.team
+      when Address::LOCAL
+        raise Error, "an agent session cannot act as #{address}, a person at a terminal; #{terminal_way(address)}"
+      when Address::SYSTEM
+        raise Error, "an agent session cannot act as #{address}, keryx's own services"
+      end
+    end
+
+    # A plain terminal acts as the address named after USER on its own, and as another person's only when told to.
+    def terminal_way(address)
+      return 'a plain terminal acts as it with no --as' if address.key == human_name
+
+      'only a plain terminal acts as it, with --as'
     end
 
     # The holder's session acts as the address; a displaced one acts as its session address.
