@@ -79,5 +79,9 @@ All notable changes to this project are documented here. The format follows
   request as taken in `status`, open until the reply, with no reminder from the stop hook.
 - An ACTIVE column in `who` and `status`, and `last_activity` in their JSON, with when the harness
   last wrote the session's transcript, rollout or Cursor conversation store.
+- `schema` on every `-o json` output, the version of its fields, 1 in this release, first in the
+  object a command prints and in each object of the array `inbox` prints, with each command's
+  fields named in its `--help`. Within a schema fields are only added; removing or renaming one, or
+  changing its type or meaning, raises it.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

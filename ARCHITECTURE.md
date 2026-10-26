@@ -561,5 +561,12 @@ error. Help lists the commands of each section in the order of `Commands::ALL`.
 Commands get their services from `App`, which builds each one on first use. `keryx --help`,
 `keryx version` and completion never touch the mailboxes.
 
+Every `-o json` output carries `schema`, the version of its fields, as the first key of the object a
+command prints, or of each object of the array it prints, so a reader of a list such as `inbox` still
+reads an array. `CLI::Command#print_json` adds it in one place. Within a version fields are only
+added; removing or renaming a field, or changing its type or meaning, raises the version, and the
+first release fixes schema 1. Each command's `--help` names its fields, and a test per command pins
+their keys.
+
 Text that came from a file or from another session (message bodies, roles, herdr states) goes
 through `Text.plain` before it reaches a terminal, so it cannot carry escape sequences.

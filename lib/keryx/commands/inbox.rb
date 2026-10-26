@@ -11,7 +11,9 @@ module Keryx
                       summary: 'List the messages waiting for you',
                       description: "List the unread messages of the address you act as, oldest first.\n\n" \
                                    'Listing does not mark anything as read; keryx read does. With --all the read ' \
-                                   'messages are listed too.',
+                                   "messages are listed too.\n\n" \
+                                   'With -o json it prints an array with one object per message, the message with ' \
+                                   "state, unread or read. #{CLI::MessageView::JSON_HELP}\n\n#{SCHEMA_HELP}",
                       examples: [['See what arrived', 'inbox'], ['List everything as JSON', 'inbox --all -o json']]
 
       def define_options(parser)

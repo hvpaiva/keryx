@@ -13,6 +13,11 @@ module Keryx
                          :passthrough)
       Example = Data.define(:comment, :line)
       FORMATS = %w[table json].freeze
+      # The version of the fields of every -o json output; ARCHITECTURE.md says when it changes.
+      SCHEMA = 1
+      SCHEMA_HELP = 'The object -o json prints, or each object of the array it prints, starts with schema, the ' \
+                    "version of its fields, #{SCHEMA} in this release: within a version fields are only added, and " \
+                    'removing or renaming one, or changing its type or meaning, raises it.'.freeze
       JSON_ESCAPED = /[\x7F#{Text::INVISIBLE}]/
       # How Address spells the member and the team of an address.
       NAME_SPELLING = 'MEMBER and TEAM each start with a lowercase letter and run up to 32 lowercase letters, ' \
@@ -71,7 +76,18 @@ module Keryx
       def json? = options[:output] == 'json'
 
       # JSON escapes C0 controls only; these characters occur only inside strings, so an escape keeps the value.
-      def print_json(data) = terminal.puts(JSON.pretty_generate(data).gsub(JSON_ESCAPED) { format('\u%04x', it.ord) })
+      def print_json(data)
+        terminal.puts(JSON.pretty_generate(versioned(data)).gsub(JSON_ESCAPED) { format('\u%04x', it.ord) })
+      end
+
+      # An object, or each object of an array, so that a reader of a list finds the version in every element.
+      def versioned(data)
+        case data
+        when Hash then { 'schema' => SCHEMA, **data }
+        when Array then data.map { versioned(it) }
+        else data
+        end
+      end
 
       def show_message(message, withdrawal = nil)
         return print_json(MessageView.record(message, withdrawal)) if json?

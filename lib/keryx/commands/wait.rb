@@ -18,7 +18,8 @@ module Keryx
                                   "once unless its reply came before.\n\n" \
                                   'An agent rarely needs this: the reply rings its session when it arrives. It is ' \
                                   'for scripts, and for work that cannot go on without the answer. It exits with ' \
-                                  'status 3 when --timeout passes first.',
+                                  "status 3 when --timeout passes first.\n\n#{CLI::MessageView::JSON_HELP} " \
+                                  "#{SCHEMA_HELP}",
                      examples: [['Wait at most ten minutes for a review', 'wait 01JB8Y2Q --timeout 10m']]
 
       def define_options(parser)
