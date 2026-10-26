@@ -74,6 +74,47 @@ class PurgeOrderTest < Minitest::Test
     assert_equal 2, Dir.children(File.join("#{box}.moved", 'mail')).size
   end
 
+  def test_purge_prints_the_refusal_of_a_folder_linked_while_it_waits_for_the_lock
+    box = tmp('state', 'addresses', 'rev-1.dev')
+    swap = lambda do
+      FileUtils.mv(box, "#{box}.moved")
+      File.symlink("#{box}.moved", box)
+    end
+    result = while_purge_waits(swap) { keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq) }
+    error = 'addresses/rev-1.dev is a symbolic link; purge removes only what a folder of the store holds, and ' \
+            'changed nothing'
+
+    assert_equal [1, "error: #{error}\n"], [result.status, result.err]
+    assert_equal({ 'schema' => 1, 'address' => 'rev-1.dev@athena', 'outcome' => 'refused', 'reason' => 'linked',
+                   'error' => error }, JSON.parse(result.out))
+  end
+
+  # Neither a lock that does not come nor a removal that fails is a refusal of purge's own, so -o json prints nothing.
+  def test_a_lock_that_does_not_come_leaves_stdout_empty_with_json
+    File.open(tmp('state', 'occupants.lock'), File::RDWR | File::CREAT) do |file|
+      file.flock(File::LOCK_EX)
+      thread = Thread.new { keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq) }
+      flunk('purge still waits for the lock') unless thread.join(30)
+      result = thread.value
+
+      assert_equal [1, ''], [result.status, result.out]
+      assert_match(/stayed locked by another keryx command for 15s/, result.err)
+    end
+    refute_predicate store.retired('rev-1.dev'), :purged?
+  end
+
+  def test_a_removal_that_fails_after_the_mark_leaves_stdout_empty_with_json
+    original = FileUtils.method(:rm_r)
+    FileUtils.define_singleton_method(:rm_r) { |path, **| raise Errno::EACCES, path }
+    result = keryx('purge', 'rev-1.dev', '-o', 'json', env: @orq)
+
+    assert_equal [1, ''], [result.status, result.out]
+    assert_match(/unexpected Errno::EACCES/, result.err)
+    assert_predicate store.retired('rev-1.dev'), :purged?
+  ensure
+    FileUtils.define_singleton_method(:rm_r, original)
+  end
+
   def test_a_purge_killed_during_the_removal_leaves_the_mark_and_a_second_run_finishes_it
     calls = 0
     original = FileUtils.method(:rm_r)
