@@ -62,7 +62,9 @@ class RetiredListTest < Minitest::Test
   end
 
   def test_history_with_no_address_says_when_nothing_is_retired_and_refuses_what_reads_one_address
-    assert_equal "No retired addresses on athena.\n", keryx('history').out
+    empty = keryx('history')
+
+    assert_equal [0, "No retired addresses on athena.\n"], [empty.status, empty.out]
     [%w[--sent], %w[--id 01M5], %w[--thread 01M5], %w[--to orq]].each do |option|
       result = keryx('history', *option)
 
