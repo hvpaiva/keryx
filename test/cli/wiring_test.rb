@@ -22,11 +22,15 @@ class WiringTest < Minitest::Test
     added = wiring('claude')['arguments']
 
     assert_equal 0, result.status, result.err
-    assert_equal '--settings', added.first
-    assert_equal added, typed[typed.index('--settings'), 2]
+    assert_equal %w[--disallowedTools AskUserQuestion --settings], added[0...-1]
+    assert_equal added, typed[typed.index('--disallowedTools'), added.size]
     assert_equal 'accept', JSON.parse(added.last)['crossSessionInbound']
     assert_nil wiring('claude')['hooks']
-    assert_includes keryx('wiring', 'claude').out, "  --settings '#{added.last}'\n"
+    assert_includes keryx('wiring', 'claude').out, "  --disallowedTools AskUserQuestion --settings '#{added.last}'\n"
+  end
+
+  def test_codex_and_cursor_take_no_arguments
+    assert_equal([[], []], %w[codex cursor].map { wiring(it)['arguments'] })
   end
 
   def test_the_hooks_entries_are_the_snippets_hook_help_prints

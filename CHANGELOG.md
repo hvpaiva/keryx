@@ -98,6 +98,9 @@ All notable changes to this project are documented here. The format follows
   join. Each dialog is told once, a new one in the same pane is told again, and so is the same one
   after a read showed the pane without it; a moved selection or a countdown makes no new dialog,
   and a menu that says no action is required is told to no one.
+- `keryx spawn` starts every Claude Code session with `--disallowedTools AskUserQuestion`, so a
+  spawned session asks its questions through keryx rather than in a dialog that only a person at
+  its pane can answer, and `keryx wiring claude` lists the flag among the arguments a launcher adds.
 - Shell completion for bash, zsh and fish.
 - `keryx send --re ID`, which sends a message to the sender of a request in its thread and shows the
   request as taken in `status`, open until the reply, with no reminder from the stop hook.
@@ -134,8 +137,9 @@ All notable changes to this project are documented here. The format follows
   under its new process while herdr shows the same session id there, so `who` and `status` show it
   and `leave --as`, `retire` and `join` without `--force` refuse its address, before the session
   runs a keryx command. herdr reports that id for Claude Code but not for Codex, so a Codex session
-  resumed by hand counts as gone until its next keryx command. keryx's Claude Code stop hook, which
-  `keryx spawn` passes on the command line, does not survive herdr's relaunch, so a relaunched
-  session gets no stop hook reminders.
+  resumed by hand counts as gone until its next keryx command. keryx's Claude Code stop hook and
+  the deny of `AskUserQuestion`, which `keryx spawn` passes on the command line, do not survive
+  herdr's relaunch, so a relaunched session gets no stop hook reminders and can ask in a dialog
+  again.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

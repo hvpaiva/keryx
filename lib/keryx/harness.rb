@@ -15,8 +15,14 @@ module Keryx
     HOOKS = { 'claude' => CLAUDE_HOOKS, 'codex' => CLAUDE_HOOKS,
               'cursor' => { 'version' => 1, 'hooks' => { 'stop' => [STOP_HOOK] } } }.freeze
     CLAUDE_SETTINGS = JSON.generate({ 'crossSessionInbound' => 'accept', **CLAUDE_HOOKS })
+    # The tool through which Claude Code asks the person at its terminal, in a dialog; the session asks through keryx.
+    # A flag rather than a deny in CLAUDE_SETTINGS, since a later --settings replaces an earlier one's permissions
+    # while a later --disallowedTools adds to it, and placed before --settings, since it takes every word up to the
+    # next option as one more tool name.
+    CLAUDE_DENIED = %w[--disallowedTools AskUserQuestion].freeze
     # What a launcher adds to a harness's command line for keryx, for that session only.
-    SESSION_ARGUMENTS = { 'claude' => ['--settings', CLAUDE_SETTINGS], 'codex' => [], 'cursor' => [] }.freeze
+    SESSION_ARGUMENTS = { 'claude' => [*CLAUDE_DENIED, '--settings', CLAUDE_SETTINGS],
+                          'codex' => [], 'cursor' => [] }.freeze
     # The files a harness reads its hooks from when no argument carries them, a user's and then a project's.
     HOOK_FILES = { 'codex' => %w[~/.codex/hooks.json .codex/hooks.json],
                    'cursor' => %w[~/.cursor/hooks.json .cursor/hooks.json] }.freeze

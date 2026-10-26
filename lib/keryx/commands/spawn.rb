@@ -38,8 +38,10 @@ module Keryx
                                    'The session starts in this directory, or in --cwd, with KERYX_HOME set to this ' \
                                    'store, XDG_CONFIG_HOME to the directory this keryx reads its config from, and ' \
                                    'KERYX_HOST passed on when it is set. Claude Code also gets the settings that let ' \
-                                   'the bells in and run the stop hook, for that session only. Codex runs a new hook ' \
-                                   'only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
+                                   'the bells in and run the stop hook, for that session only, and starts with its ' \
+                                   'AskUserQuestion tool denied, so that it asks its questions as keryx requests ' \
+                                   'rather than in a dialog only a person at its pane can answer. Codex runs a new ' \
+                                   'hook only after you trust it and Cursor reads hooks only from its hooks.json, so ' \
                                    "spawn installs no hook for them; 'keryx hook --help' shows how to add it. 'keryx " \
                                    "wiring HARNESS' prints what spawn gives a session of HARNESS, for a launcher of " \
                                    'your own. Arguments after -- go to the harness unchanged. They and the first ' \

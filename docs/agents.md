@@ -34,6 +34,15 @@ set it only on the sessions that take part, not in your global settings. `keryx 
 starts a session in a herdr pane, passes these settings inline to each Claude Code session it
 starts, so they apply to that session only.
 
+`keryx spawn` also starts each Claude Code session with `--disallowedTools AskUserQuestion`, which
+denies it the tool through which Claude Code asks the person at its terminal in a dialog, so that a
+spawned session asks its questions through keryx rather than in a pane no one may be watching. Pass
+the same flag to a session you start yourself if it should ask that way too. It is a flag of its
+own rather than a `permissions.deny` in the settings above, since a later `--settings` replaces the
+permissions of an earlier one while each `--disallowedTools` adds to the list. Put it before
+another option, as `keryx wiring claude` lists it, since it reads every word after it up to the next
+option as one more tool name.
+
 ## Codex
 
 keryx knows a Codex session by the thread Codex runs it in, and rings it only while herdr shows
