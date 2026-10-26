@@ -5,8 +5,8 @@ require_relative '../cli/command'
 module Keryx
   module Commands
     class Complete < CLI::Command
-      VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --cwd --model
-                         --effort --prompt --ceiling --re --id --thread --to].freeze
+      VALUE_OPTIONS = %w[--as -o --output -f --file --within --timeout --role --harness --split --tab --workspace --cwd
+                         --model --effort --prompt --ceiling --re --id --thread --to].freeze
       GLOBAL_FLAGS = %w[--as --color --help --version].freeze
       OUTPUTS = %w[table json].freeze
       OPTION_NAME = /\A--[a-z][a-z-]*\z/

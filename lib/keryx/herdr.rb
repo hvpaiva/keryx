@@ -13,6 +13,7 @@ module Keryx
     Pane = Data.define(:id, :tab, :workspace)
     Rect = Data.define(:pane, :width, :height)
     Tab = Data.define(:id, :label)
+    Workspace = Data.define(:id, :label)
     NO_LAYOUT = 'herdr answered without a pane layout'
     SCREEN_LINES = '20'
     FOOTER_LINES = 4
@@ -106,6 +107,13 @@ module Keryx
       end
     end
 
+    # herdr finds a workspace by its id or its number, never by its label, so a caller finds it by label here.
+    def workspaces(socket)
+      Array(control(socket, 'workspace', 'list')['workspaces']).map do |workspace|
+        Workspace.new(id: workspace['workspace_id'], label: workspace['label'])
+      end
+    end
+
     # Every pane of the tab that holds pane, with the size herdr gives it.
     def layout(socket, pane)
       layout = control(socket, 'pane', 'layout', '--pane', pane)['layout']
@@ -119,6 +127,8 @@ module Keryx
 
     def clear_name(socket, pane) = control(socket, 'agent', 'rename', pane, '--clear')
 
+    def rename_tab(socket, tab, label) = control(socket, 'tab', 'rename', tab, label)
+
     def split(socket, pane, direction:, cwd:, env: {})
       pane_of(control(socket, 'pane', 'split', pane, '--direction', direction, '--cwd', cwd, *env_options(env),
                       '--no-focus')['pane'])
@@ -127,6 +137,12 @@ module Keryx
     def create_tab(socket, workspace, label:, cwd:, env: {})
       pane_of(control(socket, 'tab', 'create', '--workspace', workspace, '--label', label, '--cwd', cwd,
                       *env_options(env), '--no-focus')['root_pane'])
+    end
+
+    # A new workspace holds one tab, whose one pane this returns.
+    def create_workspace(socket, label:, cwd:, env: {})
+      pane_of(control(socket, 'workspace', 'create', '--label', label, '--cwd', cwd, *env_options(env),
+                      '--no-focus')['root_pane'])
     end
 
     # herdr agent start waits while the agent works, so it runs in the background until the caller stops it.

@@ -44,6 +44,8 @@ module Keryx
       opening.call.tap do |pane|
         due(opened(pane.id, kind))
         name(pane.id, label)
+        # herdr labels a new workspace's one tab with its number, so it gets the label a new tab would.
+        title(pane.tab, placement[:tab] || label) if @founded
       end
     end
 
@@ -162,14 +164,30 @@ module Keryx
     end
 
     # The step that opens the new pane, once the reads that choose it are done.
-    def opening(from, label, split:, tab:, cwd:, env:)
-      return fitted([from], label, split:, cwd:, env:) { @herdr.pane(@socket, from).workspace } unless tab
+    def opening(from, label, split:, tab:, cwd:, env:, workspace: nil)
+      return fitted([from], label, split:, cwd:, env:) { @herdr.pane(@socket, from).workspace } unless tab || workspace
 
-      workspace = @herdr.pane(@socket, from).workspace
+      own = @herdr.pane(@socket, from).workspace
+      target = workspace ? labelled(workspace, own) : own
+      @founded = target.nil?
+      return -> { @herdr.create_workspace(@socket, label: workspace, cwd:, env:) } if @founded
+      return tabbed(target, tab, split:, cwd:, env:) if tab
+      return fitted([from], label, split:, cwd:, env:) { own } if target == own
+
+      -> { @herdr.create_tab(@socket, target, label:, cwd:, env:) }
+    end
+
+    def tabbed(workspace, tab, split:, cwd:, env:)
       tabs = @herdr.tabs(@socket, workspace).select { it.label == tab }
       return -> { @herdr.create_tab(@socket, workspace, label: tab, cwd:, env:) } if tabs.empty?
 
       fitted(last_panes(workspace, tabs, tab), tab, split:, cwd:, env:) { workspace }
+    end
+
+    # herdr finds a workspace only by id or number, so spawn finds it by label: this pane's when it has the label, else
+    # the first herdr lists with it.
+    def labelled(label, own)
+      @herdr.workspaces(@socket).filter_map { it.id if it.label == label }.then { it.include?(own) ? own : it.first }
     end
 
     def last_panes(workspace, tabs, label)
@@ -215,6 +233,12 @@ module Keryx
       @herdr.rename(@socket, pane, label)
     rescue Error => e
       @notice.call("Pane #{pane} has no label: #{e.message}.")
+    end
+
+    def title(tab, label)
+      @herdr.rename_tab(@socket, tab, label)
+    rescue Error => e
+      @notice.call("Tab #{tab} keeps the label herdr gave it, not #{label}: #{e.message}.")
     end
 
     # A gone session's record can name the same harness, socket and pane, so only a changed one is a join.

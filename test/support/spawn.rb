@@ -12,14 +12,23 @@ module SpawnHelpers
     workspace(%w[w1:t1 main] => { 'w1:p1' => AREA })
   end
 
-  # Lays out the workspace w1 as tabs of sized panes, such as { %w[w1:t1 main] => { 'w1:p1' => [205, 48] } }.
-  def workspace(tabs)
+  # Lays out tabs of sized panes, such as { %w[w1:t1 main] => { 'w1:p1' => [205, 48] } }, each in the workspace its id
+  # starts with, and lists the workspaces with LABELS as herdr would.
+  def workspace(tabs, labels = { 'w1' => 'home' })
     panes = tabs.flat_map do |(tab, _label), sizes|
-      sizes.keys.map { Keryx::Herdr::Pane.new(id: it, tab:, workspace: 'w1') }
+      sizes.keys.map { Keryx::Herdr::Pane.new(id: it, tab:, workspace: workspace_of(tab)) }
     end
-    @herdr = FakeHerdr.new(panes:, tabs: { 'w1' => tabs.keys.map { |id, label| Keryx::Herdr::Tab.new(id:, label:) } })
+    @herdr = FakeHerdr.new(panes:, tabs: tabs_by_workspace(tabs.keys))
+    herdr.workspaces = labels.map { |id, label| Keryx::Herdr::Workspace.new(id:, label:) }
     herdr.sizes = tabs.values.reduce({}) { |all, sizes| all.merge(sizes.transform_values(&:dup)) }
     herdr.area = AREA
+  end
+
+  def workspace_of(id) = id.split(':').first
+
+  def tabs_by_workspace(tabs)
+    tabs.group_by { |id, _label| workspace_of(id) }
+        .transform_values { |listed| listed.map { |id, label| Keryx::Herdr::Tab.new(id:, label:) } }
   end
 
   def spawn(*argv, env: {}, input: '') = keryx('spawn', *argv, env: CALLER.merge(env), input:)

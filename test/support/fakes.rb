@@ -69,9 +69,11 @@ class FakeHerdr
   end
 
   attr_reader :prompts, :splits, :created_tabs, :starts, :renames, :foregrounds, :unanswered, :footers
-  attr_writer :sizes
+  # The workspaces herdr lists, in its order.
+  attr_writer :sizes, :workspaces
   # area is the size of a tab herdr creates.
-  attr_accessor :start_outcome, :start_polls, :on_start, :on_screen, :rename_error, :layout_error, :area, :clear_error
+  attr_accessor :start_outcome, :start_polls, :on_start, :on_screen, :rename_error, :layout_error, :area, :clear_error,
+                :rename_tab_error
   # Called with the name of a herdr call, such as :split or :rename, while it runs, so a test can make it slow.
   attr_accessor :on_call
 
@@ -131,6 +133,15 @@ class FakeHerdr
 
   def tabs(_socket, workspace) = @tabs.fetch(workspace, [])
 
+  # The sockets spawn listed the workspaces through, one for each list.
+  def workspace_lists = @workspace_lists ||= []
+
+  def workspaces(socket)
+    workspace_lists << socket
+    on_call&.call(:workspaces)
+    @workspaces ||= []
+  end
+
   # [width, height] by pane id; a pane without a size has no layout.
   def sizes = @sizes ||= {}
 
@@ -161,6 +172,29 @@ class FakeHerdr
     tab = Keryx::Herdr::Tab.new(id: "#{workspace}:t#{tabs(nil, workspace).size + 1}", label:)
     (@tabs[workspace] ||= []) << tab
     add_pane(workspace, tab.id).tap { sizes[it.id] = area.dup if area }
+  end
+
+  def created_workspaces = @created_workspaces ||= []
+
+  # As herdr 0.9.5 creates one: its one tab is labelled with its number, and it is listed last.
+  def create_workspace(_socket, label:, cwd:, env: {})
+    created_workspaces << [label, cwd, env]
+    on_call&.call(:create_workspace)
+    listed = (@workspaces ||= [])
+    workspace = Keryx::Herdr::Workspace.new(id: "w#{listed.size + 1}", label:).tap { listed << it }
+    tab = Keryx::Herdr::Tab.new(id: "#{workspace.id}:t1", label: '1')
+    @tabs[workspace.id] = [tab]
+    add_pane(workspace.id, tab.id).tap { sizes[it.id] = area.dup if area }
+  end
+
+  def renamed_tabs = @renamed_tabs ||= []
+
+  def rename_tab(_socket, id, label)
+    on_call&.call(:rename_tab)
+    raise Keryx::Error, rename_tab_error if rename_tab_error
+
+    renamed_tabs << [id, label]
+    @tabs.each_value { |tabs| tabs.map! { it.id == id ? it.with(label:) : it } }
   end
 
   def rename(socket, pane, label)

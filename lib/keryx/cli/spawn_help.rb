@@ -16,9 +16,14 @@ module Keryx
                   "herdr's default borders and scrollbar, which keep a harness's dialogs and footer on whole lines; " \
                   'when no pane has that room, it opens a new tab labelled LABEL, or MEMBER.TEAM without --tab. ' \
                   'When herdr gives no layout for one of those panes, it opens that new tab too, and never splits a ' \
-                  'pane it could not measure. Besides splitting, the only change spawn makes to a pane it did not ' \
-                  'create is to clear the herdr name MEMBER_TEAM from the pane it runs in, which a session there ' \
-                  'kept from an address it left. It labels the new pane MEMBER.TEAM.'.freeze
+                  'pane it could not measure. With --workspace, all of this happens in the herdr workspace with that ' \
+                  "label, this pane's own when it has the label and else the first one herdr lists, and in a " \
+                  "workspace other than this pane's a session without --tab gets a new tab labelled MEMBER.TEAM. " \
+                  'When no workspace has the label, spawn creates one without taking the focus, starts the session ' \
+                  'in its one pane and labels its tab as it would label a new tab. Besides splitting, the only ' \
+                  'change spawn makes to a pane it did not create is to clear the herdr name MEMBER_TEAM from the ' \
+                  'pane it runs in, which a session there kept from an address it left. It labels the new pane ' \
+                  'MEMBER.TEAM.'.freeze
       WAITING = 'A dialog in the new pane, such as a folder trust or permission question, stops the session. spawn ' \
                 'quotes the dialog once, on stderr and in a message from keryx to the address spawn runs as, when ' \
                 'there is one, which rings that address, and keeps waiting; it never answers the dialog. The ' \
@@ -32,6 +37,8 @@ module Keryx
                    'spawn rev-1.alpha --harness claude --role reviewer "Review PR #448"'],
                   ["Start Codex for this session's team in the agents tab, with a brief and a deadline",
                    'spawn impl --harness codex --tab agents --file brief.md --within 1h'],
+                  ['Start a reviewer of team alpha in the herdr workspace alpha, in its reviews tab',
+                   'spawn rev-2.alpha --harness codex --workspace alpha --tab reviews "Review PR #449"'],
                   ["Start one of this session's team with a model and harness flags of its own",
                    'spawn docs --harness claude --model haiku "Check the links in docs/" -- --add-dir ../site']].freeze
     end
