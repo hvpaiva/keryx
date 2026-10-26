@@ -20,10 +20,11 @@ module Keryx
       NEVER_RUNG = { 'status' => 'none', 'detail' => 'never rung' }.freeze
       # What a not_rung record gives of its bell's receipt besides the status and the detail.
       BELL_FIELDS = %w[obstacle channel at evidence].freeze
-      JSON_FIELDS = 'With -o json, view and hidden come first, then one list per section. Each of addresses has ' \
-                    'address, member, team, host, session_address, role, session, last_activity, context, ceiling, ' \
-                    'unread and waiting, as keryx who gives them. Each of open_requests is the request with state ' \
-                    'and overdue, true once its deadline passed. Each of not_rung has id, to, from, bell, the status ' \
+      JSON_FIELDS = 'With -o json, schema comes first, then view and hidden, then one list per section. Each of ' \
+                    'addresses has address, member, team, host, session_address, role, session, last_activity, ' \
+                    'context, ceiling, unread and waiting, as keryx who gives them. Each of open_requests is the ' \
+                    'request with state and overdue, true once its deadline passed, and without withdrawn_by, since ' \
+                    'no open request was withdrawn. Each of not_rung has id, to, from, bell, the status ' \
                     "of the last bell or none, detail, and that bell's obstacle (dialog, editor or cramped when it " \
                     'waited because its pane showed a dialog, a queued message being edited or too few columns to ' \
                     'tell, else null), channel, at (when it was tried, ISO 8601 in UTC) and evidence (the words that ' \
