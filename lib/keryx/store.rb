@@ -134,10 +134,10 @@ module Keryx
     def unbind(name) = FileUtils.rm_f(occupant_path(name))
 
     # What spawn recorded about the session it started, until a session joins the address. A damaged record is none,
-    # since the join that reads it removes it.
+    # and so is one keryx cannot open, since the join that reads it removes it.
     def spawned(name)
       Spawned.from_record(read_json(spawned_file(name)))
-    rescue Error
+    rescue Error, SystemCallError
       nil
     end
 

@@ -6,6 +6,7 @@ require_relative '../cli/command'
 require_relative '../cli/context_view'
 require_relative '../cli/join_view'
 require_relative '../cli/short_view'
+require_relative '../cli/spawned_view'
 require_relative '../cli/table'
 require_relative '../courier'
 
@@ -28,8 +29,8 @@ module Keryx
       JSON_FIELDS = 'Each of the addresses -o json lists has address, member, team, host, session_address (the ' \
                     'address that reaches its session alone, or null), role, director (as DIRECTOR shows it, or ' \
                     'null for -), harness, session, last_activity, context (an object with used and window, or ' \
-                    'null), ceiling, unread and join. ' \
-                    "#{CLI::JoinView::HELP}".freeze
+                    'null), ceiling, unread, join and spawned. ' \
+                    "#{CLI::JoinView::HELP} #{CLI::SpawnedView::HELP}".freeze
 
       define 'who', section: 'Session Commands',
                     summary: 'List the addresses on this machine',
@@ -91,7 +92,7 @@ module Keryx
           'session' => entry.session,
           'last_activity' => CLI::ActivityView.record(app, entry), 'context' => CLI::ContextView.record(app, entry),
           'ceiling' => entry.occupant&.ceiling, 'unread' => entry.unread,
-          'join' => CLI::JoinView.record(entry.occupant) }
+          'join' => CLI::JoinView.record(entry.occupant), 'spawned' => CLI::SpawnedView.record(app, entry.name) }
       end
 
       def director(entry)
