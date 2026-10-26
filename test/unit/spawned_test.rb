@@ -36,4 +36,28 @@ class SpawnedTest < Minitest::Test
     end
     assert_raises(Keryx::Error) { store.record_spawned('ghost.dev', spawned) }
   end
+
+  def test_the_same_record_is_left_as_it_was_and_given_back
+    file = tmp('state', 'addresses', 'impl.dev', 'spawned.json')
+
+    assert_nil store.record_spawned('impl.dev', spawned)
+    written = File.stat(file)
+
+    assert_equal spawned, store.record_spawned('impl.dev', spawned, replace: false)
+    assert_equal spawned, store.record_spawned('impl.dev', spawned)
+    now = File.stat(file)
+
+    assert_equal [written.ino, written.mtime], [now.ino, now.mtime]
+  end
+
+  # spawn writes with no keyword, over whatever waits, and a caller passing replace: false keeps a different record.
+  def test_a_different_record_is_kept_only_when_not_replaced_and_given_back_either_way
+    other = spawned.with(herdr_pane: 'w1:p3')
+    store.record_spawned('impl.dev', spawned)
+
+    assert_equal spawned, store.record_spawned('impl.dev', other, replace: false)
+    assert_equal spawned, store.spawned('impl.dev')
+    assert_equal spawned, store.record_spawned('impl.dev', other)
+    assert_equal other, store.spawned('impl.dev')
+  end
 end

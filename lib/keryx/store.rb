@@ -141,9 +141,13 @@ module Keryx
       nil
     end
 
-    def record_spawned(name, spawned)
+    # It returns the record that waited, and leaves it as it is when it is the same, or when it differs and replace is
+    # false.
+    def record_spawned(name, spawned, replace: true)
       require_address(name)
-      write_atomic(spawned_file(name), JSON.generate(spawned.record))
+      waiting = self.spawned(name)
+      write_atomic(spawned_file(name), JSON.generate(spawned.record)) unless waiting == spawned || (waiting && !replace)
+      waiting
     end
 
     def forget_spawned(name) = FileUtils.rm_f(spawned_file(name))
