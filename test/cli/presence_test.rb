@@ -135,4 +135,49 @@ class PresenceTest < Minitest::Test
                   'keryx cannot reach the session that holds stale.dev@athena, so no bell rings for the reply;'],
                  notes.map { it[/\A[^;]+;/] })
   end
+
+  def test_a_session_herdr_relaunched_in_its_pane_keeps_its_address
+    relaunched_claude('rev-1.dev', 111)
+    alive << 222
+    refusals = [keryx('leave', '--as', 'rev-1.dev'), keryx('retire', 'rev-1.dev'),
+                keryx('join', 'rev-1.dev', env: claude(222))]
+
+    assert_equal 'working', session('rev-1.dev')
+    assert_equal [1, 1, 1], refusals.map(&:status)
+    assert_match(/rev-1\.dev@athena is held by another live claude session \(pid 111, pane w1:p2\)/, refusals[0].err)
+    assert_equal 'session-111', store.occupant('rev-1.dev').session_id
+    assert_equal 0, keryx('send', "rev-1.dev/#{store.occupant('rev-1.dev').session}", 'still there?').status
+  end
+
+  def test_join_force_displaces_a_relaunched_session_to_its_session_address
+    relaunched_claude('rev-1.dev', 111)
+    keryx('join', 'rev-1.dev', '--force', env: claude(222).tap { alive << 222 })
+    displaced = store.outgoing('rev-1.dev').map { store.occupant("rev-1.dev/#{it}").session_id }
+
+    assert_equal ['session-111'], displaced
+    assert_equal 'session-222', store.occupant('rev-1.dev').session_id
+  end
+
+  def test_a_relaunched_session_whose_pane_holds_nothing_or_another_session_is_gone
+    relaunched_claude('rev-1.dev', 111)
+    relaunched_claude('impl.dev', 333, pane: 'w1:p3')
+    herdr.put(SOCKET, 'w1:p2', nil)
+    show('w1:p3', 'claude', 'idle', 'session-444')
+
+    assert_equal %w[gone gone], [session('rev-1.dev'), session('impl.dev')]
+    assert_equal [0, 0], [keryx('leave', '--as', 'rev-1.dev'), keryx('retire', 'impl.dev')].map(&:status)
+    assert_nil store.occupant('rev-1.dev')
+    assert store.retired?('impl.dev')
+  end
+
+  private
+
+  # herdr relaunched the session with --resume: the same session in the same pane, under a process that is not the one
+  # that joined.
+  def relaunched_claude(name, pid, pane: 'w1:p2')
+    alive << pid
+    keryx('join', name, env: claude(pid).merge('HERDR_SOCKET_PATH' => SOCKET, 'HERDR_PANE_ID' => pane))
+    alive.delete(pid)
+    show(pane, 'claude', 'working', "session-#{pid}")
+  end
 end

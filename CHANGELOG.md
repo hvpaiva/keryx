@@ -118,5 +118,12 @@ All notable changes to this project are documented here. The format follows
   Cursor for keryx to reach it: the arguments, the stop hook and the files it goes in, the bell's
   channels in order and the variables of the herdr pane and of the store, from the same source
   `keryx spawn` and `keryx hook --help` use.
+- A session herdr relaunched in its pane, such as with `--resume` after herdr restarted, stays live
+  under its new process while herdr shows the same session id there, so `who` and `status` show it
+  and `leave --as`, `retire` and `join` without `--force` refuse its address, before the session
+  runs a keryx command. herdr reports that id for Claude Code but not for Codex, so a Codex session
+  resumed by hand counts as gone until its next keryx command. keryx's Claude Code stop hook, which
+  `keryx spawn` passes on the command line, does not survive herdr's relaunch, so a relaunched
+  session gets no stop hook reminders.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

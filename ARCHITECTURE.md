@@ -137,6 +137,18 @@ otherwise, and unknown with neither a process nor a pane. What herdr says the ag
 (idle, working, unknown) only describes a live session in `keryx who`. join takes an address whose
 session is not live, and `leave --as` releases it.
 
+A recorded process that ended does not end the session while herdr shows the recorded harness
+running the recorded session id in the recorded pane, since that is a harness relaunched in its
+pane, as herdr does with `--resume` when it restarts: the same session under a new process. The
+check reads only and records nothing; the session's next keryx command records its new process
+through `App#me`. A herdr that does not answer leaves such a session gone, as its ended process
+showed. `Roster` hands the lookout its one listing of the pane's herdr, which the activity of a
+live session takes anyway, so judging every session asks each herdr once at most. herdr reports
+no Codex thread id, so a Codex session resumed by hand in its pane counts as gone until its next
+keryx command. Nor does the check bring back keryx's Claude Code stop hook, which spawn passes in
+`--settings` on the command line: herdr's relaunch does not repeat the flags a session was
+launched with, so a relaunched session gets no stop hook reminders.
+
 A session holds one address, so join also releases any other address the session holds. It checks
 the address, releases the others and writes the occupant under an exclusive `flock` on
 `occupants.lock`, so two joins that run at once, of one session or of two, take turns. The kernel

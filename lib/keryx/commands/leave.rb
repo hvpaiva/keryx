@@ -18,8 +18,10 @@ module Keryx
                                    'release a session that join --force displaced and that ended the same way. ' \
                                    'keryx refuses while that session runs, and then ' \
                                    'only the session itself can leave. A session runs while the process keryx ' \
-                                   'recorded for it runs, or, with no process recorded, until herdr shows that its ' \
-                                   'pane no longer runs it. keryx cannot see a session with neither, such as a ' \
+                                   'recorded for it runs, or while herdr shows the same session in the pane it ' \
+                                   'joined from, as after herdr relaunched it there under a new process; with no ' \
+                                   'process recorded, it runs until herdr shows that its pane no longer runs it. ' \
+                                   'keryx cannot see a session with neither, such as a ' \
                                    'Codex session outside herdr, and releases it, so make sure it is closed before ' \
                                    'you release its address.',
                       examples: [['Release the address before handing the pane to another task', 'leave'],

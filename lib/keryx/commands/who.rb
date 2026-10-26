@@ -37,7 +37,8 @@ module Keryx
                                  "hidden how many addresses it left out.\n\n" \
                                  'SESSION is none when no session holds the address, gone when the session ended, ' \
                                  "live when its process runs, or herdr's view of the agent (idle, working, " \
-                                 "blocked, done) when herdr sees it in its pane.\n\n" \
+                                 'blocked, done) when herdr sees it in its pane, which a session herdr relaunched ' \
+                                 "there under a new process still is.\n\n" \
                                  "#{CONTEXT}\n\n#{ACTIVE}\n\n#{JSON_FIELDS} #{SCHEMA_HELP}",
                     examples: [['See who can receive messages', 'who'],
                                ['List every address, those nobody holds included', 'who --all'],
