@@ -364,8 +364,10 @@ it, when the host is needed and `KERYX_HOST` is empty. A line it cannot use is a
 invalid host or a file it cannot read is an error, since falling back to the machine's name would
 name the machine wrongly. Processes agree on the name only when they find the same file. spawn
 passes the new pane the config directory it read, and `KERYX_HOST` only when it is set, never the
-host read from the file. The courier's service and the non-interactive SSH session that receives
-mail have only their own environment, so a custom `XDG_CONFIG_HOME` has to be set for them too.
+host read from the file. `keryx wiring` prints the name `App#host` resolves, so a launcher can pass it
+as `KERYX_HOST` without reading the file, and fails as other commands do when there is none. The
+courier's service and the non-interactive SSH session that receives mail have only their own
+environment, so a custom `XDG_CONFIG_HOME` has to be set for them too.
 
 A message for an address on another host goes to `outbox/HOST/`, written in `tmp/` and linked into
 `new/` like a delivery. `Forwarder` moves a message in `new/` that already has an outcome by it, and
