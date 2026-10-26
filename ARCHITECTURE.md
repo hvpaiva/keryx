@@ -291,8 +291,9 @@ first letter dropped and the rest cut to 32 characters, or `human` when nothing 
 message sent to it. An agent session cannot act as it, or as any address in a reserved scope, with
 `--as` or `KERYX_AS` either: `Identity#existing` refuses a reserved address to an agent right after
 resolving it, before it reads the store, so only a plain terminal, or a program run from one, acts as
-the person and marks the person's mail read. That holds at keryx's own commands only, as
-[SECURITY.md](SECURITY.md) explains.
+the person and marks the person's mail read. `keryx.system` is refused to every caller, a plain
+terminal included, whatever the store holds, so only keryx's own code posts as it. That holds at
+keryx's own commands only, as [SECURITY.md](SECURITY.md) explains.
 
 An address is `MEMBER.TEAM@HOST`. Two team names are reserved scopes with no authority of their own:
 `local` is a person at a terminal, and `system` is keryx's own services, so the courier's notices and
@@ -509,6 +510,184 @@ addresses and must be upgraded. A refusal on the send itself is the sender's err
 as every message refused on its send is. A message that waited in the outbox and is refused when the courier or a
 later send forwards it shows in `keryx status`, and stays in `outbox/HOST/refused/` to be sent again by hand.
 Nothing is downgraded or retried.
+
+## The message check
+
+The author of a set of agents has rules for what they may write to each other, and a rule that an agent must
+remember is one it can forget or argue its way around. The message check puts those rules in a program root
+installs. When /etc/keryx/check exists, keryx runs the checker it names on every message an agent writes, before
+anything is written, and writes only what the checker accepts, so the answer comes from code and not from the
+agent's compliance. `CheckConfig` reads and validates the file, `Checker` runs the process, and `Check` is the one
+object `Postman` and `Receiver` ask: `Check#refusal(message, event:, command:)` gives nil when the message may be
+written and the reason otherwise, which `Postman` raises as an error and `Receiver` puts in a refused receipt. A
+machine with no file checks nothing, as before.
+
+The message is composed, then checked, then written, queued or rung, and the check runs outside every store lock,
+so a checker that takes its whole timeout keeps no other command waiting. `Postman#post` composes the message once,
+under the id it is given or one drawn from the clock, and `Postman#screen` checks it before the local delivery or
+`post_away` runs, so a refused message is never delivered, queued, forwarded or rung and creates no address. Each
+command passes `command:` as it names itself, `send`, `send --re`, `send --on`, `ask`, `reply` or `spawn`.
+`Postman#withdraw` checks a withdrawal as `withdraw` before it writes it to the mailbox that holds the request or
+queues it for another machine. spawn posts its brief after it creates the address and before it starts the
+harness, so a refused brief opens no pane; spawn prints the refusal and exits 1, and the address stays, as after a
+launch that fails. The text of `--prompt` is no message and is not checked. The claim path, where a post takes its
+id from a claim in a hold of the occupants lock, is open only to a sender the check exempts, since a checker there
+would hold that lock for its whole timeout, and any other post that passes `claim:` raises `ArgumentError`. The
+message checked is the message written, field for field, with one exception. `Postman#in_thread` queues a message
+of a thread for another machine under the later of its own id and the one after the last message of its thread
+still in `outbox/HOST/new/` (`Postman.renamed`), so when an earlier message of the thread waits there with a later
+id, from the same millisecond or across a clock set back, the stored id follows the checked one and no other field
+differs. So a checker must key no rule on the id. `Receiver#take` checks a message from another machine after
+its own refusals (the host, the address, a retirement, a session that left), so no checker runs for mail refused
+anyway, and before it writes it. The courier does not check again what it forwards from the outbox, and nothing
+that reads, marks read, rings again, retires or purges writes a message, so none of them runs the check.
+
+keryx reads /etc/keryx/check as `key = value` lines, split at the first `=` and stripped, and skips blank lines
+and lines that start with `#`.
+
+```text
+command = /usr/local/bin/nomos-check
+timeout = 10
+```
+
+`command` is required and must be an absolute path; the whole value is the path, spaces included, and never a
+command line. `timeout` is a whole number of seconds from 1 to 30, 5 when the line is absent. A line with no `=`,
+an unknown key, a key set twice and text that is not UTF-8 refuse as well, where the user config warns and goes
+on. `CheckConfig#setup` opens the file with `O_NOFOLLOW` and `O_NONBLOCK` and runs every test on the stat of the
+open descriptor, so the file tested is the file read. It must be a regular file, owned by root and not writable by
+group or others, and every folder above it, up to /, must be a directory, not a symbolic link, owned by root and
+not writable by group or others unless it is sticky, since a folder others can write lets them rename another file
+over the one in it. The checker must pass the same tests by `lstat`, since exec takes a path, must not be a link
+itself, and must be executable by the user keryx runs as. Every component of both paths is then root's and closed
+to others, so no process of that user can swap a file between the test and the read or the exec. The walk refuses
+a path through a link, such as /bin on a merged-/usr system, athena and zeus among them, so `command` names the
+checker under its real path, such as /usr/local/bin or /usr/local/lib. On Ubuntu 26.04 even /usr/bin/true is a
+link, to gnutrue, and coreutils such as /usr/bin/cat link into a Rust multicall binary under
+/usr/lib/cargo/bin/coreutils, so a system binary is named by the path `readlink -f` prints. A missing file is no
+check, and every other problem refuses each message that needs the check, with `the check failed:` and the reason,
+such as `/etc/keryx/check:3: unknown key "comand"` or `the checker /usr/local/bin/nomos-check is not owned by root`,
+since the check fails closed. keryx reads the file again for each message that needs it, so a fix takes effect at
+the next message with nothing to restart. Only Ruby that builds an `App` can pass another `Check`, which is how the
+tests use a file of their own; no variable, flag, config line or store file moves the path.
+
+`Checker#call` starts the checker with `Process.spawn` and the argv `[command, command]`, so the path is its whole
+argv and no shell reads it, with / as its folder, in a process group of its own, and with an environment of exactly
+four variables: `PATH=/usr/bin:/bin`, `HOME`, `LANG=C.UTF-8` and `KERYX_CHECK=1`. `HOME` is the home of the user
+keryx runs as from the password database (`Checker.home`), not the `HOME` a session sets freely. Three threads
+write the envelope to its standard input and close it, drain its standard output in 64 KiB chunks and drop them,
+and keep the first 4096 bytes of its standard error and drop the rest, so no flood fills a pipe and stalls it. A
+checker that exits without reading breaks the pipe, and its exit status decides. Once the checker is reaped,
+whatever it gave, keryx sends TERM and KILL to its group, so a descendant it left behind dies with it and
+`sleep 30 & exit 0` is accepted at once with nothing left running. At the timeout keryx sends the group TERM, waits
+1 s (`Checker::KILL_GRACE`), sends KILL and reaps the checker, and on any way out, a result, an error or Ctrl-C,
+the group is killed, the checker reaped and every pipe closed. `Runner` is not used, since it passes keryx's
+environment through and reads the whole output into memory. Exit 0 accepts the message and exit 1 refuses it, with
+the standard error kept, scrubbed to UTF-8, stripped of trailing whitespace and ending in `(cut at 4096 bytes)` when
+it was longer, as the reason. Anything else fails, and a failure refuses the message too: another exit status, a
+signal, the timeout, a checker that cannot be started, and a file or checker the tests above refuse.
+
+The checker reads one JSON object, a newline and the end of its input. keryx writes the object on one line with no
+spaces; the example is broken at commas.
+
+```json
+{"check":1,"event":"send","host":"athena","command":"send --re",
+ "message":{"keryx":2,"id":"01M5WX2B7Q4N8R3T6V9Y0ZC1DE","kind":"message","from":"rev-1.keryx@athena",
+  "to":"orq.keryx@athena","thread":"01M5WTTD63K9VMGZX2M3Y9CW7V","in_reply_to":"01M5WTTD63K9VMGZX2M3Y9CW7V",
+  "created_at":"2026-10-26T19:40:00Z","due_at":null,"body":"Taken; the review is under way.",
+  "context":{"used":103000,"window":320000}}}
+```
+
+`check` is 1, the version of the envelope. `event` is `send` in `Postman#post` and `Postman#withdraw` and `receive`
+in `Receiver#take`. `host` is this machine's name, `App#host`. `command` is the command that posts, one of `send`,
+`send --re`, `send --on`, `ask`, `reply`, `withdraw` and `spawn`, and null on receive. `message` is the object keryx
+writes to the mailbox, of format `keryx` 2, with `id`, `kind` (message, request, reply or withdrawal), `from`, `to`,
+`thread`, `in_reply_to` (null when none), `created_at` and `due_at` in UTC ISO 8601 with seconds (`due_at` null
+when none), `body`, and `context` with `used` and `window` only when the sender's context was measured, absent
+otherwise. A message sent with `--re` or `--on` has kind message, the request's thread, and the request's id as
+`in_reply_to`. The 64 KiB limit on the body is enforced before the checker runs.
+
+`Check#exempt?` exempts a message by the sender it names, `keryx.system` or any `NAME.local`, never by who runs the
+command. An exempt message runs no checker and does not read the file, so a broken file or checker silences neither
+the person at the keyboard nor the courier, and the same test runs on send and on receive. No command claims
+`keryx.system`, since join refuses every reserved name and `--as` and `KERYX_AS` refuse it to every caller, a plain
+terminal included, whatever the store holds, so only keryx's own code posts as it: the courier's notices, the
+dialog notices and spawn's quote of a dialog. `NAME.local` is the person at a plain terminal, and an
+agent session cannot act as it, though a session that clears its variables passes for that person, as the limits
+below say.
+
+On send, a refusal reaches standard error as `error: the check refused the message:` and the checker's reason on
+the lines after it, with control characters made visible, or as `the check refused the message and gave no reason`,
+or as `the check failed:` and why, such as `/usr/local/bin/nomos-check did not finish within 5s`. keryx exits 1,
+prints nothing on standard output and writes nothing. On receive, the receipt is refused, with the detail
+`the check on HOST refused the message:` and the reason's lines joined by spaces, so it fits one line of
+`keryx status`, or `the check on HOST failed:` and why. A check that fails there refuses rather than fails, since a
+failed receipt would have the sender send the message again on every pass and stall its thread for as long as the
+checker stays broken; refused, it shows once and is sent again by hand after the fix. A sending command that
+forwards at once discards the message and exits 1 with `HOST refused the message;` and the detail. A message the
+courier forwards later stays in `outbox/HOST/refused/`, and `keryx status` lists it under NOT FORWARDED with state
+refused and the detail, as `-o json` does under `not_forwarded`. A refused message counts for nothing, so a request
+whose reply was refused stays open on both machines.
+
+The checks on receive run inside the one `ssh HOST keryx __receive` that `Remote#deliver` bounds with
+`Remote::TIMEOUT`, 60 s, of which ssh's `ConnectTimeout` takes up to 10 s. If that process outlives the bound, the
+sender gets no receipts and keeps the whole batch, and the next pass sends it again, so two rules keep a host's
+queue moving. First, a message the mailbox already holds (`Store#stored?`, the file whose existence makes
+`Store#deliver` answer a duplicate) is answered duplicate with no check, no write and no bell, after `Receiver`'s own
+refusals, so a resent batch moves past what arrived. Second, `Receiver#receive_all` notes the monotonic clock when
+the batch starts, and before each check, when the time spent, the message's timeout and the 1 s kill grace would
+pass `Receiver::CHECK_BUDGET`, 40 s, that message and every later one of the batch that needs a check are answered
+failed, `the check on HOST ran out of time in this batch`. A failed receipt stalls its thread, so the later
+messages of that thread fail behind it and the sender sends them again, in order, on the next pass, while messages
+that need no check are still taken unless their thread stalled. The budget leaves 60 - 10 - 40 = 10 s for ssh's
+own work, Ruby's start, reading the batch and the store's writes, and the longest timeout and its kill grace,
+30 + 1 = 31 s, fit in 40 s, so every batch checks at least one message and the queue moves by at least one checked
+message per pass. Bells are outside the budget, each herdr or Codex call up to `Runner`'s 10 s (`App#herdr`,
+`Bell::CodexQueue`), so a batch of many deliveries can still pass `Remote::TIMEOUT`, as it could before the check.
+That is a limit and not a regression: the duplicate rule keeps the queue moving on the resend, since a message
+already held rings no bell again.
+
+A message that needs the check costs the reads of the file and of the folders above it and above the checker, and
+one process start, run and reap. An exempt message costs nothing, and a machine with no file one open that fails.
+What that adds to a send was measured on athena on 2026-10-26, with ruby 4.0.9 on 8 cpus that other sessions kept at
+a load average between 30 and 35, so the figures are an upper bound. Two hundred in-process sends each took a median
+of 36 to 38 ms with no file, 57 to 67 ms with `/usr/bin/gnutrue` as the checker and 69 to 71 ms with the coreutils
+`cat`, so a checker that does nothing added 21 to 33 ms at the median over two runs. A whole `keryx send` started as
+a process took a median of 419 to 571 ms there. A checker written in an interpreted language adds its own start on
+top of that.
+
+The check stops what goes through keryx's own commands on a machine that has it, and no more.
+
+- A process of the user the sessions run as can still write a message file into a mailbox directly, since the
+  store belongs to that user, so a reader that must not show an unchecked message checks it again when it shows
+  it.
+- Another build, such as an older keryx or any Ruby that loads keryx's lib and builds an `App` with a `check:` of
+  its own, or preloads a file as the tests do, runs no check or another one.
+- `KERYX_HOME` does not skip the check, since /etc/keryx/check is read whatever the store; a session that moves its
+  store only writes mail that no live mailbox reads.
+- The person exemption is claimable by any agent session that tries. keryx tells an agent from a person only by its
+  environment (`Caller.from_env`), the harness variables (`CLAUDECODE` and the Claude Code, Codex and Cursor session
+  variables) and else herdr's report on the pane that `HERDR_SOCKET_PATH` and `HERDR_PANE_ID` name. Any agent
+  session, in a herdr pane or not, that runs keryx with those variables cleared, with
+  `env -u CLAUDECODE -u HERDR_PANE_ID` or `env -i`, is taken for the person at the terminal, sends as `NAME.local`
+  and is exempt. Without the exemption a checker would see a person as the sender of such a message and accept it
+  all the same, so the exemption widens little.
+- On receive the sender is the one the message names. Any local process can run `keryx __receive` and feed it a
+  message from `NAME.local@OTHERHOST` or `keryx.system@OTHERHOST`, and `Receiver` refuses only a sender on this
+  machine, so such a message is exempt and delivered. This is keryx's trust in SSH between machines, seen from the
+  local side.
+- On a machine where unprivileged user namespaces are enabled, a session can build a mount namespace with a root of
+  its own, in which its own file and the folders above it show as root's at /etc/keryx/check or at the checker's
+  path, and keryx in that namespace honors them. zeus (Omarchy, on Arch) allows it, since `unshare -Urm true` succeeds there (`max_user_namespaces` 252700,
+  `unprivileged_userns_clone` 1), and setting `unprivileged_userns_clone` to 0 would close it. athena (Ubuntu
+  26.04) blocks it with `apparmor_restrict_unprivileged_userns=1`. It is the same class as running another build.
+- A checker that moves a descendant to another process group escapes the group kill, and that descendant may
+  outlive keryx, which still returns within the timeout.
+- A machine without /etc/keryx/check checks nothing it receives, and a message queued before the file existed is
+  checked only by the machine that receives it.
+- Fail closed means that an invalid file or a broken checker refuses every agent message on that machine. The
+  person's mail and keryx's notices still go, so the author can still answer and the courier still reminds.
+- Two machines with different checkers can refuse on receive what the sender accepted, and the sender learns it
+  from the error at once or later from `keryx status`.
 
 ## Starting a session
 

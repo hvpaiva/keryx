@@ -28,6 +28,42 @@ class HelpTest < Minitest::Test
     assert_match(/^  3 +keryx wait or keryx spawn gave up before the reply or the join$/, result.out)
   end
 
+  def test_bare_keryx_lists_the_check_file_with_its_two_keys
+    out = keryx.out
+    row = 'A checker root sets up; keryx runs it before writing any message, see keryx send --help'
+
+    assert_match(%r{^    host = NAME .*\n  /etc/keryx/check +#{Regexp.escape(row)}$}, out)
+    assert_match(/^    command = PATH +The checker, an absolute path that goes through no symbolic link$/, out)
+    assert_match(/^    timeout = SECONDS +How long the checker may run, from 1 to 30, 5 when unset$/, out)
+  end
+
+  def test_the_help_of_send_describes_the_check_and_says_that_it_fails_closed
+    prose = keryx('send', '--help').out.gsub(/\s+/, ' ')
+
+    assert_includes prose, 'When /etc/keryx/check exists, keryx runs its checker before it writes the message; a ' \
+                           'refusal writes nothing, and keryx prints the reason the checker gives and exits 1.'
+    assert_includes prose, 'The checker reads the message as one JSON object on standard input and accepts it with ' \
+                           'exit 0 or refuses it with exit 1.'
+    assert_includes prose, '(5 seconds unless the file sets one, at most 30)'
+    assert_includes prose, 'refuse the message too, since the check fails closed. A message for another machine is ' \
+                           'checked there again when it arrives, and a refusal there shows in the error, or in keryx ' \
+                           "status when the courier forwards it later. A person's messages and keryx's own notices " \
+                           'are not checked.'
+  end
+
+  def test_the_help_of_every_other_command_that_writes_a_message_names_the_check
+    { 'ask' => 'request; a refusal writes nothing, and keryx',
+      'reply' => 'reply; a refusal writes nothing and leaves the message unread, and keryx',
+      'withdraw' => 'withdrawal; a refusal writes nothing, and keryx',
+      'spawn' => 'request; a refusal writes no request and opens no pane, and spawn' }.each do |name, refusal|
+      prose = keryx(name, '--help').out.gsub(/\s+/, ' ')
+
+      assert_includes prose, "When /etc/keryx/check exists, keryx runs its checker before it writes the #{refusal} " \
+                             'prints the reason the checker gives and exits 1', name
+      assert_includes prose, "A person's messages and keryx's own notices are not checked", name
+    end
+  end
+
   def test_command_help_lists_its_own_options_apart_from_the_global_ones
     result = keryx('ask', '--help')
 

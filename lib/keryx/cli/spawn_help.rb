@@ -5,7 +5,7 @@ require_relative 'command'
 
 module Keryx
   module CLI
-    # The paragraphs of spawn's help that describe what Spawner does, and its examples.
+    # The paragraphs of spawn's help that describe what Spawner does and the check of its request, and its examples.
     module SpawnHelp
       NAMING = 'ADDRESS is MEMBER.TEAM, or MEMBER alone for a member of the team of the address spawn runs as, or ' \
                "else of the one team on this machine with that member. #{Command::NAME_SPELLING} herdr names the " \
@@ -33,6 +33,10 @@ module Keryx
                 'any, or, when that read fails, the dialog spawn quoted earlier, as what the pane showed then. A ' \
                 'herdr call already started may finish after it, but spawn checks the timeout before each next ' \
                 'step and starts no harness once it passed, so a pane it opened by then holds only a shell.'
+      CHECK = 'When /etc/keryx/check exists, keryx runs its checker before it writes the request; a refusal writes ' \
+              'no request and opens no pane, and spawn prints the reason the checker gives and exits 1, keeping the ' \
+              "address it created, as a launch that fails does. A person's messages and keryx's own notices are not " \
+              'checked, nor is the first prompt, and keryx send --help says more.'
       EXAMPLES = [['Start a reviewer of team alpha in Claude Code with its first request',
                    'spawn rev-1.alpha --harness claude --role reviewer "Review PR #448"'],
                   ["Start Codex for this session's team in the agents tab, with a brief and a deadline",

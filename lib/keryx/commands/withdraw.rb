@@ -17,7 +17,11 @@ module Keryx
                                       'says why, and without it the ' \
                                       "withdrawal says that no reply is needed.\n\n" \
                                       'A request this machine sent under a name it had before counts as sent by the ' \
-                                      'address of the same name.',
+                                      "address of the same name.\n\n" \
+                                      'When /etc/keryx/check exists, keryx runs its checker before it writes the ' \
+                                      'withdrawal; a refusal writes nothing, and keryx prints the reason the checker ' \
+                                      "gives and exits 1. A person's messages and keryx's own notices are not " \
+                                      'checked, and keryx send --help says more.',
                          examples: [['Withdraw a request that is no longer needed', 'withdraw 01JB8Y2Q'],
                                     ['Say why', 'withdraw 01JB8Y2Q "Fixed upstream, no need to port it"']]
 
