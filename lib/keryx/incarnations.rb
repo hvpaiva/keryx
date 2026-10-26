@@ -65,12 +65,12 @@ module Keryx
 
     private
 
-    # KEY, or KEY/SESSION for one incarnation of the address.
+    # KEY, or KEY/SESSION for one incarnation of the address. A folder from before team names, with no dot, is never
+    # a key, so keryx never reads, moves or deletes one.
     def split(name)
-      key, session = name.to_s.split('/', 2)
-      return [key, session] if Address.key?(key) && (session.nil? || Address::SESSION.match?(session))
+      return name.to_s.split('/', 2) if Address.name?(name)
 
-      raise Error, "invalid name #{name.to_s.inspect}: #{Address::NAME_RULE}"
+      raise Error, "invalid name #{name.to_s.inspect}: MEMBER.TEAM, each #{Address::NAME_RULE}"
     end
 
     def occupant_path(name)

@@ -65,7 +65,7 @@ module Keryx
         request = stored.message
         sender = Address.parse(request.from)
         next unless request.overdue?(now) && sender.local?(@host) && @store.address?(sender.key)
-        next if @store.marked?(sender.key, request.id, OVERDUE_MARK) || !reachable?(roster, sender)
+        next if @store.marked?(sender.key, request.id, OVERDUE_MARK)
 
         remind(sender, request)
       end
@@ -96,7 +96,7 @@ module Keryx
       director = Address.from_name(occupant.director, host: @host) if occupant.director
       director ||= oldest_request(roster, name)&.then { Address.parse(it.from) }
       director &&= settled(roster, director)
-      [Address.from_name(name, host: @host), director].compact.uniq.select { reachable?(roster, it) }
+      [Address.from_name(name, host: @host), director].compact.uniq
     end
 
     # A director that join --force displaced is told at its session address until that session leaves, and then at
@@ -104,11 +104,6 @@ module Keryx
     def settled(roster, address)
       live = ->(name) { roster.live?(@store.reporting { @store.occupant(name) }) }
       address.local?(@host) && Postman.session_left(@store, address, live) ? address.stable : address
-    end
-
-    # keryx's notices reach an address from before team names only while a session here holds it.
-    def reachable?(roster, address)
-      !address.flat? || (address.local?(@host) && roster.live?(@store.reporting { @store.occupant(address.key) }))
     end
 
     # Only the requests the incarnation lists, so neither the holder nor a displaced session takes the other's work.

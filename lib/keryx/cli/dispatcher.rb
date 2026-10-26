@@ -23,8 +23,8 @@ module Keryx
                     '--as ADDRESS, or KERYX_AS, makes a command act as an address on this machine instead of the ' \
                     'one this session holds, and the address must exist and not be retired. MEMBER alone takes the ' \
                     'team of the address this session holds, or else the one team on this machine with that ' \
-                    'member. An address from before team names is taken only written in full, as MEMBER@HOST, and ' \
-                    'never by a short name. ADDRESS/SESSION acts as that session of the address while it is bound ' \
+                    'member. An address from before team names, MEMBER@HOST, is refused. ADDRESS/SESSION acts as ' \
+                    'that session of the address while it is bound ' \
                     'to it. What a command sends with --as carries no context reading, since the session that runs ' \
                     'the command need not be the one that holds the address.'
       SIGINT_STATUS = 130

@@ -13,7 +13,9 @@ module Keryx
                      summary: 'Block until a request you sent is answered',
                      description: 'Block until the request ID, which you sent, is answered, then show the reply ' \
                                   'and mark it as read. When the request is withdrawn before a reply comes, it ' \
-                                  "shows the withdrawal instead.\n\n" \
+                                  'shows the withdrawal instead. A request to an address from before team names, ' \
+                                  'MEMBER@HOST, is over, since nothing can answer it any more, so wait says so at ' \
+                                  "once unless its reply came before.\n\n" \
                                   'An agent rarely needs this: the reply rings its session when it arrives. It is ' \
                                   'for scripts, and for work that cannot go on without the answer. It exits with ' \
                                   'status 3 when --timeout passes first.',
@@ -52,6 +54,8 @@ module Keryx
         loop do
           settled = reply(name, request) || withdrawal(holder, request)
           return settled if settled
+
+          over(request)
           raise WaitTimeout, "no reply to #{request.id} from #{request.to} yet" if passed?(deadline)
 
           app.sleeper.call(POLL_SECONDS)
@@ -59,6 +63,12 @@ module Keryx
       end
 
       def passed?(deadline) = deadline && app.monotonic.call >= deadline
+
+      def over(request)
+        teamless = request.teamless or return
+
+        raise Error, "#{request.id} is over and gets no reply; #{format(Address::TEAMLESS, teamless)}"
+      end
 
       def reply(name, request) = app.store.stored(name).map(&:message).find { it.answers?(request) }
 

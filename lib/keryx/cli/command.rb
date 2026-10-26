@@ -24,9 +24,9 @@ module Keryx
                       'terminal, names MEMBER alone only when exactly one team on this machine has that member. ' \
                       "#{NAME_SPELLING} HOST starts with a lowercase letter or a digit and runs up to 63 lowercase " \
                       'letters, digits and hyphens, with no dots. Two teams are reserved scopes: NAME.local is a ' \
-                      "person at a terminal, and keryx.system is keryx's own notices. A short name never names an " \
-                      'address from before team names, which has no team; such an address finishes its threads ' \
-                      'and takes no new work.'.freeze
+                      "person at a terminal, and keryx.system is keryx's own notices. MEMBER@HOST, an address " \
+                      'from before team names, is refused: keryx no longer writes to one or takes mail from one, ' \
+                      'though the mail it left in a mailbox still reads.'.freeze
       # The same, for the commands that also reach one session of an address.
       ADDRESSING = "#{ADDRESS_FORMS} ADDRESS/SESSION reaches only that session of the address, and is refused once " \
                    "the session leaves. #{SESSION_SPELLING}".freeze

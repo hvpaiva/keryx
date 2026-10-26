@@ -32,7 +32,7 @@ module Keryx
 
       def local_names(texts)
         texts.map do |text|
-          address = app.address(text, flat: true)
+          address = app.address(text)
           raise Error, "#{address} is on another machine" unless address.local?(app.host)
           raise Error, "no address #{address}" unless app.store.address?(address.key)
 

@@ -50,7 +50,7 @@ module Keryx
     private
 
     def existing(text)
-      address = Resolver.new(store: @store, host: @host).resolve(text, sender: held, flat: true)
+      address = Resolver.new(store: @store, host: @host).resolve(text, sender: held)
       raise Error, "#{address} is on another machine; --as names an address on #{@host}" unless address.local?(@host)
 
       name = address.key

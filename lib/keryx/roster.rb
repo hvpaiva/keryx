@@ -53,7 +53,7 @@ module Keryx
       all.filter_map do |holder, stored|
         request = stored.message
         found = responses.fetch(request.id, [])
-        next unless request.request? && found.none? { Roster.settles?(it, request) }
+        next unless Roster.open?(request, found)
 
         [holder, found.any? { it.takes?(request) } ? stored.with(state: :taken) : stored]
       end
@@ -62,6 +62,12 @@ module Keryx
     def settlement(request) = @store.all_messages.map { it.last.message }.find { Roster.settles?(it, request) }
 
     def self.settles?(message, request) = message.answers?(request) || message.withdraws?(request)
+
+    # A request with an address from before team names at either end is over, since nothing can answer or withdraw it
+    # any more.
+    def self.open?(request, responses)
+      request.request? && !request.teamless && responses.none? { settles?(it, request) }
+    end
 
     # The addresses here that open requests wait on, as their recipient or as the address that sent them from here.
     def self.waiting_on(open)

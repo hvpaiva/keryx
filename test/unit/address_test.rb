@@ -60,14 +60,17 @@ class AddressTest < Minitest::Test
   end
 
   def test_key_tells_a_store_directory_name_from_anything_else
-    %w[rev-1.alpha orq ana.local].each { assert Keryx::Address.key?(it), "#{it} is a store name" }
-    ['Rev.alpha', 'a.b.c', 'rev-1.', '.alpha', 'rev-1@box1', '', nil].each { refute Keryx::Address.key?(it), it.inspect }
+    %w[rev-1.alpha ana.local].each { assert Keryx::Address.key?(it), "#{it} is a store name" }
+
+    ['orq', 'Rev.alpha', 'a.b.c', 'rev-1.', '.alpha', 'rev-1@box1', '', nil].each do |text|
+      refute Keryx::Address.key?(text), text.inspect
+    end
   end
 
   def test_name_tells_a_key_or_an_incarnation_of_a_team_address_from_anything_else
-    %w[rev-1.alpha orq rev-1.alpha/k3m9qz].each { assert Keryx::Address.name?(it), "#{it} is a name" }
+    %w[rev-1.alpha rev-1.alpha/k3m9qz].each { assert Keryx::Address.name?(it), "#{it} is a name" }
 
-    ['orq/k3m9qz', 'rev-1.alpha/K3M9QZ', 'rev-1.alpha/k3m9q', 'rev-1.alpha/', 'Orq@x', '', nil].each do |text|
+    ['orq', 'orq/k3m9qz', 'rev-1.alpha/K3M9QZ', 'rev-1.alpha/k3m9q', 'rev-1.alpha/', 'Orq@x', '', nil].each do |text|
       refute Keryx::Address.name?(text), text.inspect
     end
   end

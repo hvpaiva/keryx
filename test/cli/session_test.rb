@@ -29,7 +29,7 @@ class SessionTest < Minitest::Test
   def test_listings_neutralize_escapes_written_into_the_store
     join_claude('rev-1.dev', 111)
     File.write(tmp('state', 'addresses', 'rev-1.dev', 'address.json'),
-               JSON.generate('name' => 'rev-1.dev', 'role' => "x\e[2Jy", 'created_at' => NOW.iso8601))
+               JSON.generate('member' => 'rev-1', 'team' => 'dev', 'role' => "x\e[2Jy", 'created_at' => NOW.iso8601))
 
     assert_includes keryx('who').out, 'x^[[2Jy'
     refute_includes keryx('who').out, "\e"

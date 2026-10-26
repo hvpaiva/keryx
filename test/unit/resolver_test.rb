@@ -70,9 +70,9 @@ class ResolverTest < Minitest::Test
                  'person at a terminal is hvpaiva.local@box1', error.message
   end
 
-  def test_an_address_without_a_team_is_taken_where_the_caller_allows_it
-    assert_equal 'orq@box1', resolve('orq@box1', flat: true)
-    assert_raises(Keryx::Error) { resolve('orq', flat: true) }
+  def test_an_address_without_a_team_is_refused_whoever_asks
+    assert_raises(Keryx::Error) { resolve('orq@box1', sender: nil) }
+    assert_raises(Keryx::Error) { resolve('orq@box1', sender: 'hvpaiva.local') }
   end
 
   def test_a_host_needs_the_full_address

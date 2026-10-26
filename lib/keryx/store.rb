@@ -14,17 +14,17 @@ require_relative 'retirement'
 require_relative 'spawned'
 
 module Keryx
-  # The record names its member and team apart; one written before team names has a name and no team.
+  # The record names its member and team apart.
   AddressRecord = Data.define(:member, :team, :role, :created_at) do
     def self.from_record(data)
       member, team, role = data.values_at('member', 'team', 'role')
-      member ||= data['name']
-      raise TypeError, 'a field is not text' unless [member, team, role].all? { it.nil? || it.is_a?(String) }
+      raise TypeError, 'a name is not text' unless [member, team].all?(String)
+      raise TypeError, 'the role is not text' unless role.nil? || role.is_a?(String)
 
       new(member:, team:, role:, created_at: Time.iso8601(data['created_at'].to_s))
     end
 
-    def name = team ? "#{member}.#{team}" : member
+    def name = "#{member}.#{team}"
 
     def record = { 'member' => member, 'team' => team, 'role' => role, 'created_at' => created_at.utc.iso8601 }
   end
@@ -87,7 +87,7 @@ module Keryx
       raise Error, "#{address_file(name)} is damaged"
     end
 
-    # Only an address with a team starts here, and none in the scope of keryx's own services.
+    # None starts here in the scope of keryx's own services.
     def create_address(name, role: nil, now: Time.now.utc)
       address = Address.from_key(name, host: nil)
       current = address(name)
@@ -196,7 +196,7 @@ module Keryx
       raise Error, "no message #{id} in the mailbox of #{name}"
     end
 
-    def outbox = @outbox ||= Outbox.new(root, problems: @problems)
+    def outbox = @outbox ||= Outbox.new(root, problems: @problems, clock: @clock)
 
     def all_messages
       kept = address_names.flat_map { |name| stored(name).map { [name, it] } }
@@ -266,7 +266,6 @@ module Keryx
     private
 
     def check_new(address)
-      raise Error, "#{address.key} has no team; an address is MEMBER.TEAM, such as #{address.key}.TEAM" if address.flat?
       return unless address.team == Address::SYSTEM
 
       raise Error, "#{address.key} is in the scope of keryx's own services, which no address joins"
