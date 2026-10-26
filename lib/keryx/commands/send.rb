@@ -35,7 +35,8 @@ module Keryx
                                   'closes.',
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md'],
-                                ['Say you took a request whose work goes on', 'send --re 01JB8Y2Q "On it, PR by 3pm"'],
+                                ['Say you took a request for a result whose work goes on',
+                                 'send --re 01JB8Y2Q "Taken; the review is under way"'],
                                 ['Add to a request you sent', 'send --on 01JB8Y2Q "The fixture is reset"']]
 
       def define_options(parser)
