@@ -324,9 +324,11 @@ module Keryx
       end
 
       # A person and keryx by their scope, on any machine. An agent by the harness of the session that holds its
-      # address here, if that session joined by the second the message was written: created_at keeps whole seconds,
-      # and a bell rung again after the writer left would otherwise name whoever holds the address now. A mailbox
-      # here holds only mail to this machine, so the recipient's host is this one.
+      # address here, if that session joined in an earlier second than the message was written: created_at keeps
+      # whole seconds, so a session that took the address within that second cannot be told from the writer, and a
+      # bell rung again after the writer left must not name whoever holds the address now. A mailbox here holds only
+      # mail to this machine, so the recipient's host is this one. The kind is optional and the bell is not, so a
+      # sender's record that cannot be read or parsed names nothing.
       def kind(message)
         from = Address.parse(message.from)
         case from.team
@@ -334,12 +336,12 @@ module Keryx
         when Address::SYSTEM then KERYX
         else session(@store.occupant(from.name), message) if from.host == Address.parse(message.to).host
         end
-      rescue Error
+      rescue Error, SystemCallError, IOError
         nil
       end
 
       def session(occupant, message)
-        SESSIONS[occupant.harness] if occupant && occupant.joined_at.floor <= message.created_at
+        SESSIONS[occupant.harness] if occupant && occupant.joined_at.floor < message.created_at.floor
       end
     end
 

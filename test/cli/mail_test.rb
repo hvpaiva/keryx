@@ -14,6 +14,8 @@ class MailTest < Minitest::Test
   end
 
   def test_ask_delivers_a_request_and_rings_the_recipient_through_its_socket
+    # A bell names the sender's harness only for a message written in a later second than the sender joined.
+    clock.advance(1)
     result = keryx('ask', 'rev-1.dev', 'Review PR #448', '--within', '30m', env: @orq)
     id = last_id(@rev)
 

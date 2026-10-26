@@ -23,9 +23,10 @@ class BellSenderTest < Minitest::Test
   # What a line for one message says of its sender, between "from" and the full stop before "Run".
   def sender_in(line) = line[/ from (.+)\. Run '/, 1]
 
-  def holds(name, **)
+  # A session that joined a minute before the messages these tests write, which build_message dates at NOW.
+  def holds(name, joined_at: Factory::NOW - 60, **)
     store.create_address(name)
-    store.bind(name, build_occupant(**))
+    store.bind(name, build_occupant(joined_at:, **))
   end
 
   def test_a_person_at_a_terminal_is_named_as_one_on_any_machine
@@ -63,15 +64,18 @@ class BellSenderTest < Minitest::Test
     assert_equal 'gone.dev@athena', sender_in(typed_line(request_from('gone.dev@athena')))
   end
 
-  # created_at keeps whole seconds, so a session that joined within the second the message was written is its writer.
-  def test_the_session_is_named_only_if_it_joined_by_the_second_the_message_was_written
-    holds('orq.dev', harness: 'codex', joined_at: Factory::NOW + 0.5)
+  # created_at keeps whole seconds, so a session that joined within the second the message was written may have taken
+  # the address from its writer with join --force.
+  def test_the_session_is_named_only_if_it_joined_in_an_earlier_second_than_the_message
+    holds('orq.dev', harness: 'codex', joined_at: Factory::NOW - 0.5)
 
     assert_equal 'orq.dev@athena, a Codex session', sender_in(typed_line(request_from('orq.dev@athena')))
 
-    holds('orq.dev', harness: 'codex', joined_at: Factory::NOW + 1)
+    [Factory::NOW, Factory::NOW + 0.5, Factory::NOW + 1].each do |joined_at|
+      holds('orq.dev', harness: 'codex', joined_at:)
 
-    assert_equal 'orq.dev@athena', sender_in(typed_line(request_from('orq.dev@athena')))
+      assert_equal 'orq.dev@athena', sender_in(typed_line(request_from('orq.dev@athena'))), joined_at.iso8601(1)
+    end
   end
 
   def test_a_harness_outside_the_table_names_nothing
