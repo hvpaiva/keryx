@@ -51,13 +51,7 @@ module Keryx
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
                                    "after spawn gave up; 'keryx join --help' explains both.",
-                      examples: [['Start a reviewer of team alpha in Claude Code with its first request',
-                                  'spawn rev-1.alpha --harness claude --role reviewer "Review PR #448"'],
-                                 ["Start Codex for this session's team in the agents tab, with a brief and a deadline",
-                                  'spawn impl --harness codex --tab agents --file brief.md --within 1h'],
-                                 ["Start one of this session's team with a model and harness flags of its own",
-                                  'spawn docs --harness claude --model haiku "Check the links in docs/" -- ' \
-                                  '--add-dir ../site']]
+                      examples: CLI::SpawnHelp::EXAMPLES
 
       def define_options(parser)
         parser.on('--harness HARNESS', Harness::KINDS, 'Start claude, codex or cursor (required)') do |harness|
@@ -103,6 +97,8 @@ module Keryx
         parser.on('--tab LABEL', 'Place the session in a tab labelled LABEL, a new one when none has room') do |label|
           options[:tab] = label
         end
+        workspace = 'Place the session in the herdr workspace labelled LABEL, created when none is'
+        parser.on('--workspace LABEL', workspace) { options[:workspace] = it }
         parser.on('--cwd PATH', 'Start the session in PATH (default: the current directory)') { options[:cwd] = it }
       end
 
@@ -131,7 +127,7 @@ module Keryx
         %i[model effort].each { check_setting(it) }
         Harness.check(options[:harness], **options.slice(:effort, :prompt))
         self.passthrough = Harness.passthrough(passthrough)
-        check_label
+        %i[tab workspace].each { check_label(it) }
         timeout
         due_at
         first_prompt(name)
@@ -152,11 +148,11 @@ module Keryx
                           'without spaces'
       end
 
-      def check_label
-        label = options[:tab]
+      def check_label(key)
+        label = options[key]
         return if label.nil? || LABEL.match?(label)
 
-        raise UsageError, "invalid tab label #{label.inspect}: up to 40 letters, digits, spaces, dots, hyphens or " \
+        raise UsageError, "invalid #{key} label #{label.inspect}: up to 40 letters, digits, spaces, dots, hyphens or " \
                           'underscores'
       end
 
@@ -232,7 +228,7 @@ module Keryx
       def place(name)
         spawner.place(herdr_caller.herdr_pane, label: name, address: app.full(name), kind: options[:harness],
                                                split: options[:split] || DIRECTIONS.first, tab: options[:tab],
-                                               cwd: directory, env: session_env).id
+                                               workspace: options[:workspace], cwd: directory, env: session_env).id
       end
 
       def spawner

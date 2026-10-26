@@ -419,7 +419,11 @@ Nothing is downgraded or retried.
 the address first, then creates the address and posts the request, so the request is in the mailbox
 before the session exists. It rings no bell for it, because the address may still name a session
 that ended and the new session opens its inbox from its first prompt. `Spawner` places the session
-by `herdr pane layout`, read for the caller's tab or for each tab `--tab` names. herdr gives a new
+by `herdr pane layout`, read for the caller's tab or for each tab `--tab` names. With `--workspace`,
+those tabs are in the workspace with that label, which spawn finds in `herdr workspace list`, since
+herdr names a workspace only by id or number, and creates with `herdr workspace create` when none has
+it, labelling its one tab as it would a new tab; a session in another workspace than the caller's
+gets a tab of its own unless `--tab` names one. herdr gives a new
 pane the floor of half the pane it splits, so spawn splits the pane that leaves the new one the most
 room along the split direction, provided the terminal in the new one gets at least 80 columns and
 24 rows, and otherwise opens a new tab. herdr's layout gives outer rectangles and no terminal size, so

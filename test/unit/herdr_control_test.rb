@@ -46,6 +46,46 @@ class HerdrControlTest < Minitest::Test
     assert_equal ['w1:p1'], herdr.panes(SOCKET, 'w1').map(&:id)
   end
 
+  def test_workspaces_lists_each_workspace_with_its_label
+    listed = '{"id":"cli:workspace:list","result":{"type":"workspace_list","workspaces":[{"active_tab_id":"wY:t57",' \
+             '"agent_status":"done","focused":true,"label":"tmp","number":1,"pane_count":39,"tab_count":22,' \
+             '"workspace_id":"wY"}]}}'
+    runner = FakeRunner.new(%w[herdr workspace list] => { out: listed })
+
+    assert_equal [Keryx::Herdr::Workspace.new(id: 'wY', label: 'tmp')], Keryx::Herdr.new(runner:).workspaces(SOCKET)
+    assert_equal [%w[herdr workspace list], { 'HERDR_SOCKET_PATH' => SOCKET }], runner.calls.first
+  end
+
+  # As herdr 0.9.5 answers for a workspace it creates, which holds one tab labelled with its number.
+  CREATED = '{"id":"cli:workspace:create","result":{"root_pane":{"agent_status":"unknown","cwd":"/work",' \
+            '"focused":false,"foreground_cwd":"/work","pane_id":"w2:p1","revision":0,"tab_id":"w2:t1",' \
+            '"terminal_id":"term_65ebe3b5edd9d1","workspace_id":"w2"},"tab":{"agent_status":"unknown",' \
+            '"focused":false,"label":"1","number":1,"pane_count":1,"tab_id":"w2:t1","workspace_id":"w2"},' \
+            '"type":"workspace_created","workspace":{"active_tab_id":"w2:t1","agent_status":"unknown",' \
+            '"focused":false,"label":"alpha","number":2,"pane_count":1,"tab_count":1,"workspace_id":"w2"}}}'
+
+  def test_create_workspace_opens_it_without_taking_the_focus_and_returns_its_one_pane
+    runner = FakeRunner.new(%w[herdr workspace create] => { out: CREATED })
+    pane = Keryx::Herdr.new(runner:).create_workspace(SOCKET, label: 'alpha', cwd: '/work',
+                                                              env: { 'KERYX_HOME' => '/state' })
+
+    assert_equal Keryx::Herdr::Pane.new(id: 'w2:p1', tab: 'w2:t1', workspace: 'w2'), pane
+    assert_equal %w[herdr workspace create --label alpha --cwd /work --env KERYX_HOME=/state --no-focus],
+                 runner.argvs.first
+  end
+
+  def test_rename_tab_labels_a_tab_or_says_why_it_could_not
+    runner = FakeRunner.new(%w[herdr tab rename w2:t1] => { out: '{"result":{"tab":{"tab_id":"w2:t1"}}}' })
+    Keryx::Herdr.new(runner:).rename_tab(SOCKET, 'w2:t1', 'rev-1.alpha')
+    refused = { success: false, err: '{"error":{"code":"tab_not_found","message":"tab w2:t9 not found"}}' }
+    error = assert_raises(Keryx::Error) do
+      Keryx::Herdr.new(runner: FakeRunner.new(%w[herdr tab rename] => refused)).rename_tab(SOCKET, 'w2:t9', 'x')
+    end
+
+    assert_equal %w[herdr tab rename w2:t1 rev-1.alpha], runner.argvs.first
+    assert_equal 'herdr tab rename failed: tab w2:t9 not found', error.message
+  end
+
   # As herdr 0.9.5 answers for a tab that holds one pane.
   LAYOUT = '{"id":"cli:pane:layout","result":{"layout":{"area":{"height":48,"width":205,"x":0,"y":0},' \
            '"focused_pane_id":"wY:p4A","panes":[{"focused":true,"pane_id":"wY:p4A","rect":{"height":48,' \
