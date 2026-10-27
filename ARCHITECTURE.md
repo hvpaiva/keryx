@@ -688,6 +688,12 @@ The check stops what goes through keryx's own commands on a machine that has it,
   26.04) blocks it with `apparmor_restrict_unprivileged_userns=1`. It is the same class as running another build.
 - A checker that moves a descendant to another process group escapes the group kill, and that descendant may
   outlive keryx, which still returns within the timeout.
+- Once keryx sent KILL, it waits for the checker with no bound, so a checker in uninterruptible sleep (state D),
+  such as one blocked on a hung network file system, holds keryx until the kernel lets it die, and on receive holds
+  the batch past `Receiver::CHECK_BUDGET`. keryx also signals the group after the checker is reaped, to kill what it
+  left behind, so in theory a new process group could take the same id between the reap and the signal, when
+  nothing of the old group is left to keep the id in use. Killing before the reap would need `waitid` with
+  `WNOWAIT`, which Ruby's core does not offer, and `Process.detach` reaps.
 - A checker that starts with `#!` or a binary's magic but that the kernel still cannot load, such as a damaged
   binary, one built for another system or architecture, or a `#!` whose interpreter is itself a script without
   `#!`, fails its exec with `ENOEXEC`, and Ruby then runs /bin/sh on it, so its text runs as a shell script and its
