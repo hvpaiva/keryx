@@ -37,12 +37,13 @@ module Keryx
                                   'message; a refusal writes nothing, and keryx prints the reason the checker gives ' \
                                   'and exits 1. The checker reads the message as one JSON object on standard input ' \
                                   'and accepts it with exit 0 or refuses it with exit 1. Any other exit, a run past ' \
-                                  'the timeout (5 seconds unless the file sets one, at most 30), and a file or ' \
-                                  "checker that is not root's or that others can write refuse the message too, " \
-                                  'since the check fails closed. A message for another machine is checked there ' \
-                                  'again when it arrives, and a refusal there shows in the error, or in keryx status ' \
-                                  "when the courier forwards it later. A person's messages and keryx's own notices " \
-                                  'are not checked.',
+                                  'the timeout (5 seconds unless the file sets one, at most 30), a file or checker ' \
+                                  "that is not root's or that others can write, and a checker keryx cannot read or " \
+                                  'that starts with neither #! nor an ELF or Mach-O header, which Ruby would hand ' \
+                                  'to /bin/sh, refuse the message too, since the check fails closed. A message for ' \
+                                  'another machine is checked there again when it arrives, and a refusal there ' \
+                                  'shows in the error, or in keryx status when the courier forwards it later. A ' \
+                                  "person's messages and keryx's own notices are not checked.",
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md'],
                                 ['Say you took a request for a result whose work goes on',

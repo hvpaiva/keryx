@@ -16,6 +16,10 @@ module Keryx
     DEFAULT_TIMEOUT = 5
     ROOT = ->(stat) { stat.uid.zero? }
     OPEN = File::RDONLY | File::NOFOLLOW | File::NONBLOCK
+    # Ruby, like execvp, hands a file the kernel cannot execute to /bin/sh, so a checker must start as a script or a
+    # binary does: #!, or the magic of ELF or of Mach-O, thin in either byte order or universal.
+    HEADERS = ['#!', "\x7FELF", "\xFE\xED\xFA\xCE", "\xFE\xED\xFA\xCF", "\xCE\xFA\xED\xFE", "\xCF\xFA\xED\xFE",
+               "\xCA\xFE\xBA\xBE"].map(&:b).freeze
     Setup = Data.define(:command, :timeout)
 
     attr_reader :path
@@ -81,7 +85,8 @@ module Keryx
       raise Broken, "#{folder} is writable by group or others, so the file in it could be replaced"
     end
 
-    # exec takes a path, so the checker is tested by lstat, and the folders above it keep it the file run.
+    # exec takes a path, so the checker is tested by lstat, and the folders above it keep it the file run. Its header is
+    # read too, so a checker keryx cannot read is refused even where the kernel could run it.
     def vet_checker(command)
       name = "the checker #{command}"
       stat = File.lstat(command)
@@ -90,10 +95,16 @@ module Keryx
       vet(name, stat)
       walk(command)
       raise Broken, "#{name} is not executable" unless File.executable?(command)
+      raise Broken, "#{name} starts with neither #! nor an ELF or Mach-O header" unless runnable?(command)
     rescue Errno::ENOENT
       raise Broken, "#{name} does not exist"
     rescue SystemCallError => e
       raise Broken, "cannot read #{name}: #{e.message.sub(/ @ .*/, '')}"
+    end
+
+    def runnable?(command)
+      header = File.open(command, OPEN) { it.read(HEADERS.map(&:bytesize).max) }.to_s
+      HEADERS.any? { header.start_with?(it) }
     end
 
     # Each key by name, with its value and the line it is on.

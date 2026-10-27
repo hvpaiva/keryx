@@ -45,6 +45,8 @@ class HelpTest < Minitest::Test
     assert_includes prose, 'The checker reads the message as one JSON object on standard input and accepts it with ' \
                            'exit 0 or refuses it with exit 1.'
     assert_includes prose, '(5 seconds unless the file sets one, at most 30)'
+    assert_includes prose, 'and a checker keryx cannot read or that starts with neither #! nor an ELF or Mach-O ' \
+                           'header, which Ruby would hand to /bin/sh, refuse the message too'
     assert_includes prose, 'refuse the message too, since the check fails closed. A message for another machine is ' \
                            'checked there again when it arrives, and a refusal there shows in the error, or in keryx ' \
                            "status when the courier forwards it later. A person's messages and keryx's own notices " \

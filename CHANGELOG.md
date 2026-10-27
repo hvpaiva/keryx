@@ -186,9 +186,11 @@ All notable changes to this project are documented here. The format follows
   The checker reads the message as one JSON object on standard input and accepts it with exit 0 or
   refuses it with exit 1 and its reason, which the sender gets as the error, or in `keryx status`
   for a message refused on another machine, and nothing refused is written or rung. The file, the
-  checker and every folder above them must be root's, closed to others and no symbolic link. Any
-  problem with them refuses the message, as does a checker that fails or runs past its `timeout`,
-  since the check fails closed. A person's messages and keryx's own notices are not checked.
+  checker and every folder above them must be root's, closed to others and no symbolic link, and the
+  checker readable and starting with `#!` or an ELF or Mach-O header, since Ruby hands a file the
+  kernel cannot execute to /bin/sh. Any problem with them refuses the message, as does a checker
+  that fails or runs past its `timeout`, since the check fails closed. A person's messages and
+  keryx's own notices are not checked.
   [ARCHITECTURE.md](ARCHITECTURE.md#the-message-check) describes the envelope, the receive budget
   and the limits, and `keryx send --help` the check in short.
 

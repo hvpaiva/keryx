@@ -192,6 +192,34 @@ class CheckConfigTest < Minitest::Test
     assert_equal "the checker #{real('checker')} is not executable", broken(checking(stub(mode: 0o644)))
   end
 
+  # Ruby would hand such a file to /bin/sh, so a text without #! or an empty file is refused before anything runs.
+  def test_a_checker_that_starts_neither_as_a_script_nor_as_a_binary_is_refused
+    ["exit 0\n", ''].each do |text|
+      write(real('checker'), text, mode: 0o755)
+
+      assert_equal "the checker #{real('checker')} starts with neither #! nor an ELF or Mach-O header",
+                   broken(checking(real('checker')))
+    end
+  end
+
+  # The header alone, since the check reads no further.
+  def test_a_checker_that_starts_with_an_elf_or_mach_o_header_passes
+    ["\x7FELF", "\xFE\xED\xFA\xCE", "\xFE\xED\xFA\xCF", "\xCE\xFA\xED\xFE", "\xCF\xFA\xED\xFE",
+     "\xCA\xFE\xBA\xBE"].each do |header|
+      write(real('checker'), header.b, mode: 0o755)
+
+      assert_equal setup_of(real('checker')), checking(real('checker')).setup
+    end
+  end
+
+  # Mode 0111 leaves its owner what a root checker of mode 0711 leaves every other user: running it, not reading it.
+  def test_a_checker_this_user_can_run_but_not_read_is_refused
+    skip 'root reads any file' if Process.uid.zero?
+
+    assert_equal "cannot read the checker #{real('checker')}: Permission denied",
+                 broken(checking(stub(mode: 0o111)))
+  end
+
   def test_a_checker_in_a_folder_its_group_can_write_is_refused
     checker = stub(File.join(folder(real('shared'), mode: 0o775), 'checker'))
 

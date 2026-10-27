@@ -98,6 +98,20 @@ class MessageCheckTest < Minitest::Test
     refute_path_exists record
   end
 
+  # Ruby would hand a checker without #! to /bin/sh, which would read it and accept, so it is refused unrun.
+  def test_a_checker_without_a_header_fails_the_send_without_running
+    path = real_tmp('athena-checker')
+    File.write(path, "cat >> #{record}\nexit 0\n")
+    File.chmod(0o755, path)
+    check_with(path)
+    sent = keryx('send', 'rev-1.dev', 'A note', env: @orq)
+
+    assert_equal [1, '', "error: the check failed: the checker #{path} starts with neither #! nor an ELF or Mach-O " \
+                         "header\n"], [sent.status, sent.out, sent.err]
+    assert_empty store.stored('rev-1.dev')
+    refute_path_exists record
+  end
+
   def test_a_courier_reminder_for_an_overdue_request_is_delivered_past_a_refusing_checker
     must(keryx('ask', 'rev-1.dev', 'Review it', '--within', '1m', env: @orq))
     refusing

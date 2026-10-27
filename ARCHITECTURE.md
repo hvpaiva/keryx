@@ -558,8 +558,13 @@ open descriptor, so the file tested is the file read. It must be a regular file,
 group or others, and every folder above it, up to /, must be a directory, not a symbolic link, owned by root and
 not writable by group or others unless it is sticky, since a folder others can write lets them rename another file
 over the one in it. The checker must pass the same tests by `lstat`, since exec takes a path, must not be a link
-itself, and must be executable by the user keryx runs as. Every component of both paths is then root's and closed
-to others, so no process of that user can swap a file between the test and the read or the exec. The walk refuses
+itself, and must be executable and readable by the user keryx runs as. Its first bytes, read through a descriptor
+opened with `O_NOFOLLOW`, must be `#!` or the magic of an ELF or a Mach-O binary, thin in either byte order or
+universal, the same list on every system. Ruby's `Process.spawn`, like `execvp`, hands a file the kernel cannot
+execute to /bin/sh as a script, so a checker without `#!` would otherwise run as shell text and its exit would
+decide. A checker keryx cannot read is refused for the same reason, even one the kernel could run, such as root's
+at mode 0711. Every component of both paths is then root's and closed to others, so no process of that user can
+swap a file between the test and the read or the exec. The walk refuses
 a path through a link, such as /bin on a merged-/usr system, athena and zeus among them, so `command` names the
 checker under its real path, such as /usr/local/bin or /usr/local/lib. On Ubuntu 26.04 even /usr/bin/true is a
 link, to gnutrue, and coreutils such as /usr/bin/cat link into a Rust multicall binary under
@@ -571,7 +576,7 @@ the next message with nothing to restart. Only Ruby that builds an `App` can pas
 tests use a file of their own; no variable, flag, config line or store file moves the path.
 
 `Checker#call` starts the checker with `Process.spawn` and the argv `[command, command]`, so the path is its whole
-argv and no shell reads it, with / as its folder, in a process group of its own, and with an environment of exactly
+argv and never a command line, with / as its folder, in a process group of its own, and with an environment of exactly
 four variables: `PATH=/usr/bin:/bin`, `HOME`, `LANG=C.UTF-8` and `KERYX_CHECK=1`. `HOME` is the home of the user
 keryx runs as from the password database (`Checker.home`), not the `HOME` a session sets freely. Three threads
 write the envelope to its standard input and close it, drain its standard output in 64 KiB chunks and drop them,
@@ -682,6 +687,10 @@ The check stops what goes through keryx's own commands on a machine that has it,
   26.04) blocks it with `apparmor_restrict_unprivileged_userns=1`. It is the same class as running another build.
 - A checker that moves a descendant to another process group escapes the group kill, and that descendant may
   outlive keryx, which still returns within the timeout.
+- A checker that starts with `#!` or a binary's magic but that the kernel still cannot load, such as a damaged
+  binary, one built for another system or architecture, or a `#!` whose interpreter is itself a script without
+  `#!`, fails its exec with `ENOEXEC`, and Ruby then runs /bin/sh on it, so its text runs as a shell script and its
+  exit decides. keryx cannot tell that run from the parent, so root avoids it by installing a checker that runs.
 - A machine without /etc/keryx/check checks nothing it receives, and a message queued before the file existed is
   checked only by the machine that receives it.
 - Fail closed means that an invalid file or a broken checker refuses every agent message on that machine. The

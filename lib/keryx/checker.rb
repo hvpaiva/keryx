@@ -3,10 +3,12 @@
 require 'etc'
 
 module Keryx
-  # Runs one checker on one envelope. The checker gets the path alone as its argv, never a shell, an environment of
-  # four variables and / as its folder, in a process group of its own that is killed however the run ends, so a
-  # descendant it leaves behind dies with it. Runner is not used, since it passes keryx's environment through and
-  # reads the whole output into memory.
+  # Runs one checker on one envelope. The checker gets the path alone as its argv, never a command line, an environment
+  # of four variables and / as its folder, in a process group of its own that is killed however the run ends, so a
+  # descendant it leaves behind dies with it. Process.spawn, like execvp, runs /bin/sh on a file the kernel cannot
+  # execute, so CheckConfig refuses a checker that starts with neither #! nor a binary's magic, and one that starts
+  # right but still fails to load meets that fallback. Runner is not used, since it passes keryx's environment through
+  # and reads the whole output into memory.
   class Checker
     Outcome = Data.define(:status, :signal, :timed_out, :error, :stderr) do
       def initialize(status: nil, signal: nil, timed_out: false, error: nil, stderr: '') = super
