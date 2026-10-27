@@ -7,11 +7,17 @@ class Release
   REPOSITORY = 'https://github.com/hvpaiva/keryx'
   VERSION_FILE = 'lib/keryx/version.rb'
   CHANGELOG = 'CHANGELOG.md'
+  START_OVER = 'start over as docs/maintenance.md says under Recover'
+  # What git status --porcelain prints when the changelog alone changed, staged or not.
+  DATED = /\A[ M]{2} #{Regexp.escape(CHANGELOG)}\z/
 
   class Error < StandardError; end
 
+  # A command that ran and failed, as against a refusal before anything ran.
+  class Failed < Error; end
+
   module Changelog
-    SECTION_END = /(?=^## \[|^\[[^\]\n]+\]: |\z)/
+    SECTION_END = /(?=^## \[|^\[Unreleased\]: |\z)/
     UNRELEASED = /^## \[Unreleased\]\n(?<body>.*?)#{SECTION_END}/m
     UNRELEASED_LINK = /^\[Unreleased\]: .*$/
 
@@ -53,7 +59,8 @@ class Release
     def run(*argv) = system(*argv, chdir: @chdir)
   end
 
-  def initialize(root:, runner:, out: $stdout, today: Date.today)
+  # The tag, the GitHub release and RubyGems date a release in UTC, so the changelog does too.
+  def initialize(root:, runner:, out: $stdout, today: Time.now.getutc.to_date)
     @root = root
     @runner = runner
     @out = out
@@ -64,23 +71,22 @@ class Release
     read(VERSION_FILE)[/VERSION = '([^']+)'/, 1] or raise Error, "#{VERSION_FILE} sets no VERSION"
   end
 
+  # Each step is skipped when an earlier run already took it, so after a failed command a second run goes on from
+  # there, on the release branch or back on main.
   def prepare
-    on_main_in_sync
-    changelog = read(CHANGELOG)
-    raise Error, "keryx #{version} is already released" if Changelog.released?(changelog, version) || tagged?
-
-    cut = Changelog.cut(changelog, version, @today.iso8601)
     branch = "release/v#{version}"
-    run('git', 'switch', '--create', branch)
-    File.write(path(CHANGELOG), cut)
-    run('git', 'commit', '--message', title, '--', CHANGELOG)
-    run('git', 'push', '--set-upstream', 'origin', branch)
-    run('gh', 'pr', 'create', '--base', 'main', '--head', branch, '--title', title, '--body', pull_request_body(cut))
+    on_branch('main', branch) == 'main' ? start(branch) : fetch_unreleased
+    commit_release(branch)
+    push(branch)
+    open_pull_request(branch)
     @out.puts 'When the pull request merges, run bin/release tag on main.'
+  rescue Failed, Errno::ENOENT => e
+    raise Failed, "#{e.message}; once its cause is fixed, run bin/release prepare again and it goes on from there"
   end
 
   def tag
-    on_main_in_sync
+    on_branch('main')
+    in_sync_with_origin
     unless Changelog.released?(read(CHANGELOG), version)
       raise Error, "#{CHANGELOG} on main has no section for #{version}; merge the pull request of bin/release prepare"
     end
@@ -101,25 +107,91 @@ class Release
 
   def title = "chore: release #{version}"
 
-  def pull_request_body(changelog)
-    "Releases keryx #{version}. Once this merges, `bin/release tag` on main signs and pushes " \
-      "v#{version}, and the release workflow publishes it.\n\n#{Changelog.notes(changelog, version)}\n"
+  def start(branch)
+    in_sync_with_origin
+    refuse_released
+    return run('git', 'switch', branch) if local_branch?(branch)
+
+    changelog = Changelog.cut(read(CHANGELOG), version, @today.iso8601)
+    run('git', 'switch', '--create', branch)
+    File.write(path(CHANGELOG), changelog)
   end
 
-  def on_main_in_sync
+  # The release branch holds origin/main and at most the release commit, or the dated changelog it commits.
+  def commit_release(branch)
+    unless capture('git', 'rev-list', '--count', 'HEAD..origin/main') == '0'
+      raise Error, "origin/main moved on after #{branch} was cut, so its changelog misses changes; #{START_OVER}"
+    end
+
+    case [capture('git', 'rev-list', '--count', 'origin/main..HEAD'), capture('git', 'status', '--porcelain')]
+    in ['1', ''] if release_commit? then return
+    in ['0', ''] then File.write(path(CHANGELOG), Changelog.cut(read(CHANGELOG), version, @today.iso8601))
+    in ['0', DATED] if Changelog.released?(read(CHANGELOG), version) then nil
+    else raise Error, "#{branch} holds changes besides the release of #{version}; #{START_OVER}"
+    end
+    run('git', 'commit', '--gpg-sign', '--message', title, '--', CHANGELOG)
+  end
+
+  def release_commit?
+    capture('git', 'diff', '--name-only', 'origin/main', 'HEAD') == CHANGELOG &&
+      Changelog.released?(read(CHANGELOG), version)
+  end
+
+  def push(branch)
+    pushed = capture('git', 'ls-remote', 'origin', "refs/heads/#{branch}").split("\t").first
+    return run('git', 'push', '--set-upstream', 'origin', branch) if pushed.nil?
+    return if pushed == capture('git', 'rev-parse', 'HEAD')
+
+    raise Error, "origin has another #{branch}; #{START_OVER}"
+  end
+
+  def open_pull_request(branch)
+    open = capture('gh', 'pr', 'list', '--head', branch, '--state', 'open', '--json', 'url', '--jq', '.[].url')
+    return @out.puts("#{open} is open already.") unless open.empty?
+
+    run('gh', 'pr', 'create', '--base', 'main', '--head', branch, '--title', title, '--body', pull_request_body)
+  end
+
+  def pull_request_body
+    "Releases keryx #{version}. Once this merges, `bin/release tag` on main signs and pushes " \
+      "v#{version}, and the release workflow publishes it.\n\n#{notes(version)}\n"
+  end
+
+  def on_branch(*names)
     branch = capture('git', 'branch', '--show-current')
-    raise Error, "run bin/release on main, not on #{branch.empty? ? 'a detached HEAD' : branch}" unless branch == 'main'
+    return branch if names.include?(branch)
+
+    raise Error, "run bin/release on #{names.join(' or ')}, not on #{branch.empty? ? 'a detached HEAD' : branch}"
+  end
+
+  def in_sync_with_origin
     raise Error, 'the working tree has uncommitted changes' unless capture('git', 'status', '--porcelain').empty?
 
-    run('git', 'fetch', '--quiet', '--tags', 'origin', 'main')
+    fetch
     return if capture('git', 'rev-parse', 'HEAD') == capture('git', 'rev-parse', 'origin/main')
 
     raise Error, 'main differs from origin/main; pull or reset it first'
   end
 
+  def fetch = run('git', 'fetch', '--quiet', '--tags', 'origin', 'main')
+
+  def fetch_unreleased
+    fetch
+    refuse_released
+  end
+
+  def refuse_released
+    released = Changelog.released?(capture('git', 'show', "origin/main:#{CHANGELOG}"), version)
+    raise Error, "keryx #{version} is already released" if released || tagged?
+  end
+
   def tagged? = local_tag? || remote_tag?
 
-  def local_tag? = @runner.capture('git', 'rev-parse', '--quiet', '--verify', tag_ref).last
+  def local_tag? = verified?(tag_ref)
+
+  def local_branch?(branch) = verified?("refs/heads/#{branch}")
+
+  def verified?(ref) = @runner.capture('git', 'rev-parse', '--quiet', '--verify', ref).last
 
   def remote_tag? = !capture('git', 'ls-remote', 'origin', tag_ref).empty?
 
@@ -127,14 +199,17 @@ class Release
 
   def capture(*argv)
     out, ok = @runner.capture(*argv)
-    raise Error, "#{argv.join(' ')} failed" unless ok
+    raise Failed, "#{command(argv)} failed" unless ok
 
     out
   end
 
   def run(*argv)
-    @runner.run(*argv) or raise Error, "#{argv.join(' ')} failed"
+    @runner.run(*argv) or raise Failed, "#{command(argv)} failed"
   end
+
+  # The program and its subcommand, without the options after them, one of which may be a pull request's whole body.
+  def command(argv) = argv.take_while { !it.start_with?('-') }.join(' ')
 
   def read(file) = File.read(path(file))
 

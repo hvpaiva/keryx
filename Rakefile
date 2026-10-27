@@ -17,7 +17,7 @@ COVERAGE_PRELUDE = [
   'SimpleCov.start do',
   'merging false',
   'enable_coverage :branch',
-  'cover "lib/**/*.rb"',
+  'cover "lib/**/*.rb", "tool/**/*.rb"',
   'skip "lib/keryx/version.rb"',
   "minimum_coverage line: #{MINIMUM_LINE_COVERAGE}, branch: #{MINIMUM_BRANCH_COVERAGE}",
   'end'
