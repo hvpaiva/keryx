@@ -97,9 +97,9 @@ The reply will ring this session; 'keryx wait 01M5JBZ1J79RX38D7NH2M76ZDD' blocks
 ```
 
 The reviewer's session gets a bell with the request's id, never its text. It opens the request
-with `keryx read 01M5JBZ1J79RX38D7NH2M76ZDD` and answers it. A prefix of the id works while it
-names one message, but messages written within about a second of each other can share their
-first eight characters, so the full id the bell gives is the safe form.
+with `keryx read 01M5JBZ1J79RX38D7NH2M76ZDD` and answers it. A prefix of at least four characters
+works while it names one message, but messages written within about a second of each other can
+share their first eight characters, so the full id the bell gives is the safe form.
 
 ```console
 $ keryx reply 01M5JBZ1J79RX38D7NH2M76ZDD "Approved with two nits"
