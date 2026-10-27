@@ -43,19 +43,25 @@ module Keryx
 
     private
 
-    # Every test runs on the stat of the open descriptor, so nothing changes between the test and the read.
+    # Every test runs on the stat of the open descriptor, so nothing changes between the test and the read. Only a file
+    # that is not there means no check, so a folder that vanishes during the walk refuses.
     def read
-      File.open(@path, OPEN) do |file|
-        vet(@path, file.stat)
-        walk(@path)
-        file.read
-      end
+      file = opened or return
+      vet(@path, file.stat)
+      walk(@path)
+      file.read
+    rescue SystemCallError => e
+      raise Broken, "cannot read #{@path}: #{e.message.sub(/ @ .*/, '')}"
+    ensure
+      file&.close
+    end
+
+    def opened
+      File.open(@path, OPEN)
     rescue Errno::ENOENT
       nil
     rescue Errno::ELOOP
       raise Broken, "#{@path} is a symbolic link; keryx honors only a regular file"
-    rescue SystemCallError => e
-      raise Broken, "cannot read #{@path}: #{e.message.sub(/ @ .*/, '')}"
     end
 
     def vet(name, stat)

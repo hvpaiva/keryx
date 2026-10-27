@@ -229,6 +229,20 @@ class CheckConfigTest < Minitest::Test
     end
   end
 
+  # The trust predicate runs first on the file's own stat, which is when its folder is moved away.
+  def test_a_folder_that_vanishes_during_the_walk_refuses
+    at = File.join(folder(real('etc')), 'check')
+    write(at, "command = #{stub}\n")
+    moved = false
+    trusted = lambda do |stat|
+      File.rename(real('etc'), real('gone')) unless moved
+      moved = true
+      TRUSTED.call(stat)
+    end
+
+    assert_equal "cannot read #{at}: No such file or directory", broken(Keryx::CheckConfig.new(path: at, trusted:))
+  end
+
   def test_a_checker_in_a_folder_its_group_can_write_is_refused
     checker = stub(File.join(folder(real('shared'), mode: 0o775), 'checker'))
 
