@@ -91,6 +91,13 @@ class ReleaseCloneTest < Minitest::Test
     assert_equal [1, "bin/release: No such file or directory - git; #{RESUME}\n"], [status.exitstatus, err]
   end
 
+  # prepare words a missing program itself, so tag is the run that only bin/release's own rescue keeps to one line.
+  def test_the_script_names_a_missing_program_for_tag
+    _, err, status = release('tag', path: tmp('stubs'))
+
+    assert_equal [1, "bin/release: No such file or directory - git\n"], [status.exitstatus, err]
+  end
+
   def test_the_runner_reports_output_and_success_from_the_clone
     runner = Release::Runner.new(chdir: clone)
 
