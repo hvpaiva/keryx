@@ -88,10 +88,13 @@ command does when the wait ends differs by lock. A command that does not get `th
 with an error that names the file and queues nothing. A command that does not get `occupants.lock`
 fails the same way, except `App#me` and the stop hook's record of a transcript, which take it with
 no wait at all and leave their write to a later command, as the paragraph on waits in the next
-section explains for `App#me`. No command fails on `outcomes.lock`, since a forward, the courier's
-or the one a command runs after it queues a message, leaves the message whose outcome it cannot
-repair waiting with a reason that names the lock, and a read of the queue warns and leaves a message
-from before team names in `new/`, as the forwarding section explains. The lock of the change signal
+section explains for `App#me`, and the courier's round, which reports the busy lock as an error of
+the round and tries again in a later round what it could not write, as the section on context and
+the paragraphs on dialog notices in the section on starting a session explain. No command fails
+on `outcomes.lock`, since a forward, the courier's or the one a command runs after it queues a
+message, leaves the message whose outcome it cannot repair waiting with a reason that names the
+lock, and a read of the queue warns and leaves a message from before team names in `new/`, as the
+forwarding section explains. The lock of the change signal
 is waited for a second, as the section on it explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
