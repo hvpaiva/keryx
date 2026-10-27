@@ -11,13 +11,15 @@ class OutcomesLockTest < Minitest::Test
   include OutboxLocks
 
   def test_a_send_to_another_machine_waits_for_another_messages_repair_and_succeeds
-    _, _, orq = undecided_outcome
+    first, _, orq = undecided_outcome
     clock.advance(1)
     began = clock.now
     sent = holding(outbox('outcomes.lock')) { in_time { keryx('send', 'port.dev@zeus', 'second', env: orq) } }
+    waiting = JSON.parse(keryx('status', '-o', 'json').out)['not_forwarded'].map { it.values_at('id', 'detail') }
 
     assert_equal 0, sent.status
     assert_in_delta 15, clock.now - began, 0.5
+    assert_equal [[first, format(Keryx::Forwarder::UNRECORDED, host: 'zeus')]], waiting
   end
 
   def test_status_waits_for_an_old_messages_repair_and_warns

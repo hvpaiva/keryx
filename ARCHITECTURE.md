@@ -493,8 +493,10 @@ message cannot undo it, and a sender that finds the message gone from `new/` rea
 Only an outcome file that holds no decision is written again, under `outcomes.lock`, so a second
 repair keeps the first. Without a receipt the message stays in `new/`, and another file in
 `receipts/` counts the attempts. A repair that does not get the lock within 15 seconds leaves the
-message in `new/` the same way, with the lock's error as its reason, so the next attempt sends it
-again and the other machine keeps one copy; a message from before team names that waits on the lock
+message in `new/` the same way, with a reason that says the other machine answered, the lock kept
+the answer from being recorded and the courier sends the message again, rather than the lock's
+error, whose "try again" would send a second copy under a new id. The next attempt sends it again
+and the other machine keeps one copy; a message from before team names that waits on the lock
 stays in `new/` with a warning until a later read moves it to `refused/`. A process that did not get
 a host's `outcomes.lock` in time does not wait for it again, and each later repair under that lock
 ends at once the same way, so a forward or a read of the queue waits the deadline at most once per

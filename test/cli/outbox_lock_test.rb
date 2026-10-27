@@ -35,7 +35,7 @@ class OutboxLockTest < Minitest::Test
     round = holding(lock) { in_time { keryx('courier', '--once') } }
 
     assert_equal 0, round.status
-    assert_includes round.out, "1 message(s) wait for zeus: #{format(BUSY, lock)}"
+    assert_includes round.out, "1 message(s) wait for zeus: #{format(Keryx::Forwarder::UNRECORDED, host: 'zeus')}"
     assert_in_delta 15, clock.now - began, 0.1
     assert_equal UNDECIDED, File.read(outbox('receipts', "#{id}.outcome"))
     assert_equal [id], store.outbox.queued('zeus').map(&:id)
