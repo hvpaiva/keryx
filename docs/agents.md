@@ -22,6 +22,11 @@ director when it joins, as a session spawn starts does. Running it twice with th
 safe, and `keryx expect --help` says what it refuses. The address takes mail from then on, so the
 first request need not wait for the join.
 
+`keryx spawn --ceiling TOKENS` puts the ceiling in the join line of the first prompt, as
+`keryx join --ceiling` sets it, and `keryx courier` tells the session and its director when its
+context reaches 80% of the ceiling and when it reaches the ceiling. `keryx join --help` says how
+to choose one.
+
 ## Claude Code
 
 Start the sessions that use keryx with these settings, saved for example as `keryx.json` and
