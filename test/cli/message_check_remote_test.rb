@@ -102,6 +102,17 @@ class MessageCheckRemoteTest < Minitest::Test
     refute_path_exists record
   end
 
+  def test_a_nul_byte_in_the_receiving_machines_check_file_refuses_the_message
+    check_with("#{checker('athena')}\0x")
+    message = build_message(from: 'port.dev@zeus', to: 'orq.dev@athena', body: 'Done in retry.go')
+    received = keryx('__receive', input: "#{message.to_json}\n")
+
+    assert_equal [0, 'refused', "the check on athena failed: #{check_path}:1: holds a NUL byte"],
+                 [received.status, *JSON.parse(received.out).values_at('status', 'detail')]
+    assert_empty store.stored('orq.dev')
+    refute_path_exists record
+  end
+
   def slow = @slow ||= SlowChecker.new(monotonic)
 
   # zeus's check reads a real file naming a valid checker, which the slow one stands in for.

@@ -112,6 +112,18 @@ class MessageCheckTest < Minitest::Test
     refute_path_exists record
   end
 
+  def test_a_nul_byte_in_the_command_fails_the_send_and_writes_nothing
+    check_with("#{checker('athena')}\0x")
+    sent = keryx('send', 'rev-1.dev', 'A note', env: @orq)
+
+    assert_equal [1, '', "error: the check failed: #{check_path}:1: holds a NUL byte\n"],
+                 [sent.status, sent.out, sent.err]
+    assert_empty store.stored('rev-1.dev')
+    assert_empty store.outbox.outgoing
+    assert_empty sockets.posts
+    refute_path_exists record
+  end
+
   def test_a_courier_reminder_for_an_overdue_request_is_delivered_past_a_refusing_checker
     must(keryx('ask', 'rev-1.dev', 'Review it', '--within', '1m', env: @orq))
     refusing

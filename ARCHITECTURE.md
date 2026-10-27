@@ -552,9 +552,10 @@ timeout = 10
 
 `command` is required and must be an absolute path; the whole value is the path, spaces included, and never a
 command line. `timeout` is a whole number of seconds from 1 to 30, 5 when the line is absent. A line with no `=`,
-an unknown key, a key set twice and text that is not UTF-8 refuse as well, where the user config warns and goes
-on. `CheckConfig#setup` opens the file with `O_NOFOLLOW` and `O_NONBLOCK` and runs every test on the stat of the
-open descriptor, so the file tested is the file read. It must be a regular file, owned by root and not writable by
+an unknown key, a key set twice, a line that holds a NUL byte, even at its end where stripping would drop it, and
+text that is not UTF-8 refuse as well, where the user config warns and goes on. `CheckConfig#setup` opens the file
+with `O_NOFOLLOW` and `O_NONBLOCK` and runs every test on the stat of the open descriptor, so the file tested is
+the file read. It must be a regular file, owned by root and not writable by
 group or others, and every folder above it, up to /, must be a directory, not a symbolic link, owned by root and
 not writable by group or others unless it is sticky, since a folder others can write lets them rename another file
 over the one in it. The checker must pass the same tests by `lstat`, since exec takes a path, must not be a link

@@ -220,6 +220,15 @@ class CheckConfigTest < Minitest::Test
                  broken(checking(stub(mode: 0o111)))
   end
 
+  # strip would drop a NUL at the end of a value, so the line is read as written.
+  def test_a_nul_byte_on_a_line_is_refused_with_its_line
+    ["command = #{real('checker')}\0x\n", "command = #{real('checker')}\0\n"].each do |line|
+      stub
+
+      assert_equal "#{path}:2: holds a NUL byte", broken(config("timeout = 5\n#{line}"))
+    end
+  end
+
   def test_a_checker_in_a_folder_its_group_can_write_is_refused
     checker = stub(File.join(folder(real('shared'), mode: 0o775), 'checker'))
 

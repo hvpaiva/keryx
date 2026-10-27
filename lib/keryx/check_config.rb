@@ -98,7 +98,7 @@ module Keryx
       raise Broken, "#{name} starts with neither #! nor an ELF or Mach-O header" unless runnable?(command)
     rescue Errno::ENOENT
       raise Broken, "#{name} does not exist"
-    rescue SystemCallError => e
+    rescue SystemCallError, ArgumentError => e
       raise Broken, "cannot read #{name}: #{e.message.sub(/ @ .*/, '')}"
     end
 
@@ -113,6 +113,8 @@ module Keryx
       raise Broken, "#{@path}: not valid UTF-8" unless text.valid_encoding?
 
       text.each_line.with_index(1).each_with_object({}) do |(line, number), settings|
+        raise Broken, "#{@path}:#{number}: holds a NUL byte" if line.include?("\0")
+
         pair = setting(line.strip, number) or next
         key, value = pair
         earlier = settings[key]
