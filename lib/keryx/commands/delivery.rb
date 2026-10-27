@@ -16,13 +16,18 @@ module Keryx
       def forwarded(posted)
         result = posted.forward
         host = Address.parse(posted.message.to).host
-        if result.status == Forwarder::QUEUED
-          return "#{host} did not answer (#{Text.plain(result.detail)}); the message waits in the outbox and " \
-                 "'keryx courier' forwards it once #{host} is back."
-        end
+        return waiting(result, host) if result.status == Forwarder::QUEUED
 
         bell = result.bell or return "It reached #{host}, which said nothing of its bell."
         "It reached #{host}. #{bell_note(bell['status'], bell['channel'], bell['detail'], posted.message.to)}"
+      end
+
+      def waiting(result, host)
+        detail = Text.plain(result.detail)
+        return "The message waits in the outbox, since #{detail}." if Forwarder.unrecorded?(result, host)
+
+        "#{host} did not answer (#{detail}); the message waits in the outbox and 'keryx courier' forwards it once " \
+          "#{host} is back."
       end
 
       def absent_note(detail, to)

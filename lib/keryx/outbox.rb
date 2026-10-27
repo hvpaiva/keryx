@@ -17,13 +17,21 @@ module Keryx
     LOCK = 'outcomes.lock'
     THREAD_LOCK = 'thread.lock'
 
-    def initialize(root, problems: [], clock: -> { Time.now.utc }, changes: Changes.new(root, clock:))
+    # LOCK holds the lock file at a path for its block, as Store#with_lock does, and raises Store::Busy when it waited
+    # too long.
+    def initialize(root, lock:, problems: [], clock: -> { Time.now.utc }, changes: Changes.new(root, clock:))
       @root = root
       @base = File.join(root, DIR)
+      @lock = lock
       @problems = problems
       @clock = clock
       @changes = changes
+      @kept = {}
     end
+
+    # Lets the next repair wait again for an outcomes lock another command kept past the deadline, as each round of the
+    # courier does.
+    def forget_kept_locks = @kept.clear
 
     def queue(host, message)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
@@ -38,8 +46,7 @@ module Keryx
     # hold the id the block chose; a taken id is given to the block to choose after, so the message returned was queued.
     def queue_in_thread(host, thread)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
-      open_lock(File.join(dir(host), THREAD_LOCK)) do |lock|
-        lock.flock(File::LOCK_EX)
+      @lock.call(File.join(dir(host), THREAD_LOCK)) do
         message = yield(queued(host).select { it.thread == thread }.map(&:id).max)
         message = yield(message.id) while queue(host, message) == :duplicate
         message
@@ -134,13 +141,17 @@ module Keryx
       nil
     end
 
-    # The outcome comes first, as the forwarder writes it, and a decision taken before stays. Nothing is sent.
+    # The outcome comes first, as the forwarder writes it, and a decision taken before stays. Nothing is sent. An
+    # outcome left to repair while another command keeps its lock leaves the message in new/ for the next read to move.
     def refuse_old(host, id, reason)
       write_outcome(host, id, { 'status' => 'refused', 'detail' => reason, 'at' => @clock.call.utc.iso8601 })
       state = outcome(host, id)&.fetch('status') || 'refused'
       if settle(host, id, state.to_sym) && state == 'refused'
         @problems << "moved #{File.join(dir(host), 'new', "#{id}.json")} to refused/: #{reason}"
       end
+      nil
+    rescue Store::Busy => e
+      @problems << "did not move #{File.join(dir(host), 'new', "#{id}.json")} to refused/: #{e.message}"
       nil
     end
 
@@ -150,12 +161,17 @@ module Keryx
       File.join(@base, host)
     end
 
-    # Attempts that both found no decision take turns, and the second keeps what the first wrote.
+    # Attempts that both found no decision take turns, and the second keeps what the first wrote. A lock another command
+    # kept past the deadline is not waited for again until forget_kept_locks, so a forward or a read of the queue waits
+    # for it once per host, whatever the number of outcomes to repair.
     def replace_undecided(host, id, data)
-      open_lock(File.join(dir(host), LOCK)) do |lock|
-        lock.flock(File::LOCK_EX)
-        write_atomic(outcome_file(host, id), JSON.generate(data)) unless outcome(host, id)
-      end
+      path = File.join(dir(host), LOCK)
+      raise Store::Busy, @kept[path] if @kept.key?(path)
+
+      @lock.call(path) { write_atomic(outcome_file(host, id), JSON.generate(data)) unless outcome(host, id) }
+    rescue Store::Busy => e
+      @kept[path] ||= e.message
+      raise
     end
 
     def receipt_file(host, id) = File.join(dir(host), 'receipts', "#{id}.forward")

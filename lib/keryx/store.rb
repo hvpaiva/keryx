@@ -145,12 +145,9 @@ module Keryx
     def unbind(name) = remove(occupant_path(name))
 
     # Changes to who holds which address take turns across processes; the kernel drops the lock with the process.
-    def with_occupants_lock(within: LOCK_SECONDS)
+    def with_occupants_lock(within: LOCK_SECONDS, &)
       make_dir(root)
-      open_lock(File.join(root, OCCUPANTS_LOCK)) do |file|
-        take(file, within)
-        yield
-      end
+      with_lock(File.join(root, OCCUPANTS_LOCK), within, &)
     end
 
     def deliver(name, message)
@@ -200,7 +197,7 @@ module Keryx
       raise Error, "no message #{id} in the mailbox of #{name}"
     end
 
-    def outbox = @outbox ||= Outbox.new(root, problems: @problems, clock: @clock, changes: @changes)
+    def outbox = @outbox ||= Outbox.new(root, problems:, clock: @clock, changes: @changes, lock: method(:with_lock))
 
     def all_messages
       kept = address_names.flat_map { |name| stored(name).map { [name, it] } }
@@ -287,15 +284,20 @@ module Keryx
       raise Error, "#{address.key} is in the scope of keryx's own services, which no address joins"
     end
 
-    def take(lock, within)
-      deadline = @clock.call + within
-      until lock.flock(File::LOCK_EX | File::LOCK_NB)
-        if @clock.call >= deadline
-          raise Busy, "#{lock.path} stayed locked by another keryx command for #{within}s; try again, or end that " \
-                      'command if it is stuck'
-        end
+    # A lock of the store or of its outbox is waited for WITHIN seconds at most, so a holder that stopped, or any other
+    # process that keeps the file, fails the command with Busy instead of blocking it for good.
+    def with_lock(path, within = LOCK_SECONDS)
+      open_lock(path) do |lock|
+        deadline = @clock.call + within
+        until lock.flock(File::LOCK_EX | File::LOCK_NB)
+          if @clock.call >= deadline
+            raise Busy, "#{lock.path} stayed locked by another keryx command for #{within}s; try again, or end " \
+                        'that command if it is stuck'
+          end
 
-        @sleeper.call(LOCK_POLL_SECONDS)
+          @sleeper.call(LOCK_POLL_SECONDS)
+        end
+        yield
       end
     end
 

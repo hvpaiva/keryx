@@ -63,6 +63,7 @@ module Keryx
     end
 
     def round
+      @store.outbox.forget_kept_locks
       roster = @roster.call
       @measure = @meter.call
       @errors = []

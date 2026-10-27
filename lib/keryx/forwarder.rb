@@ -14,6 +14,12 @@ module Keryx
     ARRIVED = %w[delivered duplicate].freeze
     # How a keryx from before team addresses refuses a message of a format it does not know.
     OLD_PEER = 'not a keryx message'
+    # Why a message waits whose answer came while another command kept the outcomes lock past the deadline.
+    UNRECORDED = "%<host>s answered, but another keryx command kept the outbox's outcomes.lock for %<host>s, so the " \
+                 'answer is not recorded; keryx courier sends the message again'
+
+    # Whether RESULT is a message to HOST that waits only because its answer could not be recorded.
+    def self.unrecorded?(result, host) = result.status == QUEUED && result.detail == format(UNRECORDED, host:)
 
     def initialize(store:, remote:, clock:)
       @store = store
@@ -49,10 +55,14 @@ module Keryx
       end
     end
 
-    # The outcome comes first, so a sender that finds the message gone from new/ can read how it settled.
+    # The outcome comes first, so a sender that finds the message gone from new/ can read how it settled. An outcome
+    # left to repair while another command keeps its lock leaves the message waiting, to be sent again; the other
+    # machine keeps one copy.
     def finish(host, message, status, detail, bell: nil)
       @store.outbox.write_outcome(host, message.id, data(status, detail, bell:))
       settled(host, message.id)&.then { move(host, message.id, it) }
+    rescue Store::Busy
+      wait(host, message, format(UNRECORDED, host:))
     end
 
     def move(host, id, outcome)
