@@ -212,6 +212,14 @@ All notable changes to this project are documented here. The format follows
   the store holds, as they already were from an agent session, so only keryx's own notices come
   from that address and the message check can exempt them. Before, a store that an older keryx let
   join `keryx.system` let a plain terminal act as it.
+- `bin/release prepare`, the maintainer's release command, goes on from where it stopped when its
+  commit, push or pull request fails: run again on the release branch or on `main`, it reuses the
+  branch and skips each step an earlier run took. A failed command is named up to its first option,
+  so a failed `gh pr create` no longer prints the whole pull request body, and a missing git or gh
+  is reported in one line. The release commit is signed as the tag is, whatever git's
+  configuration says, and the changelog is dated in UTC. A reference link inside a changelog
+  section no longer cuts the release notes short, and Bundler's `release:*` tasks refuse as
+  `rake release` does.
 - `keryx send --help` says that ssh gets 10 seconds to connect to another machine and 60 to finish,
   so each message to a machine that takes the connection and does not answer waits up to 60 seconds
   until the machine is back.

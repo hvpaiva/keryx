@@ -23,7 +23,7 @@ begin
     warn USAGE
     exit 2
   end
-rescue Release::Error => e
+rescue Release::Error, Errno::ENOENT => e
   warn "bin/release: #{e.message}"
   exit 1
 end
