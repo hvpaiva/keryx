@@ -21,9 +21,9 @@ reason.
 
 - `never rung`, with `none` under BELL, means no bell was tried for the message. A message a
   session sent to its own address stays so, since neither the send nor the courier rings for it,
-  and a request `keryx spawn` posted before the session existed stays so until the courier's next
-  round. `keryx read` takes the message off the list, and `keryx ring` rings for it, after which
-  the row goes or shows that bell's reason.
+  and a request `keryx spawn` posted before the session existed stays so until the courier's first
+  round after the session joins. `keryx read` takes the message off the list, and `keryx ring`
+  rings for it, after which the row goes or shows that bell's reason.
 - `no session holds the address` means the address has no session now. The next session to join
   it finds the message.
 - `thread ... has no herdr pane` means keryx cannot see that Codex session, and it does not queue a
