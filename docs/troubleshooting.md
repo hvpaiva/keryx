@@ -55,6 +55,12 @@ reason.
 - `the screen shows a queued message being edited` means a message in Cursor's follow-ups box is
   open for editing, so what keryx typed would land in it, and keryx did not type. Press enter or esc
   in the box to close it, then run `keryx ring`.
+- `the screen shows text typed in the composer` means the harness's composer held text other than
+  its placeholder, such as a person's unsent draft, which the bell would have sent with its own
+  line, so keryx did not type. The note names in parentheses only the line of the screen the
+  composer showed on, never the text. Send or clear the text, then run `keryx ring`. When nobody
+  typed there, the screen showed no composer and its last prompt was an older one, as under a dialog
+  keryx does not recognize; look at the pane.
 - `the screen could not be read` means herdr did not return the pane's screen, so keryx could not
   rule out a dialog and did not type. The courier tries again.
 - `the pane is too narrow to tell whether it shows a dialog` means the pane is only a few columns

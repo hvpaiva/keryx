@@ -33,10 +33,13 @@ which needs `herdr agent start`, was checked against herdr 0.9.5 with Claude Cod
   dialog can still take the typed bell. When the harness's composer shows, keryx reads only the
   lines below it, where the known dialogs take its place, so a transcript that quotes a dialog
   does not count, and a dialog drawn above a live composer would not either.
-- The bell does not read what a harness's composer holds, and the only editor it knows is Cursor's
-  follow-ups box, which it sees only while the box's footer is on the screen. Codex's shift+← puts
-  the last queued message back into the composer to be edited, and a bell typed into the pane while
-  it is there is added to that message. keryx types into a Codex pane only when herdr shows the
+- The bell waits while a harness's composer holds anything other than its placeholder, so a
+  person's unsent draft, or the queued message Codex's shift+← puts back into the composer to be
+  edited, is not sent with the bell's line. The screen herdr gives has no colors, so a draft that
+  reads exactly as the placeholder passes for an empty composer, and text the harness draws there
+  that is no placeholder keryx knows, such as a suggested prompt, holds the bell back until it goes.
+  The only other editor it knows is Cursor's follow-ups box, which it sees only while the box's
+  footer is on the screen. keryx types into a Codex pane only when herdr shows the
   session there by its process alone, with no thread id, or when `codex queue` fails for the thread
   herdr shows there. Otherwise a bell to Codex goes through `codex queue` or is not rung, and
   nothing is typed.
