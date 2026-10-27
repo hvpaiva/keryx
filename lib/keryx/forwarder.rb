@@ -49,10 +49,14 @@ module Keryx
       end
     end
 
-    # The outcome comes first, so a sender that finds the message gone from new/ can read how it settled.
+    # The outcome comes first, so a sender that finds the message gone from new/ can read how it settled. An outcome
+    # left to repair while another command keeps its lock leaves the message waiting, to be sent again; the other
+    # machine keeps one copy.
     def finish(host, message, status, detail, bell: nil)
       @store.outbox.write_outcome(host, message.id, data(status, detail, bell:))
       settled(host, message.id)&.then { move(host, message.id, it) }
+    rescue Store::Busy => e
+      wait(host, message, e.message)
     end
 
     def move(host, id, outcome)

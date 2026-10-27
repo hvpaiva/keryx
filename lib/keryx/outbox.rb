@@ -136,13 +136,17 @@ module Keryx
       nil
     end
 
-    # The outcome comes first, as the forwarder writes it, and a decision taken before stays. Nothing is sent.
+    # The outcome comes first, as the forwarder writes it, and a decision taken before stays. Nothing is sent. An
+    # outcome left to repair while another command keeps its lock leaves the message in new/ for the next read to move.
     def refuse_old(host, id, reason)
       write_outcome(host, id, { 'status' => 'refused', 'detail' => reason, 'at' => @clock.call.utc.iso8601 })
       state = outcome(host, id)&.fetch('status') || 'refused'
       if settle(host, id, state.to_sym) && state == 'refused'
         @problems << "moved #{File.join(dir(host), 'new', "#{id}.json")} to refused/: #{reason}"
       end
+      nil
+    rescue Store::Busy => e
+      @problems << "did not move #{File.join(dir(host), 'new', "#{id}.json")} to refused/: #{e.message}"
       nil
     end
 
