@@ -205,5 +205,8 @@ All notable changes to this project are documented here. The format follows
   the store holds, as they already were from an agent session, so only keryx's own notices come
   from that address and the message check can exempt them. Before, a store that an older keryx let
   join `keryx.system` let a plain terminal act as it.
+- `keryx send --help` says that ssh gets 10 seconds to connect to another machine and 60 to finish,
+  so each message to a machine that takes the connection and does not answer waits up to 60 seconds
+  until the machine is back.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main
