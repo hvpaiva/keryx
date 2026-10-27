@@ -55,6 +55,19 @@ class OutcomesLockTest < Minitest::Test
     assert_equal ids.sort, store.outbox.queued('zeus').map(&:id).sort
   end
 
+  def test_a_hosts_kept_outcomes_lock_skips_no_repair_for_another_host
+    orq = join_claude('orq.dev', 111)
+    held = undecided_outcome_on('apollo', 444, orq)
+    free = undecided_outcome_on('zeus', 333, orq)
+    began = clock.now
+    round = holding(tmp('state', 'outbox', 'apollo', 'outcomes.lock')) { in_time { keryx('courier', '--once') } }
+
+    assert_equal 0, round.status
+    assert_in_delta 15, clock.now - began, 0.5
+    assert_includes round.out, "forwarded #{free} to zeus"
+    assert_equal [held], store.outbox.queued('apollo').map(&:id)
+  end
+
   def test_each_round_of_one_courier_waits_for_the_outcomes_lock_again
     undecided_outcome
     waited = holding(outbox('outcomes.lock')) { in_time { lock_waits_in_two_rounds } }
@@ -73,6 +86,20 @@ class OutcomesLockTest < Minitest::Test
     remote.down.clear
     id = (store.outbox.queued('zeus').map(&:id) - before).first
     File.write(outbox('receipts', "#{id}.outcome"), OutboxLocks::UNDECIDED)
+    id
+  end
+
+  # A message to port.dev@HOST, whose session runs as PID there, with an outcome file that holds no decision, written
+  # a second before the next.
+  def undecided_outcome_on(host, pid, orq)
+    alive << pid
+    keryx('join', 'port.dev', env: machine(host).merge(claude(pid)))
+    remote.down << host
+    keryx('send', "port.dev@#{host}", 'hello', env: orq)
+    remote.down.clear
+    id = store.outbox.queued(host).first.id
+    File.write(tmp('state', 'outbox', host, 'receipts', "#{id}.outcome"), OutboxLocks::UNDECIDED)
+    clock.advance(1)
     id
   end
 
