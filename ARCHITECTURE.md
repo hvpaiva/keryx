@@ -81,7 +81,12 @@ thread for another machine, which takes `thread.lock` in that machine's outbox, 
 explains, writing a context notice, which takes `occupants.lock`, as the section on context explains, and writing mail to a
 session address, which takes it too unless it is the withdrawal of a request that mailbox holds or a
 notice from keryx on another machine, as the section on delivery explains. A change of occupants
-takes a lock too, as the next section explains.
+takes a lock too, as the next section explains. No lock keryx takes is waited for without a
+deadline. Each of these is waited for 15 seconds at most, through `Store#with_lock`, and a command
+that does not get it by then fails with an error that names the file, so a holder that stopped, or
+any other process that keeps the file, blocks no command for good. The courier does not fail on the
+outcomes lock but leaves the message for its next round, as the forwarding section explains, and
+the lock of the change signal is waited for a second, as the section on it explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
@@ -125,8 +130,8 @@ one do, and so does each create, rename or removal made outside them: `Store#mar
 `#keep_mark`, `Outbox#settle`, and purge's `remove_tree` and `remove_empty` in `Retirement`. A new
 write outside those helpers must call it too. The process moves the mtime once for all it noted:
 when its command ends, from `Dispatcher#execute`, and before each pause, through the app's sleeper,
-so `courier` between rounds, `wait`, `spawn` waiting for the join and a wait for `occupants.lock`
-signal their changes before they sleep. A reader that saw the mtime move and then runs a command
+so `courier` between rounds, `wait`, `spawn` waiting for the join and a wait for a lock of the store
+or its outbox signal their changes before they sleep. A reader that saw the mtime move and then runs a command
 therefore sees every change made before it.
 
 `Changes` sets the mtime to the later of the clock and the old mtime plus 1 ms, under a lock on the
@@ -278,7 +283,8 @@ its sender, `keryx withdraw` settles it, and a second purge removes it. A proces
 that swaps a folder for a link between the lstat and the removal is outside SECURITY.md's model.
 
 A join or a leave waits at most 15 seconds for the lock, longer than the herdr call a holder may
-make, and then fails, so a stopped holder cannot block it for good. spawn waits as long, but not
+make, and then fails, so a stopped holder cannot block it for good. The outbox's locks are waited
+for as long, by the same rule. spawn waits as long, but not
 past its own timeout. `App#me` does not wait at all;
 when another command holds the lock, it leaves the record to a later command, so `wait`, `spawn`
 and every other command keep their deadlines.
@@ -480,12 +486,17 @@ first decision stays, so an attempt that fails or hears otherwise after another 
 message cannot undo it, and a sender that finds the message gone from `new/` reads how it settled.
 Only an outcome file that holds no decision is written again, under `outcomes.lock`, so a second
 repair keeps the first. Without a receipt the message stays in `new/`, and another file in
-`receipts/` counts the attempts.
+`receipts/` counts the attempts. A repair that does not get the lock within 15 seconds leaves the
+message in `new/` the same way, with the lock's error as its reason, so the next attempt sends it
+again and the other machine keeps one copy; a message from before team names that waits on the lock
+stays in `new/` with a warning until a later read moves it to `refused/`.
 
 The forwarder sends a host's queue in id order, and the receiver takes the batch in that order. A
 message of a thread for another host is queued in a hold of `outbox/HOST/thread.lock`, under an id
 that sorts after the last message of its thread still in `new/`, so the messages of a thread go in
-the order they were written even within one millisecond or across a clock set back. Only `new/`
+the order they were written even within one millisecond or across a clock set back. A command that
+does not get that lock within 15 seconds fails with nothing queued, so the reply, `send --re`,
+`send --on` or withdrawal can be sent again. Only `new/`
 counts, since a message that left it arrived or was refused, and the next one goes after it
 whatever its id; reading `cur/` too would read every message ever forwarded for each one written.
 A message that starts a thread, such as a request or a notice, takes no lock. Once a message of a

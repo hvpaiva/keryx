@@ -57,7 +57,11 @@ All notable changes to this project are documented here. The format follows
   unread mail and unanswered requests before it ends a turn.
 - Mail between machines over SSH, with an outbox that holds it while the other machine is
   unreachable, and `keryx courier`, which forwards it, rings again for bells that did not reach a
-  session and tells senders about missed deadlines.
+  session and tells senders about missed deadlines. The outbox's locks are waited for 15 seconds at
+  most, as `occupants.lock` is, so a command stopped while it held one blocks no other for good: a
+  reply, `send --re`, `send --on` or withdrawal to another machine then fails with an error that
+  names the lock and queues nothing, and a forward that cannot record its outcome leaves the
+  message waiting for the courier's next round.
 - Thread order between machines. A message of a thread for another machine takes an id after the
   last one of its thread waiting in the outbox, whatever the clock says, and the outbox sends a
   machine's messages in id order. When the other machine cannot store one, the later messages of
