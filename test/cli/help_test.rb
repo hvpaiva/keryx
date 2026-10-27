@@ -30,7 +30,7 @@ class HelpTest < Minitest::Test
 
   def test_bare_keryx_lists_the_check_file_with_its_two_keys
     out = keryx.out
-    row = 'A checker root sets up; keryx runs it before writing any message, see keryx send --help'
+    row = "A checker root sets up; keryx runs it before writing an agent's message, see keryx send --help"
 
     assert_match(%r{^    host = NAME .*\n  /etc/keryx/check +#{Regexp.escape(row)}$}, out)
     assert_match(/^    command = PATH +The checker, an absolute path that goes through no symbolic link$/, out)
