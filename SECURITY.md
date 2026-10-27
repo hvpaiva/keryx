@@ -33,7 +33,7 @@ language models.
   refuse what their own user did not authorize. A session's first prompt may name an address, its
   director's or its user's, whose message counts as the user's word within the grant the first
   prompt states; every other session stays a peer. keryx checks none of this, and since any process
-  of the user can act as an address, as described above, that grant is only as strong as the
+  of the user can act as that address, as described above, that grant is only as strong as the
   same-user boundary. An agent session cannot send as the person at the keyboard, whether it joined
   an address or not, with the limits given above for the reserved scopes.
 - The bell carries no text from the sender. It names the sender, the kind and the id, all
