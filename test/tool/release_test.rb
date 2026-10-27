@@ -233,18 +233,19 @@ class ReleaseTest < Minitest::Test
   end
 
   # Each case leaves its own check as the only one that refuses: a dated changelog left uncommitted would otherwise
-  # be committed and pushed.
+  # be committed and pushed. The last two hold an undated change to the changelog, left uncommitted or committed.
   def test_prepare_refuses_a_release_branch_that_holds_more_than_the_release
     [
       [ON_BRANCH.merge(%w[git rev-list --count HEAD..origin/main] => ['1', true]), MOVED_ON, UNRELEASED],
       [ON_BRANCH.merge(%w[git rev-list --count origin/main..HEAD] => ['2', true]), BESIDES],
       [ON_BRANCH.merge(%w[git status --porcelain] => [" M CHANGELOG.md\n?? notes.md", true]), BESIDES],
       [COMMITTED.merge(%w[git diff --name-only origin/main HEAD] => ["CHANGELOG.md\nREADME.md", true]), BESIDES],
-      [COMMITTED.merge(BRANCH_ON_ORIGIN => ["def\trefs/heads/release/v0.1.0", true]),
-       "origin has another release/v0.1.0; #{START_OVER}"]
-    ].each do |answers, message, head = RELEASED|
+      [COMMITTED.merge(BRANCH_ON_ORIGIN => ["def\tx", true]), "origin has another release/v0.1.0; #{START_OVER}"],
+      [ON_BRANCH, BESIDES, UNRELEASED, UNRELEASED.sub("- Mailboxes.\n", "- Mailboxes.\n- Sockets.\n")],
+      [COMMITTED, BESIDES, UNRELEASED, UNRELEASED]
+    ].each do |answers, message, head = RELEASED, changelog = RELEASED|
       runner = FakeRunner.new(answers)
-      error = assert_raises(Release::Error) { release(runner, changelog: RELEASED, head:).prepare }
+      error = assert_raises(Release::Error) { release(runner, changelog:, head:).prepare }
 
       assert_equal message, error.message
       assert_empty writes(runner)
