@@ -44,6 +44,9 @@ class ReleaseTest < Minitest::Test
   BRANCH_ON_ORIGIN = %w[git ls-remote origin refs/heads/release/v0.1.0].freeze
   PUSHED = COMMITTED.merge(BRANCH_ON_ORIGIN => ["abc\trefs/heads/release/v0.1.0", true]).freeze
   OPEN_PULL = %w[gh pr list --head release/v0.1.0 --state open --json url --jq .[].url].freeze
+  START_OVER = 'start over as docs/maintenance.md says under Recover'
+  MOVED_ON = "origin/main moved on after release/v0.1.0 was cut, so its changelog misses changes; #{START_OVER}".freeze
+  BESIDES = "release/v0.1.0 holds changes besides the release of 0.1.0; #{START_OVER}".freeze
   WRITES = [%w[git switch], %w[git commit], %w[git push], %w[gh pr create]].freeze
 
   # Answers each captured command from ANSWERS, or with empty output and success, and fails the one command that
@@ -229,17 +232,21 @@ class ReleaseTest < Minitest::Test
                  @out.string
   end
 
+  # Each case leaves its own check as the only one that refuses: a dated changelog left uncommitted would otherwise
+  # be committed and pushed.
   def test_prepare_refuses_a_release_branch_that_holds_more_than_the_release
     [
-      ON_BRANCH.merge(%w[git rev-list --count HEAD..origin/main] => ['1', true]),
-      ON_BRANCH.merge(%w[git rev-list --count origin/main..HEAD] => ['2', true]),
-      ON_BRANCH.merge(%w[git status --porcelain] => [" M CHANGELOG.md\n?? notes.md", true]),
-      COMMITTED.merge(%w[git diff --name-only origin/main HEAD] => ["CHANGELOG.md\nREADME.md", true]),
-      COMMITTED.merge(BRANCH_ON_ORIGIN => ["def\trefs/heads/release/v0.1.0", true])
-    ].each do |answers|
+      [ON_BRANCH.merge(%w[git rev-list --count HEAD..origin/main] => ['1', true]), MOVED_ON, UNRELEASED],
+      [ON_BRANCH.merge(%w[git rev-list --count origin/main..HEAD] => ['2', true]), BESIDES],
+      [ON_BRANCH.merge(%w[git status --porcelain] => [" M CHANGELOG.md\n?? notes.md", true]), BESIDES],
+      [COMMITTED.merge(%w[git diff --name-only origin/main HEAD] => ["CHANGELOG.md\nREADME.md", true]), BESIDES],
+      [COMMITTED.merge(BRANCH_ON_ORIGIN => ["def\trefs/heads/release/v0.1.0", true]),
+       "origin has another release/v0.1.0; #{START_OVER}"]
+    ].each do |answers, message, head = RELEASED|
       runner = FakeRunner.new(answers)
+      error = assert_raises(Release::Error) { release(runner, changelog: RELEASED, head:).prepare }
 
-      assert_raises(Release::Error) { release(runner, changelog: RELEASED).prepare }
+      assert_equal message, error.message
       assert_empty writes(runner)
     end
   end
