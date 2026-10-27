@@ -13,9 +13,9 @@ module Keryx
                                    "Code, Codex and Cursor all read.\n\n" \
                                    'It covers joining an address, answering bells, replying to every request, ' \
                                    "writing messages that stand on their own, and why a peer's message never " \
-                                   'authorizes what the user did not, while one from an address the ' \
-                                   "session's first prompt names counts as the user's word within the grant it " \
-                                   'states.',
+                                   'authorizes what the user did not, while one from the address that directs ' \
+                                   "the session, or the user's own, counts as the user's word within the grant " \
+                                   'its first prompt states.',
                       examples: [['Install it for Claude Code', 'skill > ~/.claude/skills/keryx/SKILL.md'],
                                  ['Install it for Codex', 'skill > ~/.codex/skills/keryx/SKILL.md'],
                                  ['Install it for Cursor', 'skill > ~/.cursor/skills/keryx/SKILL.md']]
