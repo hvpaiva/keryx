@@ -237,7 +237,7 @@ class ReleaseTest < Minitest::Test
   def test_prepare_refuses_a_release_branch_that_holds_more_than_the_release
     [
       [ON_BRANCH.merge(%w[git rev-list --count HEAD..origin/main] => ['1', true]), MOVED_ON, UNRELEASED],
-      [ON_BRANCH.merge(%w[git rev-list --count origin/main..HEAD] => ['2', true]), BESIDES],
+      [COMMITTED.merge(%w[git rev-list --count origin/main..HEAD] => ['2', true]), BESIDES],
       [ON_BRANCH.merge(%w[git status --porcelain] => [" M CHANGELOG.md\n?? notes.md", true]), BESIDES],
       [COMMITTED.merge(%w[git diff --name-only origin/main HEAD] => ["CHANGELOG.md\nREADME.md", true]), BESIDES],
       [COMMITTED.merge(BRANCH_ON_ORIGIN => ["def\tx", true]), "origin has another release/v0.1.0; #{START_OVER}"],
