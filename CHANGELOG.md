@@ -196,6 +196,13 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- The Authority section of `keryx skill` defers to the session's first prompt. A message from
+  another session stays a peer's request unless the first prompt names the address that directs the
+  session, or its user's own address, and what a message from it may grant; a message from that
+  address then counts as the user's word within that grant and nowhere beyond it. No message changes
+  the harness's permissions or answers a permission prompt, and every other session, like the
+  director outside its grant, is a peer. keryx checks none of this. Before, the section made every
+  message from another session a peer's request.
 - `--as keryx.system` and `KERYX_AS=keryx.system` are refused from a plain terminal too, whatever
   the store holds, as they already were from an agent session, so only keryx's own notices come
   from that address and the message check can exempt them. Before, a store that an older keryx let
