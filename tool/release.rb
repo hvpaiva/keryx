@@ -208,7 +208,8 @@ class Release
     @runner.run(*argv) or raise Failed, "#{command(argv)} failed"
   end
 
-  # The program and its subcommand, without the options after them, one of which may be a pull request's whole body.
+  # The command up to its first option, which leaves out every option and value after it, such as a pull request's
+  # whole body.
   def command(argv) = argv.take_while { !it.start_with?('-') }.join(' ')
 
   def read(file) = File.read(path(file))

@@ -202,7 +202,7 @@ All notable changes to this project are documented here. The format follows
   join `keryx.system` let a plain terminal act as it.
 - `bin/release prepare`, the maintainer's release command, goes on from where it stopped when its
   commit, push or pull request fails: run again on the release branch or on `main`, it reuses the
-  branch and skips each step an earlier run took. A failed command is named without its arguments,
+  branch and skips each step an earlier run took. A failed command is named up to its first option,
   so a failed `gh pr create` no longer prints the whole pull request body, and a missing git or gh
   is reported in one line. The release commit is signed as the tag is, whatever git's
   configuration says, and the changelog is dated in UTC. A reference link inside a changelog
