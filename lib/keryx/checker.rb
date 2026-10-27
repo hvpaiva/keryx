@@ -71,13 +71,16 @@ module Keryx
         Outcome.new(status: status.exitstatus, signal: status.termsig, stderr:)
       end
 
-      # On any way out, a result, an error or Ctrl-C, the group is killed, the checker reaped and every end closed.
+      # On any way out, a result, an error or Ctrl-C, the group is killed, the checker reaped and every end closed. A
+      # second Ctrl-C or signal waits until that is done and is raised after, since none of it is slow after the KILL.
       def stop
-        return close unless @pid
+        Thread.handle_interrupt(Object => :never) do
+          next close unless @pid
 
-        kill
-        (@waiter || Process.detach(@pid)).join
-        close
+          kill
+          (@waiter || Process.detach(@pid)).join
+          close
+        end
       end
 
       def close = @ends.each { it.close unless it.closed? }

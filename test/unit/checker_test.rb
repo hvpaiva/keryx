@@ -197,6 +197,35 @@ class CheckerTest < Minitest::Test
     assert_raises(Errno::ECHILD) { Process.waitpid(pid, Process::WNOHANG) }
   end
 
+  # JOB, whose first kill raises Interrupt in this thread before it kills.
+  def interrupting(job)
+    raised = false
+    job.define_singleton_method(:kill) do
+      unless raised
+        raised = true
+        Thread.current.raise(Interrupt)
+      end
+      super()
+    end
+    job
+  end
+
+  # A second Ctrl-C that lands as stop starts to kill, raised into this thread from the job's own kill so it lands
+  # there every run, waits until the group is killed and the checker reaped, and is raised after.
+  def test_a_second_interrupt_during_stop_waits_until_the_checker_is_killed_and_reaped
+    job = Keryx::Checker::Job.new
+    job.start(stub("echo $$ > #{record}\nexec sleep 30"), { 'PATH' => '/usr/bin:/bin' })
+    deadline = now + 5
+    sleep 0.01 until File.size?(record) || now > deadline
+    pid = File.read(record).to_i
+
+    assert_raises(Interrupt) { interrupting(job).stop }
+    assert_gone(-pid)
+    assert_raises(Errno::ECHILD) { Process.waitpid(pid, Process::WNOHANG) }
+  ensure
+    job&.stop
+  end
+
   # A first run opens whatever Ruby opens once for threads and children, and GC closes what earlier tests dropped
   # unclosed, so the count after can only grow by what the interrupted run left open.
   def test_an_interrupt_during_the_check_leaves_no_descriptor_open
