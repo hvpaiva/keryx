@@ -61,6 +61,7 @@ class SkillTest < Minitest::Test
   def test_the_skill_defers_authority_to_the_first_prompt_word_for_word
     authority = keryx('skill').out[/^## Authority\n(.*?)(?=^## |\z)/m, 1]
 
+    refute_nil authority, 'keryx skill prints no "## Authority" section'
     assert_equal paragraphs(AUTHORITY), paragraphs(authority)
   end
 
