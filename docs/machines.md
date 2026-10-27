@@ -9,7 +9,9 @@ it only ever talk to the keryx installed there.
 1. Install keryx on each machine.
 2. Give each machine an SSH key that logs in to the other without a prompt. keryx runs ssh with
    `BatchMode=yes`, so a key with a passphrase needs an agent the keryx process can reach, and the
-   other machine's host key must already be in `known_hosts`.
+   other machine's host key must already be in `known_hosts`. It also gives ssh a connect timeout
+   of 10 seconds, `ConnectTimeout=10`, and a run timeout of 60, after which it stops an ssh that has
+   not finished.
 3. Name each machine the way the other one reaches it in SSH, since that name is the host part of
    its addresses. keryx reads it from `host` in `~/.config/keryx/config`, or in
    `$XDG_CONFIG_HOME/keryx/config` when that is set, and takes the machine's own name when the file
@@ -42,9 +44,13 @@ it only ever talk to the keryx installed there.
 
 `keryx send` forwards right away when the other machine answers. When it does not, because it is
 asleep or off the network, the message waits in the outbox, and `keryx courier` forwards it once
-the machine is back. The courier also rings again for unread mail whose bell did not reach a
-session and tells the sender when a request passes its deadline without a reply, so run it on every
-machine, even one that never sends across.
+the machine is back. Until then each send to that machine waits for ssh, up to the connect timeout
+above when the machine cannot be reached and up to the whole run timeout when it takes the
+connection and does not answer, since each send forwards all the mail waiting for it. The courier
+also rings again for unread mail whose bell did not reach a session and tells the sender when a
+request passes its deadline without a reply, so run it on every machine, even one that never sends
+across. It waits 30 seconds between rounds unless `--interval DURATION` gives another wait, and
+`keryx courier --once` runs one round and exits.
 
 A systemd user service keeps it running.
 

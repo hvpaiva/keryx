@@ -208,5 +208,8 @@ All notable changes to this project are documented here. The format follows
   configuration says, and the changelog is dated in UTC. A reference link inside a changelog
   section no longer cuts the release notes short, and Bundler's `release:*` tasks refuse as
   `rake release` does.
+- `keryx send --help` says that ssh gets 10 seconds to connect to another machine and 60 to finish,
+  so each message to a machine that takes the connection and does not answer waits up to 60 seconds
+  until the machine is back.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main
