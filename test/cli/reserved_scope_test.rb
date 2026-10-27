@@ -72,6 +72,21 @@ class ReservedScopeTest < Minitest::Test
     assert_empty store.unread('rev-1.dev')
   end
 
+  def test_a_plain_terminal_cannot_act_as_keryx_system_even_when_an_older_keryx_stored_the_address
+    store.create_address('orq.dev')
+    box = tmp('state', 'addresses', 'keryx.system')
+    Keryx::Store::BOX_DIRS.each { FileUtils.mkdir_p(File.join(box, it)) }
+    File.write(File.join(box, 'address.json'), '{"member":"keryx","team":"system"}')
+    refused = "error: a plain terminal cannot act as keryx.system@athena, keryx's own services\n"
+
+    assert store.address?('keryx.system')
+    [%w[send orq.dev posing], %w[whoami]].each do |argv|
+      assert_equal [1, refused], outcome('--as', 'keryx.system', *argv, env: {}), argv
+      assert_equal [1, refused], outcome(*argv, env: { 'KERYX_AS' => 'keryx.system' }), argv
+    end
+    assert_empty store.unread('orq.dev')
+  end
+
   def test_the_refusal_names_the_way_out_for_this_terminals_address_and_for_another_persons
     rev = join_claude('rev-1.dev', 111).merge('USER' => 'person')
     other = 'error: an agent session cannot act as other.local@athena, a person at a terminal; only a plain ' \

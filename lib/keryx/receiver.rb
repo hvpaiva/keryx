@@ -3,6 +3,7 @@
 require 'json'
 require_relative 'address'
 require_relative 'bell'
+require_relative 'check'
 require_relative 'error'
 require_relative 'identity'
 require_relative 'message'
@@ -17,17 +18,28 @@ module Keryx
     CLAIMED_ID = /"id":"(?<id>[0-9A-HJKMNP-TV-Z]{26})"/
     FAILED = 'failed'
     BEHIND = 'it waits for %<id>s, written before it in its thread'
+    # The checks of a batch end within it, so the one ssh run that brings the batch ends before Remote::TIMEOUT, 60 s:
+    # 10 s to connect, 40 s of checks and 10 s for the rest. A checker's longest timeout and its kill grace, 31 s, fit
+    # in it, so every batch checks at least one message and the queue moves.
+    CHECK_BUDGET = 40
+    OUT_OF_TIME = 'the check on %<host>s ran out of time in this batch'
 
-    def initialize(store:, bell:, host:, person:, live: ->(_name) {})
+    def initialize(store:, bell:, host:, person:, check:, live: ->(_name) {},
+                   monotonic: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) }, budget: CHECK_BUDGET)
       @store = store
       @bell = bell
       @host = host
       @person = person
+      @check = check
       @live = live
+      @monotonic = monotonic
+      @budget = budget
     end
 
     def receive_all(input, &)
       @oversized = nil
+      @started = @monotonic.call
+      @out_of_time = false
       stalled = {}
       input.each_line(FRAME_LIMIT) do |chunk|
         next skip(chunk, &) if @oversized || truncated?(chunk)
@@ -52,15 +64,33 @@ module Keryx
 
     private
 
+    # A message the mailbox holds already is a resend of one written before, so it is answered as the duplicate it is,
+    # with no check, and a resent batch moves past what arrived.
     def take(message)
       to = Address.parse(message.to)
       refusal = refusal(message, to)
       return receipt(message.id, 'refused', detail: refusal) if refusal
+      return receipt(message.id, 'duplicate') if @store.stored?(to.key, message.id)
+
+      checked = screen(message)
+      return checked if checked
 
       status = deliver(to, message)
       receipt(message.id, status.to_s, bell: (ring(to.name, message) if status == :delivered))
     rescue StandardError => e
       failure(message.id, e)
+    end
+
+    # The receipt of a message the check keeps out, or nil when it may be written. Once a check could pass the batch's
+    # budget, every later message that needs one fails, so its thread stalls and the sender sends it again. A check that
+    # fails refuses rather than fails, so a broken checker shows once instead of being sent again on every pass.
+    def screen(message)
+      timeout = @check.timeout_for(message) or return
+      @out_of_time ||= @monotonic.call - (@started ||= @monotonic.call) + timeout + Checker::KILL_GRACE > @budget
+      return receipt(message.id, FAILED, detail: format(OUT_OF_TIME, host: @host)) if @out_of_time
+
+      reason = @check.refusal(message, event: Check::RECEIVE, command: nil)
+      receipt(message.id, 'refused', detail: reason) if reason
     end
 
     # keryx's own errors refuse the message, but a lock another command keeps fails it, as any other error does, so the

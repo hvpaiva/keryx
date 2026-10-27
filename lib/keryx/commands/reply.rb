@@ -13,7 +13,11 @@ module Keryx
                                    "Replying also marks the message as read.\n\n" \
                                    'A session that join --force displaced answers by ID what it took before, ' \
                                    'and the reply goes out as the address the message was sent to, so it settles ' \
-                                   'the request.',
+                                   "the request.\n\n" \
+                                   'When /etc/keryx/check exists, keryx runs its checker before it writes the ' \
+                                   'reply; a refusal writes nothing and leaves the message unread, and keryx prints ' \
+                                   "the reason the checker gives and exits 1. A person's messages and keryx's own " \
+                                   'notices are not checked, and keryx send --help says more.',
                       examples: [['Answer a request', 'reply 01JB8Y2Q "Approved, with two comments on the PR"'],
                                  ['Answer with a file', 'reply 01JB8Y2Q --file review.md']]
 
@@ -29,10 +33,10 @@ module Keryx
 
       private
 
+      # The message is marked read once the reply is posted, so a reply that fails or is refused leaves it as it was.
       def answer(name, original, text)
-        app.store.mark_read(name, original.id)
         app.postman.post(sender: name, recipient: Address.parse(original.from), kind: 'reply', body: text,
-                         reply_to: original)
+                         reply_to: original, command: 'reply').tap { app.store.mark_read(name, original.id) }
       end
     end
   end

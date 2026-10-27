@@ -21,7 +21,7 @@ class CourierContextOrderTest < Minitest::Test
   def other_courier(figure, clock, waits)
     box = Keryx::Store.new(tmp('state'), sleeper: ->(seconds) { sleep(seconds.tap { waits << it }) })
     mail = Keryx::Postman.new(store: box, bell: QuietBell.new, forwarder: nil, host: 'athena', clock:,
-                              person: 'person.local')
+                              person: 'person.local', check: Keryx::Check.new(host: 'athena'))
     build_courier(clock:, measure: Meter.new.tap { it.figures['session-impl'] = figure }, box:, mail:)
   end
 

@@ -2,6 +2,7 @@
 
 require_relative 'address'
 require_relative 'bell'
+require_relative 'check'
 require_relative 'error'
 require_relative 'forwarder'
 require_relative 'identity'
@@ -16,13 +17,15 @@ module Keryx
     class NoAddress < Error; end
     SESSION_LEFT = 'mail to %<address>s is refused: its session left; write to %<stable>s'
 
-    def initialize(store:, bell:, forwarder:, host:, clock:, person:, measure: ->(_name) {}, live: ->(_name) {})
+    def initialize(store:, bell:, forwarder:, host:, clock:, person:, check:, measure: ->(_name) {},
+                   live: ->(_name) {})
       @store = store
       @bell = bell
       @forwarder = forwarder
       @host = host
       @clock = clock
       @person = person
+      @check = check
       @measure = measure
       @live = live
     end
@@ -55,19 +58,21 @@ module Keryx
       end
     end
 
-    # A claim is asked in the same hold of the occupants lock as the write for the id the message goes under, and one
-    # that gives none leaves the message unwritten; a session address here is checked again in that hold. The bell and
-    # the forward come after the hold.
-    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil)
+    # The message is composed and checked before any lock is taken, so a slow checker holds none, and what is written
+    # is the message checked. A claim is asked in the same hold of the occupants lock as the write for the id the
+    # message goes under, and one that gives none leaves the message unwritten; a session address here is checked
+    # again in that hold. The bell and the forward come after the hold. COMMAND names the command for the check.
+    def post(sender:, recipient:, kind:, body:, due_at: nil, reply_to: nil, id: nil, ring: true, claim: nil,
+             command: nil)
       check_recipient(recipient)
-      body = Postman.check_body(body)
-      context = @measure.call(sender)
-      letter = ->(given) { compose(sender, recipient, kind:, body:, due_at:, reply_to:, id: given, context:) }
-      return post_away(recipient.host, letter, id, claim, reply_to) unless recipient.local?(@host)
+      draft = compose(sender, recipient, kind:, body: Postman.check_body(body), due_at:, reply_to:, id:,
+                                         context: @measure.call(sender))
+      screen(draft, command, claim)
+      return post_away(recipient.host, draft, id, claim, reply_to) unless recipient.local?(@host)
 
       name = recipient.key
       @store.create_address(name, role: Identity::HUMAN_ROLE) unless @store.address?(name)
-      message, stored = held(claim, recipient) { write(letter, id, claim) { @store.deliver(name, it) } }
+      message, stored = held(claim, recipient) { write(draft, claim) { @store.deliver(name, it) } }
       return unless message
 
       # A message posted again under its id is already in the mailbox, and the courier rings again for its bell.
@@ -81,16 +86,32 @@ module Keryx
       raise Error, format(Address::TEAMLESS, teamless) if teamless
 
       from, to = [request.from, request.to].map { Address.parse(it) }
-      letter = withdrawal(request, Postman.check_body(body), @measure.call(from.name))
-      return in_thread(to.host, request.thread, letter) unless holder
+      message = withdrawal(request, Postman.check_body(body), @measure.call(from.name))
+      screen(message, 'withdraw', nil)
+      return in_thread(to.host, request.thread, message) unless holder
 
-      message = letter.call(nil)
       @store.deliver(holder, message)
       bell = announce(to.name, message) unless holder == from.key
       Posted.new(message:, bell:, forward: nil)
     end
 
+    # MESSAGE under ID, where one that opens its own thread still names the thread after itself.
+    def self.renamed(message, id)
+      return message if id.nil? || id == message.id
+
+      message.with(id:, thread: message.thread == message.id ? id : message.thread)
+    end
+
     private
+
+    # Only an exempt sender's post may claim, since a claim holds the occupants lock and a check there would hold it
+    # for the checker's whole timeout.
+    def screen(message, command, claim)
+      raise ArgumentError, 'only a sender the check exempts posts with a claim' if claim && !@check.exempt?(message)
+
+      reason = @check.refusal(message, event: Check::SEND, command:)
+      raise Error, reason if reason
+    end
 
     def announce(name, message)
       @bell.ring(name, [message])
@@ -106,34 +127,32 @@ module Keryx
     end
 
     # The message and what writing it gave, or nil when the claim gave no id.
-    def write(letter, id, claim)
-      return letter.call(id).then { [it, yield(it)] } unless claim
+    def write(draft, claim)
+      return [draft, yield(draft)] unless claim
 
       claimed = claim.call
-      letter.call(claimed).then { [it, yield(it)] } if claimed
+      Postman.renamed(draft, claimed).then { [it, yield(it)] } if claimed
     end
 
-    # The withdrawal of REQUEST, under the id it is given or else one drawn from the clock.
     def withdrawal(request, body, context)
       now = @clock.call
-      lambda do |id|
-        Message.new(id: id || Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
-                    thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil, body:, context:)
-      end
+      Message.new(id: Ulid.generate(now), kind: 'withdrawal', from: request.from, to: request.to,
+                  thread: request.thread, in_reply_to: request.id, created_at: now, due_at: nil, body:, context:)
     end
 
-    def post_away(host, letter, id, claim, reply_to)
-      return in_thread(host, reply_to.thread, letter) if reply_to && !id && !claim
+    def post_away(host, draft, id, claim, reply_to)
+      return in_thread(host, reply_to.thread, draft) if reply_to && !id && !claim
 
-      message, = held(claim) { write(letter, id, claim) { @store.outbox.queue(host, it) } }
+      message, = held(claim) { write(draft, claim) { @store.outbox.queue(host, it) } }
       forwarded(message, host) if message
     end
 
     # A message of a thread for another machine takes an id after the last one of its thread still waiting there, so
-    # the forwarder sends them in the order they were written, whatever the clock says.
-    def in_thread(host, thread, letter)
+    # the forwarder sends them in the order they were written, whatever the clock says. Only then does the id differ
+    # from the one checked, and it is the only field that does.
+    def in_thread(host, thread, draft)
       message = @store.outbox.queue_in_thread(host, thread) do |last|
-        letter.call([Ulid.generate(@clock.call), Ulid.after(last)].compact.max)
+        Postman.renamed(draft, [draft.id, Ulid.after(last)].compact.max)
       end
       forwarded(message, host)
     end

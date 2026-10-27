@@ -31,7 +31,7 @@ module CourierHelpers
 
   def postman
     @postman ||= Keryx::Postman.new(store:, bell: QuietBell.new, forwarder: nil, host: 'athena', clock: -> { LATER },
-                                    person: 'person.local')
+                                    person: 'person.local', check: Keryx::Check.new(host: 'athena'))
   end
 
   def rosters = @rosters ||= []

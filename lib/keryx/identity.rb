@@ -56,7 +56,7 @@ module Keryx
 
     def existing(text)
       address = Resolver.new(store: @store, host: @host).resolve(text, sender: held)
-      refuse_reserved(address) if @caller.agent?
+      refuse_reserved(address)
       raise Error, "#{address} is on another machine; --as names an address on #{@host}" unless address.local?(@host)
 
       name = address.key
@@ -67,13 +67,16 @@ module Keryx
     end
 
     # A person acts as their local address from a plain terminal, and only keryx posts as the system one, whatever the
-    # store holds.
+    # store holds and whoever asks.
     def refuse_reserved(address)
       case address.team
       when Address::LOCAL
+        return unless @caller.agent?
+
         raise Error, "an agent session cannot act as #{address}, a person at a terminal; #{terminal_way(address)}"
       when Address::SYSTEM
-        raise Error, "an agent session cannot act as #{address}, keryx's own services"
+        who = @caller.agent? ? 'an agent session' : 'a plain terminal'
+        raise Error, "#{who} cannot act as #{address}, keryx's own services"
       end
     end
 

@@ -32,7 +32,18 @@ module Keryx
                                   'the request stays open until the recipient replies or you withdraw it. A request ' \
                                   'already answered or withdrawn is refused, and so are an id you did not send and ' \
                                   'a request to your own address, which keryx reply answers and keryx withdraw ' \
-                                  'closes.',
+                                  "closes.\n\n" \
+                                  'When /etc/keryx/check exists, keryx runs its checker before it writes the ' \
+                                  'message; a refusal writes nothing, and keryx prints the reason the checker gives ' \
+                                  'and exits 1. The checker reads the message as one JSON object on standard input ' \
+                                  'and accepts it with exit 0 or refuses it with exit 1. Any other exit, a run past ' \
+                                  'the timeout (5 seconds unless the file sets one, at most 30), a file or checker ' \
+                                  "that is not root's or that others can write, and a checker keryx cannot read or " \
+                                  'that starts with neither #! nor an ELF or Mach-O header, which Ruby would hand ' \
+                                  'to /bin/sh, refuse the message too, since the check fails closed. A message for ' \
+                                  'another machine is checked there again when it arrives, and a refusal there ' \
+                                  'shows in the error, or in keryx status when the courier forwards it later. A ' \
+                                  "person's messages and keryx's own notices are not checked.",
                      examples: [['Tell the orchestrator a task is done', 'send orq "PR #448 reviewed and approved"'],
                                 ['Send the contents of a file', 'send orq --file report.md'],
                                 ['Say you took a request for a result whose work goes on',
@@ -61,7 +72,7 @@ module Keryx
         raise UsageError, MISSING if arguments.empty?
 
         posted = app.postman.post(sender: app.me, recipient: app.address(arguments[0]), kind: 'message',
-                                  body: body(arguments[1]))
+                                  body: body(arguments[1]), command: 'send')
         terminal.puts("Sent #{terminal.paint(:id, posted.message.id)} to #{posted.message.to}. " \
                       "#{Delivery.note(posted)}")
         nil
@@ -103,7 +114,8 @@ module Keryx
       def complement(request, holder, text)
         recipient = Address.parse(request.to)
         recipient = recipient.with(host: app.host) if holder
-        app.postman.post(sender: app.me, recipient:, kind: 'message', body: text, reply_to: request)
+        app.postman.post(sender: app.me, recipient:, kind: 'message', body: text, reply_to: request,
+                         command: 'send --on')
       end
 
       def told(posted, request)
@@ -121,7 +133,7 @@ module Keryx
       # The request is marked read once the message is posted, so a message that fails leaves it as it was.
       def take(request, text)
         app.postman.post(sender: app.me, recipient: Address.parse(request.from), kind: 'message', body: text,
-                         reply_to: request).tap { app.store.mark_read(app.me, request.id) }
+                         reply_to: request, command: 'send --re').tap { app.store.mark_read(app.me, request.id) }
       end
 
       def open_request(name, reference)

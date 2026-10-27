@@ -181,5 +181,24 @@ All notable changes to this project are documented here. The format follows
   included, once per command and before a command pauses, and never backward, so one `stat` per poll
   tells the reader to run its commands again. A command that only reads leaves it alone; a session
   that ends, context figures and ages show in no file, so `who` and `status` still need polling.
+- A message check that root sets up in /etc/keryx/check, whose `command` names a checker keryx runs
+  before it writes any message an agent sends, here or as the message arrives from another machine.
+  The checker reads the message as one JSON object on standard input and accepts it with exit 0 or
+  refuses it with exit 1 and its reason, which the sender gets as the error, or in `keryx status`
+  for a message refused on another machine, and nothing refused is written or rung. The file, the
+  checker and every folder above them must be root's, closed to others and no symbolic link, and the
+  checker readable and starting with `#!` or an ELF or Mach-O header, since Ruby hands a file the
+  kernel cannot execute to /bin/sh. Any problem with them refuses the message, as does a checker
+  that fails or runs past its `timeout`, since the check fails closed. A person's messages and
+  keryx's own notices are not checked.
+  [ARCHITECTURE.md](ARCHITECTURE.md#the-message-check) describes the envelope, the receive budget
+  and the limits, and `keryx send --help` the check in short.
+
+### Changed
+
+- `--as keryx.system` and `KERYX_AS=keryx.system` are refused from a plain terminal too, whatever
+  the store holds, as they already were from an agent session, so only keryx's own notices come
+  from that address and the message check can exempt them. Before, a store that an older keryx let
+  join `keryx.system` let a plain terminal act as it.
 
 [Unreleased]: https://github.com/hvpaiva/keryx/commits/main

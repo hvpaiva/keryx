@@ -123,9 +123,33 @@ module CLIHelpers
     factory = lambda do |globals|
       Keryx::App.new(env: terminal.env, cwd: '/work', as: globals[:as], clock:, herdr:, claude_socket: sockets, codex:,
                      remote:, sleeper: ->(seconds) { [clock, monotonic].each { it.advance(seconds) } }, processes:,
-                     host_os:, monotonic:)
+                     host_os:, monotonic:, check: check_on(check_host(terminal.env)))
     end
     Run.new(Keryx.run(argv, terminal:, app_factory: factory), out.string, err.string)
+  end
+
+  # The test's own files count as root's for a check file a test writes; /, /tmp and the rest really are root's.
+  TRUSTED = ->(stat) { [0, Process.uid].include?(stat.uid) }
+
+  # The check file of HOST, under the test's folder and absent until a test writes it. The folder is named by its real
+  # path, since the check refuses a link on the way, such as /tmp on macOS.
+  def check_path(host = 'athena') = real_tmp('etc', host, 'check')
+
+  def real_tmp(*parts) = File.join(File.realpath(tmp), *parts)
+
+  # The check each machine's commands run. A test may put its own in checks before the first command.
+  def checks = @checks ||= {}
+
+  def check_on(host)
+    checks[host] ||= Keryx::Check.new(host:, config: Keryx::CheckConfig.new(path: check_path(host), trusted: TRUSTED))
+  end
+
+  # The machine a command runs on, as its App names it. A command whose host is invalid fails on its own before any
+  # check, so its check is one no machine names.
+  def check_host(env)
+    Keryx::App.new(env:).host
+  rescue Keryx::Error
+    'none'
   end
 
   def join_claude(name, pid, role: nil)

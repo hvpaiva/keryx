@@ -17,7 +17,11 @@ module Keryx
                                  'address it was sent from, this session unless --as names another, so there is ' \
                                  'no need to wait for it; keryx wait blocks until it comes for the cases that ' \
                                  'cannot go on without it. When no session holds that address, no bell rings and ' \
-                                 "the reply waits in its mailbox.\n\n#{ADDRESSING}",
+                                 "the reply waits in its mailbox.\n\n#{ADDRESSING}\n\n" \
+                                 'When /etc/keryx/check exists, keryx runs its checker before it writes the ' \
+                                 'request; a refusal writes nothing, and keryx prints the reason the checker gives ' \
+                                 "and exits 1. A person's messages and keryx's own notices are not checked, and " \
+                                 'keryx send --help says more.',
                     examples: [['Ask for a review with a deadline', 'ask rev-1 "Review PR #448" --within 30m'],
                                ['Ask with a longer brief from a file', 'ask impl --file brief.md']]
 
@@ -57,7 +61,7 @@ module Keryx
 
       def call(arguments)
         posted = app.postman.post(sender: app.me, recipient: app.address(arguments[0]), kind: 'request',
-                                  body: body(arguments[1]), due_at:)
+                                  body: body(arguments[1]), due_at:, command: 'ask')
         message = posted.message
         terminal.puts("#{asked(message)} #{Delivery.note(posted)}", Ask.follow_up(app, message.id))
       end

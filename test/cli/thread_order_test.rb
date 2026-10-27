@@ -72,7 +72,8 @@ class ThreadOrderTest < Minitest::Test
     zeus = Keryx::Store.new(tmp('zeus'))
     request = request_from_zeus(zeus)
     fail_to_write(zeus, 2)
-    answered_by(Keryx::Receiver.new(store: zeus, bell: QuietBell.new, host: 'zeus', person: 'person.local'))
+    answered_by(Keryx::Receiver.new(store: zeus, bell: QuietBell.new, host: 'zeus', person: 'person.local',
+                                    check: Keryx::Check.new(host: 'zeus')))
     took, replied = take_and_reply(request, as: ['--as', 'orq.dev'])
 
     assert_equal [0, 0], [took.status, replied.status]
@@ -95,7 +96,7 @@ class ThreadOrderTest < Minitest::Test
     orq = join_claude('orq.dev', 111)
     request = session_request_from_zeus(zeus)
     receiver = Keryx::Receiver.new(store: zeus, bell: QuietBell.new, host: 'zeus', person: 'person.local',
-                                   live: ->(_name) { true })
+                                   live: ->(_name) { true }, check: Keryx::Check.new(host: 'zeus'))
     File.open(tmp('zeus', 'occupants.lock'), File::RDWR | File::CREAT) do |lock|
       lock.flock(File::LOCK_EX)
       answered_by(receiver) { lock.flock(File::LOCK_UN) if remote.sent.size == 2 }

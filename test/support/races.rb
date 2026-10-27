@@ -66,8 +66,8 @@ module ProcessRaces
 
   def start(label, *argv, env:, pause: 'bind')
     at = tmp("pause-#{label}")
-    pid = Process.spawn(command_env(at, pause).merge(env), RbConfig.ruby, '-I', LIB, '-r', tmp('pause.rb'), EXE,
-                        *argv, unsetenv_others: true, out: "#{at}.out", err: "#{at}.err")
+    pid = Process.spawn(command_env(at, pause).merge(env), RbConfig.ruby, '-I', LIB, '-r', tmp('pause.rb'), '-r',
+                        SystemCheck::PRELOAD, EXE, *argv, unsetenv_others: true, out: "#{at}.out", err: "#{at}.err")
     @started << pid
     Command.new(label:, pid:)
   end

@@ -47,6 +47,10 @@ module Keryx
       FILES = [
         ['~/.config/keryx/config', 'Settings as key = value lines, under $XDG_CONFIG_HOME when set'],
         ['  host = NAME', "The host part of addresses, instead of the machine's name"],
+        ['/etc/keryx/check',
+         "A checker root sets up; keryx runs it before writing an agent's message, see keryx send --help"],
+        ['  command = PATH', 'The checker, an absolute path that goes through no symbolic link'],
+        ['  timeout = SECONDS', 'How long the checker may run, from 1 to 30, 5 when unset'],
         ['~/.local/state/keryx', 'Where the mailboxes live, $KERYX_HOME or $XDG_STATE_HOME/keryx when set'],
         ["  #{Changes::FILE}", 'Its mtime moves forward after every change keryx makes here']
       ].freeze

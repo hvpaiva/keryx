@@ -53,7 +53,8 @@ module Keryx
                                    "#{CLI::SpawnHelp::WAITING}\n\n" \
                                    '--ceiling goes into the join line of the first prompt, and the session spawn ' \
                                    'starts takes the address spawn runs as for its director when it joins, even ' \
-                                   "after spawn gave up; 'keryx join --help' explains both.",
+                                   "after spawn gave up; 'keryx join --help' explains both.\n\n" \
+                                   "#{CLI::SpawnHelp::CHECK}",
                       examples: CLI::SpawnHelp::EXAMPLES
 
       def define_options(parser)
@@ -209,7 +210,7 @@ module Keryx
 
       def post(sender, name, text)
         app.postman.post(sender:, recipient: Address.from_key(name, host: app.host), kind: 'request', body: text,
-                         due_at:, ring: false).message
+                         due_at:, ring: false, command: 'spawn').message
       end
 
       # The request goes on the first line, since a dialog's text can follow it.
