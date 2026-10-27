@@ -39,12 +39,12 @@ module Keryx
 
     # A pane herdr does not read, a screen too narrow to tell and a queued message being edited tell nothing and keep
     # the record, since none of them shows that the dialog told before is gone. Only a screen with no obstacle clears
-    # it.
+    # it, or one whose composer holds a person's text, since a dialog takes the composer's place.
     def tell(name, occupant, recipient)
       seen = seen(name, occupant, recipient) or return
       read = @herdr.visible(occupant.herdr_socket, occupant.herdr_pane) or return
       obstacle = Bell.obstacle(read)
-      return clear(seen) if obstacle.nil?
+      return clear(seen) if obstacle.nil? || obstacle == :draft
 
       quote = Dialog.shown(read) if obstacle == :dialog
       notify(seen, quote) if quote

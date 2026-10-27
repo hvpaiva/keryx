@@ -138,4 +138,75 @@ class BellScreenTest < Minitest::Test
     assert_equal [:cramped, nil, nil],
                  Keryx::Bell.reading(Screens::TINY_QUESTION).to_h.values_at(:obstacle, :evidence, :place)
   end
+
+  DRAFT = 'PERSON DRAFT do not submit'
+  # Cursor's screen in evidence/05-bell.txt of the R44 report, whose draft a bell typed through herdr sent with it.
+  CURSOR_DRAFT = Screens.session('cursor-draft')
+  WRAPPED = "#{DRAFT}, and it runs on past the right edge of the pane".freeze
+  # Claude Code idle under an answer that quotes no dialog.
+  CLAUDE_DONE = "\u23fa Done.\n#{Screens::CLAUDE_IDLE.lines.drop(2).join}".freeze
+
+  def reading(screen) = Keryx::Bell.reading(screen).to_h.values_at(:obstacle, :evidence, :place)
+
+  def claude(composer, screen = CLAUDE_DONE) = screen.sub("\u276f ", composer)
+
+  def test_a_person_s_draft_in_cursor_s_composer_is_an_obstacle_that_quotes_none_of_it
+    assert_equal [:draft, nil, 'line 2 of 6'], reading(CURSOR_DRAFT)
+    assert_equal 'the screen shows text typed in the composer (line 2 of 6)', Keryx::Bell.reading(CURSOR_DRAFT).note
+  end
+
+  def test_each_harness_s_empty_composer_and_its_placeholders_are_no_draft_unlike_text_typed_there
+    cursor = ['Add a follow-up', "Add a follow-up \u2014 /plan to review and build", 'Plan, search, build anything',
+              "Add a follow-up#{' ' * 57}ctrl+c to stop"].map { CURSOR_DRAFT.sub(DRAFT, it) }
+    codex = ['Ask Codex to do anything', 'Ask a follow-up question'].map { WORKING.sub('Ask Codex to do anything', it) }
+    queued = ['Press up to edit queued messages', 'Press up to edit queued messages, Enter to send them immediately',
+              'Press up to select a queued message, then Enter to edit it',
+              'Press up to select a queued message to edit, or Enter to send them now']
+    claudes = ["\u276f", "\u276f ", "\u276f Try \"how does lib/keryx/bell.rb work?\"", *queued.map { "\u276f #{it}" }]
+    drafts = [claude("\u276f #{DRAFT}"), WORKING.sub('Ask Codex to do anything', DRAFT), CURSOR_DRAFT]
+
+    assert_equal(%i[draft draft draft], drafts.map { obstacle(it) })
+    [*cursor, *codex, *claudes.map { claude(it) }].each { assert_nil obstacle(it), it }
+  end
+
+  # Each harness draws its input after its prompt, so a draft wider than the pane, or broken by a newline, goes on at
+  # the text's column, as an entry of a menu would, and only the line with the prompt is given.
+  def test_a_draft_wrapped_or_broken_over_lines_counts_at_its_prompt
+    cursor = CURSOR_DRAFT.sub(DRAFT, WRAPPED.sub(' pane', "\n    pane"))
+    wrapped = claude("\u276f #{WRAPPED.sub(' pane', "\n  pane")}")
+    broken = claude("\u276f\n  #{DRAFT}")
+
+    assert_equal([[:draft, nil, 'line 2 of 7'], [:draft, nil, 'line 4 of 7'], [:draft, nil, 'line 4 of 7']],
+                 [cursor, wrapped, broken].map { reading(it) })
+    assert_equal [:draft, nil, 'line 6 of 9'], reading("\u276f An older prompt\n\n#{wrapped}")
+  end
+
+  def test_neither_cursor_s_follow_ups_box_nor_a_dialog_s_options_read_as_a_draft
+    box = Screens.session('cursor-follow-ups')
+    picked = box.sub("\u25cb Also", "\u203a Also")
+    dialogs = %w[claude-write claude-review codex-approval codex-hooks].map { Screens.real(it) }
+
+    assert_equal [:draft, nil, 'line 15 of 19'], reading(box.sub('Add a follow-up', DRAFT))
+    assert_equal [nil, nil], [obstacle(picked), obstacle(picked.lines.first(10).join)]
+    assert_equal([:dialog] * 5, [*dialogs, Screens.session('codex-extra-thought-transcribed')].map { obstacle(it) })
+  end
+
+  def test_a_narrow_dialog_under_an_older_prompt_defers_as_a_draft_and_quotes_nothing
+    narrow = %w[claude-4 cursor-4 cursor-5 cursor-6 cursor-7 cursor-8 cursor-9 cursor-10 cursor-11 cursor-12]
+
+    assert_equal narrow.sort, Screens.captured.reject { |_name, screen|
+      obstacle(PROMPTED + screen) == :dialog
+    }.keys.sort
+    narrow.each { assert_equal [:draft, nil], reading(PROMPTED + Screens.captured.fetch(it)).first(2), it }
+  end
+
+  # A menu with no phrase or footer keryx knows reads as a draft at the entry its arrow marks. A wrapped draft hides the
+  # composer from the search for a dialog, which then starts at an older prompt, or at the top when none shows, so a
+  # dialog's words on those lines, here quoted in the transcript, read as a dialog. The bell waits on both.
+  def test_each_known_limit_of_reading_a_draft_errs_toward_waiting
+    wrapped = claude("\u276f #{WRAPPED.sub(' pane', "\n  pane")}", Screens::CLAUDE_IDLE)
+
+    assert_equal [:draft, nil, 'line 1 of 2'], reading("\u203a Trust\n  Quit\n")
+    assert_equal [:dialog, 'Do you trust', 'line 1 of 8'], reading(wrapped)
+  end
 end

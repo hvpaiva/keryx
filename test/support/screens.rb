@@ -43,7 +43,8 @@ module Screens
   # under a transcript that quotes dialogs (codex-working-transcript), Cursor idle (cursor-idle), and Cursor working
   # with a message queued in its follow-ups box (cursor-follow-ups) and with that message being edited there
   # (cursor-follow-up-editor). codex-extra-thought-transcribed, the menu Codex 0.163.0 shows mid-turn while it gives a
-  # request extra thought, was transcribed by hand from a screenshot, not captured.
+  # request extra thought, was transcribed by hand from a screenshot, not captured. cursor-draft is Cursor 2026.10.22 at
+  # 02:08 UTC on 2026-10-27 with a person's unsent text in its composer, from the R44 report's evidence/05-bell.txt.
   def self.session(name) = unescaped(File.read(File.join(SESSIONS, "#{name}.txt")))
 
   # Dialogs read from real Claude Code and Codex panes on 2026-10-26 with their rules shortened, copied from Iris's

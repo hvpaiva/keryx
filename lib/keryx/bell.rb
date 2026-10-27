@@ -55,11 +55,12 @@ module Keryx
     # The longest evidence a deferral quotes, since a bell's receipt reaches the sender, on any machine.
     EVIDENCE_CHARACTERS = 60
     OBSTACLES = { dialog: 'the screen shows a dialog', editor: 'the screen shows a queued message being edited',
-                  cramped: 'the pane is too narrow to tell whether it shows a dialog' }.freeze
+                  cramped: 'the pane is too narrow to tell whether it shows a dialog',
+                  draft: 'the screen shows text typed in the composer' }.freeze
 
     # An obstacle, as a key of OBSTACLES or nil, what on the screen showed it and where. The evidence holds only the
-    # words keryx's own patterns matched, never the rest of the screen, and is nil for a marked option, whose place
-    # alone is given so that nothing of the option is quoted.
+    # words keryx's own patterns matched, never the rest of the screen, and is nil for a marked option and for a draft,
+    # whose place alone is given so that nothing of the option or of a person's unsent text is quoted.
     Reading = Data.define(:obstacle, :evidence, :place) do
       def note = place ? "#{OBSTACLES.fetch(obstacle)} (#{shown})" : OBSTACLES.fetch(obstacle)
 
@@ -73,6 +74,7 @@ module Keryx
     # last composer are read. Cursor's follow-ups box ends with a footer like a dialog's, so it is never read, unless
     # one of its messages is being edited, which takes the focus from the composer drawn below it. A message taller
     # than the pane puts the box's title above the screen, so that footer counts in the frame the screen starts with.
+    # Text a person typed in the composer counts last, on a screen wide enough to tell that it shows no dialog.
     def self.reading(screen)
       lines = lines(screen)
       raw = screen.to_s.lines.map(&:chomp)
@@ -82,8 +84,9 @@ module Keryx
 
       dialog = sighting(lines.each_with_index.map { |line, row| box.cover?(row) ? '' : line })
       return Reading.new(obstacle: :dialog, **dialog) if dialog
+      return Reading.new(obstacle: :cramped, evidence: nil, place: nil) if cramped?(screen)
 
-      Reading.new(obstacle: (:cramped if cramped?(screen)), evidence: nil, place: nil)
+      Draft.reading(lines, box)
     end
 
     def self.cramped?(screen)
@@ -178,6 +181,47 @@ module Keryx
     def self.lines(screen) = screen.to_s.gsub(BOX_DRAWING, ' ').lines.map(&:chomp)
     private_class_method :follow_ups, :cut_off, :sighting, :phrase, :footer, :option, :option?, :words,
                          :quote, :spot, :lines
+
+    # Where a person's text shows in the composer, which the bell would send with its own line, and never what it says.
+    # A draft wrapped or broken over lines puts its next line at the text's column, where composer takes it for a
+    # menu's entry, so the composer here is the last prompt outside the follow-ups box that marks no option, and each
+    # harness puts one blank between its prompt and the text. That may be a menu with no phrase or footer keryx knows,
+    # or an older prompt when no composer shows, and the bell waits for either.
+    module Draft
+      # What an empty composer shows after its prompt: Cursor's placeholder after a turn, with its plan hint and
+      # before the first turn, Codex's after and before a turn, and Claude Code's while messages are queued and before
+      # the first turn, which names an example to try. A hint such as Cursor's "ctrl+c to stop" can follow after a gap.
+      PLACEHOLDER = Regexp.union(
+        'Add a follow-up', "Add a follow-up \u2014 /plan to review and build", 'Plan, search, build anything',
+        'Ask Codex to do anything', 'Ask a follow-up question', 'Press up to edit queued messages',
+        'Press up to edit queued messages, Enter to send them immediately',
+        'Press up to select a queued message, then Enter to edit it',
+        'Press up to select a queued message to edit, or Enter to send them now', /Try "[^"]*"/
+      )
+      EMPTY = /\A(#{PLACEHOLDER}(\s{2,}.*)?)?\z/
+
+      def self.reading(lines, box)
+        place = place(lines, box)
+        Reading.new(obstacle: (:draft if place), evidence: nil, place:)
+      end
+
+      # The composer's line, as the place a deferral gives, when it holds text, or nil.
+      def self.place(lines, box)
+        row = prompt(lines, box) or return
+        column = lines[row].index(/\S/) + 2
+        return if EMPTY.match?(lines[row][column..].to_s.strip) && lines[row + 1]&.index(/\S/) != column
+
+        "line #{row + 1} of #{lines.size}"
+      end
+
+      def self.prompt(lines, box)
+        lines.each_index.reverse_each.find do |row|
+          prompt = COMPOSER.match(lines[row])
+          prompt && !box.cover?(row) && !LABEL.match?(lines[row], prompt.end(0))
+        end
+      end
+      private_class_method :place, :prompt
+    end
 
     def initialize(store:, herdr:, clock:, claude_socket: ClaudeSocket.new, codex: CodexQueue.new,
                    lookout: Lookout.new(herdr:, processes: Processes.new))

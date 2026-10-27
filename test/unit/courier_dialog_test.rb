@@ -56,17 +56,20 @@ class CourierDialogTest < Minitest::Test
     assert_includes bodies('orq.dev').find { it.include?("  Review your answers\n") }, "  \u2192 Sim, apague\n"
   end
 
+  # A person's draft shows in the composer, whose place a dialog takes, so it shows the dialog is gone too.
   def test_the_same_dialog_is_told_again_once_a_read_showed_the_pane_without_it
     member
     show(Screens.real('codex-approval'))
     courier.round
-    show(FREE)
+    told = [FREE, FREE.sub("\u276f ", "\u276f PERSON DRAFT do not submit")].map do |free|
+      show(free)
+      cleared = courier.round.dialogs
+      show(Screens.real('codex-approval'))
+      [cleared, courier.round.dialogs.size]
+    end
 
-    assert_empty courier.round.dialogs
-    show(Screens.real('codex-approval'))
-
-    assert_equal 1, courier.round.dialogs.size
-    assert_equal 2, bodies('orq.dev').size
+    assert_equal [[[], 1], [[], 1]], told
+    assert_equal 3, bodies('orq.dev').size
   end
 
   def test_a_moved_selection_or_a_counting_timer_is_the_same_dialog
