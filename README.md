@@ -112,13 +112,13 @@ From a plain terminal you act as an address of the local scope named after `$USE
 
 ## See what is pending
 
-`keryx status` lists the addresses in use, the requests still open and the messages whose bell did
-not ring, with the reason. An address is in use while a session holds it, its mailbox has unread
-mail or an open request was sent to it or by it, and `--all` adds the rest. Its CONTEXT column,
-which `keryx who` shows too, is how many tokens each session's context holds, read from what its
-harness records. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
-request is answered. `keryx sent` lists what you sent, where each message is and, for a recipient
-on this machine, when it was read.
+`keryx status` lists the addresses in use, the requests still open, the messages whose bell did not
+ring, with the reason, and the mail for another machine that was not forwarded. An address is in use
+while a session holds it, its mailbox has unread mail or an open request was sent to it or by it,
+and `--all` adds the rest. Its CONTEXT column, which `keryx who` shows too, is how many tokens each
+session's context holds, read from what its harness records. `keryx ring` rings again for unread
+mail, and `keryx wait ID` blocks until a request is answered. `keryx sent` lists what you sent,
+where each message is and, for a recipient on this machine, when it was read.
 
 ## Retire an address
 
