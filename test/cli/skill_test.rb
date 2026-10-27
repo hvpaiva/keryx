@@ -34,4 +34,12 @@ class SkillTest < Minitest::Test
     assert_includes answer, 'with an absolute time and its zone'
     assert_includes answer, "send the result with `keryx send ADDRESS TEXT` to the sender, with the request's id"
   end
+
+  def test_the_skill_says_a_director_answers_a_dialog_at_once_by_the_record
+    dialog = keryx('skill').out.lines.drop_while { !it.include?('stops at a dialog') }.slice_before(/\A- /).first.join
+                           .gsub(/\s+/, ' ')
+
+    ['Answer it at once', 'unless your human has told you not to', 'Allow once what the record grants',
+     'never the option that changes a setting or stops later prompts'].each { assert_includes dialog, it }
+  end
 end
