@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../cli/command'
+require_relative '../remote'
 require_relative 'delivery'
 require_relative 'wait'
 
@@ -33,6 +34,13 @@ module Keryx
                                   'already answered or withdrawn is refused, and so are an id you did not send and ' \
                                   'a request to your own address, which keryx reply answers and keryx withdraw ' \
                                   "closes.\n\n" \
+                                  'A message for another machine goes out over ssh at once, which keryx gives ' \
+                                  "#{Remote::CONNECT_TIMEOUT} seconds to connect and #{Remote::TIMEOUT} to " \
+                                  'finish. When the machine does not answer, the message waits in the outbox and ' \
+                                  'keryx courier forwards it once the machine is back. Until then each message to ' \
+                                  'that machine waits for ssh again, up to the whole ' \
+                                  "#{Remote::TIMEOUT} seconds when the machine takes the connection and does not " \
+                                  "answer, since each one forwards all the mail waiting for it.\n\n" \
                                   'When /etc/keryx/check exists, keryx runs its checker before it writes the ' \
                                   'message; a refusal writes nothing, and keryx prints the reason the checker gives ' \
                                   'and exits 1. The checker reads the message as one JSON object on standard input ' \
