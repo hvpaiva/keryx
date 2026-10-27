@@ -37,6 +37,9 @@ ID                           FROM             TO                 AGE   DUE     S
 
 NOT RUNG
 none
+
+NOT FORWARDED
+none
 ```
 
 ## Install and set up the agents
@@ -94,10 +97,12 @@ The reply will ring this session; 'keryx wait 01M5JBZ1J79RX38D7NH2M76ZDD' blocks
 ```
 
 The reviewer's session gets a bell with the request's id, never its text. It opens the request
-with `keryx read 01M5JBZ1` and answers it.
+with `keryx read 01M5JBZ1J79RX38D7NH2M76ZDD` and answers it. A prefix of the id works while it
+names one message, but messages written within about a second of each other can share their
+first eight characters, so the full id the bell gives is the safe form.
 
 ```console
-$ keryx reply 01M5JBZ1 "Approved with two nits"
+$ keryx reply 01M5JBZ1J79RX38D7NH2M76ZDD "Approved with two nits"
 Replied to orq.dev@athena (01M5JBZ1SSH67Z4YW088H3BRV0). The bell rang through claude.
 ```
 
@@ -114,6 +119,15 @@ which `keryx who` shows too, is how many tokens each session's context holds, re
 harness records. `keryx ring` rings again for unread mail, and `keryx wait ID` blocks until a
 request is answered. `keryx sent` lists what you sent, where each message is and, for a recipient
 on this machine, when it was read.
+
+## Retire an address
+
+An address stays until you retire it. `keryx retire ADDRESS` retires one whose work is done, once
+no live session holds it and no request waits on it, and it takes no new mail from then on.
+`keryx history` lists the retired addresses and `keryx history ADDRESS` the mail of one,
+`keryx purge ADDRESS` removes that mail for good, and `keryx join MEMBER.TEAM --revive` takes a
+retired address back with what its mailbox still holds. `keryx retire --help`,
+`keryx purge --help` and `keryx history --help` say what each one refuses and keeps.
 
 ## More
 
