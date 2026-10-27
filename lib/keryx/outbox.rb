@@ -17,9 +17,12 @@ module Keryx
     LOCK = 'outcomes.lock'
     THREAD_LOCK = 'thread.lock'
 
-    def initialize(root, problems: [], clock: -> { Time.now.utc }, changes: Changes.new(root, clock:))
+    # LOCK holds the lock file at a path for its block, as Store#with_lock does, and raises Store::Busy when it waited
+    # too long.
+    def initialize(root, lock:, problems: [], clock: -> { Time.now.utc }, changes: Changes.new(root, clock:))
       @root = root
       @base = File.join(root, DIR)
+      @lock = lock
       @problems = problems
       @clock = clock
       @changes = changes
@@ -38,8 +41,7 @@ module Keryx
     # hold the id the block chose; a taken id is given to the block to choose after, so the message returned was queued.
     def queue_in_thread(host, thread)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
-      open_lock(File.join(dir(host), THREAD_LOCK)) do |lock|
-        lock.flock(File::LOCK_EX)
+      @lock.call(File.join(dir(host), THREAD_LOCK)) do
         message = yield(queued(host).select { it.thread == thread }.map(&:id).max)
         message = yield(message.id) while queue(host, message) == :duplicate
         message
@@ -152,8 +154,7 @@ module Keryx
 
     # Attempts that both found no decision take turns, and the second keeps what the first wrote.
     def replace_undecided(host, id, data)
-      open_lock(File.join(dir(host), LOCK)) do |lock|
-        lock.flock(File::LOCK_EX)
+      @lock.call(File.join(dir(host), LOCK)) do
         write_atomic(outcome_file(host, id), JSON.generate(data)) unless outcome(host, id)
       end
     end

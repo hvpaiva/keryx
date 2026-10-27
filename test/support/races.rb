@@ -40,11 +40,11 @@ module ProcessRaces
         super.tap { Pause.hold('ready') if Pause.first_refresh?(from) }
       end
 
-      private
-
-      def take(lock, within)
-        Pause.mark('waiting') unless lock.flock(File::LOCK_EX | File::LOCK_NB)
-        super
+      def open_lock(path)
+        super do |lock|
+          Pause.mark('waiting') unless lock.flock(File::LOCK_EX | File::LOCK_NB)
+          yield lock
+        end
       end
     end
 
