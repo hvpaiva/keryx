@@ -113,6 +113,27 @@ class CheckerTest < Minitest::Test
     assert_raises(Errno::ECHILD) { Process.waitpid(pid, Process::WNOHANG) }
   end
 
+  # The TERM at the deadline does nothing, so the run ends at the KILL after the grace. Without that KILL the run would
+  # never end, so it runs in a thread this test stops waiting for, and kills the group itself if it must.
+  def test_a_checker_that_ignores_term_is_killed_after_the_grace_and_reaped
+    limit = 1 + Keryx::Checker::KILL_GRACE
+    run = Thread.new { timed { run_stub("trap '' TERM\necho $$ > #{record}\nexec sleep 30", timeout: 1) } }
+    ended = run.join(limit + SETTLE)
+    pid = File.read(record).to_i
+
+    assert ended, "the checker outlived its timeout and grace of #{limit}s"
+    outcome, elapsed = run.value
+
+    assert_equal Outcome.new(timed_out: 1), outcome
+    assert_operator elapsed, :>=, limit
+    assert_operator elapsed, :<, limit + SETTLE
+    assert_gone(-pid)
+    assert_raises(Errno::ECHILD) { Process.waitpid(pid, Process::WNOHANG) }
+  ensure
+    Process.kill('KILL', -pid) if pid && !ended
+    run&.join
+  end
+
   def test_a_checker_that_never_reads_a_large_envelope_is_decided_by_its_exit
     outcome, elapsed = timed { run_stub('exit 0', envelope: "#{'x' * (256 * 1024)}\n") }
 

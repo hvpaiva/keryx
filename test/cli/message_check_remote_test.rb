@@ -102,6 +102,30 @@ class MessageCheckRemoteTest < Minitest::Test
     refute_path_exists record
   end
 
+  # Only keryx.system is keryx's own; another member of the system team is checked as any agent is.
+  def test_a_message_from_another_member_of_the_system_team_is_checked_on_receive
+    refusing
+    message = build_message(from: 'other.system@zeus', to: 'orq.dev@athena', body: 'Not a notice')
+    received = keryx('__receive', input: "#{message.to_json}\n")
+
+    assert_equal [0, 'refused', "the check on athena refused the message: #{REASON}"],
+                 [received.status, *JSON.parse(received.out).values_at('status', 'detail')]
+    assert_empty store.stored('orq.dev')
+    assert_equal([message.id], envelopes.map { it.dig('message', 'id') })
+  end
+
+  # A failed receipt would have the sender send it again on every pass, so a check that fails refuses.
+  def test_a_checker_on_zeus_that_exits_2_refuses_the_message_rather_than_failing_it
+    check_with(path = checker('zeus', status: 2, reason: "policy down\nsince noon"), host: 'zeus')
+    sent = keryx('send', 'port.dev@zeus', 'Port retry.py', env: @orq)
+
+    assert_equal [1, '', "error: zeus refused the message; the check on zeus failed: #{path} exited with status 2: " \
+                         "policy down since noon\n"], [sent.status, sent.out, sent.err]
+    assert_empty zeus.stored('port.dev')
+    assert_empty store.outbox.outgoing
+    assert_equal 1, envelopes('zeus').size
+  end
+
   def test_a_nul_byte_in_the_receiving_machines_check_file_refuses_the_message
     check_with("#{checker('athena')}\0x")
     message = build_message(from: 'port.dev@zeus', to: 'orq.dev@athena', body: 'Done in retry.go')
