@@ -82,11 +82,17 @@ explains, writing a context notice, which takes `occupants.lock`, as the section
 session address, which takes it too unless it is the withdrawal of a request that mailbox holds or a
 notice from keryx on another machine, as the section on delivery explains. A change of occupants
 takes a lock too, as the next section explains. No lock keryx takes is waited for without a
-deadline. Each of these is waited for 15 seconds at most, through `Store#with_lock`, and a command
-that does not get it by then fails with an error that names the file, so a holder that stopped, or
-any other process that keeps the file, blocks no command for good. The courier does not fail on the
-outcomes lock but leaves the message for its next round, as the forwarding section explains, and
-the lock of the change signal is waited for a second, as the section on it explains.
+deadline. Each of these is waited for 15 seconds at most, through `Store#with_lock`, so a holder
+that stopped, or any other process that keeps the file, blocks no command for good, and what a
+command does when the wait ends differs by lock. A command that does not get `thread.lock` fails
+with an error that names the file and queues nothing. A command that does not get `occupants.lock`
+fails the same way, except `App#me` and the stop hook's record of a transcript, which take it with
+no wait at all and leave their write to a later command, as the paragraph on waits in the next
+section explains for `App#me`. No command fails on `outcomes.lock`, since a forward, the courier's
+or the one a command runs after it queues a message, leaves the message whose outcome it cannot
+repair waiting with a reason that names the lock, and a read of the queue warns and leaves a message
+from before team names in `new/`, as the forwarding section explains. The lock of the change signal
+is waited for a second, as the section on it explains.
 
 Message ids are [ULIDs](https://github.com/ulid/spec), 26 characters that sort by creation time,
 so a directory listing is already in order.
