@@ -26,7 +26,12 @@ module Keryx
       @problems = problems
       @clock = clock
       @changes = changes
+      @kept = {}
     end
+
+    # Lets the next repair wait again for an outcomes lock another command kept past the deadline, as each round of the
+    # courier does.
+    def forget_kept_locks = @kept.clear
 
     def queue(host, message)
       make_dirs(dir(host), ['tmp', 'receipts', *STATES.values])
@@ -156,11 +161,17 @@ module Keryx
       File.join(@base, host)
     end
 
-    # Attempts that both found no decision take turns, and the second keeps what the first wrote.
+    # Attempts that both found no decision take turns, and the second keeps what the first wrote. A lock another command
+    # kept past the deadline is not waited for again until forget_kept_locks, so a forward or a read of the queue waits
+    # for it once per host, whatever the number of outcomes to repair.
     def replace_undecided(host, id, data)
-      @lock.call(File.join(dir(host), LOCK)) do
-        write_atomic(outcome_file(host, id), JSON.generate(data)) unless outcome(host, id)
-      end
+      path = File.join(dir(host), LOCK)
+      raise Store::Busy, @kept[path] if @kept.key?(path)
+
+      @lock.call(path) { write_atomic(outcome_file(host, id), JSON.generate(data)) unless outcome(host, id) }
+    rescue Store::Busy => e
+      @kept[path] ||= e.message
+      raise
     end
 
     def receipt_file(host, id) = File.join(dir(host), 'receipts', "#{id}.forward")

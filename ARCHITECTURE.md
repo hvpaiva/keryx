@@ -495,7 +495,11 @@ repair keeps the first. Without a receipt the message stays in `new/`, and anoth
 `receipts/` counts the attempts. A repair that does not get the lock within 15 seconds leaves the
 message in `new/` the same way, with the lock's error as its reason, so the next attempt sends it
 again and the other machine keeps one copy; a message from before team names that waits on the lock
-stays in `new/` with a warning until a later read moves it to `refused/`.
+stays in `new/` with a warning until a later read moves it to `refused/`. A process that did not get
+a host's `outcomes.lock` in time does not wait for it again, and each later repair under that lock
+ends at once the same way, so a forward or a read of the queue waits the deadline at most once per
+host, whatever the number of outcomes to repair. The courier forgets it at the start of each round,
+so each round waits for the lock once.
 
 The forwarder sends a host's queue in id order, and the receiver takes the batch in that order. A
 message of a thread for another host is queued in a hold of `outbox/HOST/thread.lock`, under an id
