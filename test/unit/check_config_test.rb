@@ -229,6 +229,15 @@ class CheckConfigTest < Minitest::Test
     end
   end
 
+  # The parser refuses a NUL before the checker is vetted, so only a direct call reaches the rescue kept behind it.
+  def test_vetting_a_checker_whose_path_holds_a_nul_byte_refuses_it
+    command = "#{stub}\0x"
+    config = Keryx::CheckConfig.new(path:, trusted: TRUSTED)
+
+    assert_equal "cannot read the checker #{command}: path name contains null byte",
+                 assert_raises(Keryx::CheckConfig::Broken) { config.send(:vet_checker, command) }.message
+  end
+
   # The trust predicate runs first on the file's own stat, which is when its folder is moved away.
   def test_a_folder_that_vanishes_during_the_walk_refuses
     at = File.join(folder(real('etc')), 'check')
