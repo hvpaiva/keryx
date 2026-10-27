@@ -53,6 +53,16 @@ class HelpTest < Minitest::Test
                            'are not checked.'
   end
 
+  def test_the_help_of_send_says_how_long_a_message_for_another_machine_waits_for_ssh
+    prose = keryx('send', '--help').out.gsub(/\s+/, ' ')
+
+    assert_includes prose, 'A message for another machine goes out over ssh at once, which keryx gives 10 seconds ' \
+                           'to connect and 60 to finish. When the machine does not answer, the message waits in the ' \
+                           'outbox and keryx courier forwards it once the machine is back. Until then each message ' \
+                           'to that machine waits for ssh again, up to the whole 60 seconds when the machine takes ' \
+                           'the connection and does not answer, since each one forwards all the mail waiting for it.'
+  end
+
   def test_the_help_of_every_other_command_that_writes_a_message_names_the_check
     { 'ask' => 'request; a refusal writes nothing, and keryx',
       'reply' => 'reply; a refusal writes nothing and leaves the message unread, and keryx',

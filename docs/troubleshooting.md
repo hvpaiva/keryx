@@ -19,6 +19,11 @@ another process until you approve it. Start the session with the settings in
 The message is in the mailbox; only the bell did not reach the session. `keryx status` gives the
 reason.
 
+- `never rung`, with `none` under BELL, means no bell was tried for the message. A message a
+  session sent to its own address stays so, since neither the send nor the courier rings for it,
+  and a request `keryx spawn` posted before the session existed stays so until the courier's first
+  round after the session joins. `keryx read` takes the message off the list, and `keryx ring`
+  rings for it, after which the row goes or shows that bell's reason.
 - `no session holds the address` means the address has no session now. The next session to join
   it finds the message.
 - `thread ... has no herdr pane` means keryx cannot see that Codex session, and it does not queue a
@@ -33,13 +38,13 @@ reason.
   the session that should hold it takes it over.
 - `the session that joined pane ... recorded no process to tell it by` means herdr shows that
   pane's agent without a session id, so keryx tells the session by the process it records, and it
-  recorded none. When the note adds that a keryx command run in that session can record it, the
-  record has no start field, as records written before keryx kept processes do, and a keryx
-  command run in that session, such as `keryx whoami`, records the process when the session runs
-  its commands in its pane; `keryx ring` then reaches it. Without that part, the session joined
-  with this keryx and its commands do not run under its pane's foreground process, as through
-  Codex's shared server, so no command can record it. Trusting the session's hooks in `/hooks`
-  lets herdr report its session id instead.
+  recorded none. The note adds that a keryx command run in that session can record it when the
+  record has no start field, as records written before keryx kept processes do. For any record, a
+  keryx command run in that session, such as `keryx whoami`, records the process whenever herdr
+  names the pane's foreground process and the command runs under it, as after a join while herdr
+  named none, and `keryx ring` then reaches the session. A session whose commands do not run under
+  its pane's foreground process, as through Codex's shared server, gets no process recorded, and
+  trusting the session's hooks in `/hooks` lets herdr report its session id instead.
 - `herdr did not answer ...`, `herdr did not say ...` or `ps did not say ...` means keryx could not
   check the pane, so the bell waits and the courier tries again.
 - `the agent is ...`, `the screen shows a dialog` or `the agent is blocked` means keryx did not
