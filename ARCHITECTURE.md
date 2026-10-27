@@ -351,16 +351,16 @@ harness named, as the message's `from` names that address. It tries two ways, in
    `codex queue --thread ID`;
 2. when that fails or does not exist, typing into the herdr pane, if herdr shows an agent of the
    session's harness there, reports it idle, done or working, and no dialog shows on the bottom of
-   its screen. A dialog is told by its phrases, matched with the lines joined and box borders
-   dropped since a narrow pane wraps it; by its options, a selection marker (`›`, `❯` or `▶`) on a
-   number, a key such as `[a]`, or a Yes or No, with another option at the same column below it; or
-   by its footer, such as "enter confirm · esc skip", matched with no spaces at all since a pane
-   narrower than a word breaks the words. The phrases are never matched without spaces, so code such
-   as `allowOnce` does not count. A screen of at least four lines with no more than three
-   characters on any of them, as a pane of a few columns shows, cannot show either, so the bell
-   defers there too, saying the pane is too narrow to tell. A pane that is empty or runs another
-   harness no longer holds the session, so the bell is absent there rather than typed into whoever
-   took the pane.
+   its screen, nor a draft in its composer. A dialog is told by its phrases, matched with the lines
+   joined and box borders dropped since a narrow pane wraps it; by its options, a selection marker
+   (`›`, `❯` or `▶`) on a number, a key such as `[a]`, or a Yes or No, with another option at the
+   same column below it; or by its footer, such as "enter confirm · esc skip", matched with no
+   spaces at all since a pane narrower than a word breaks the words. The phrases are never matched
+   without spaces, so code such as `allowOnce` does not count. A screen of at least four lines with
+   no more than three characters on any of them, as a pane of a few columns shows, cannot show
+   either, so the bell defers there too, saying the pane is too narrow to tell. A pane that is empty
+   or runs another harness no longer holds the session, so the bell is absent there rather than
+   typed into whoever took the pane.
 
    Every dialog keryx knows takes the place of the harness's composer, the prompt line under its
    transcript (`›` for Codex, `❯` for Claude Code, `→` for Cursor). So when the screen shows a
@@ -383,21 +383,50 @@ harness named, as the message's `from` names that address. It tries two ways, in
    starts with. Those lines are not dropped before the dialog rule, since a dialog's box can be cut
    the same way. When the footer itself is above the screen, nothing on it shows the edit.
 
-   The rule does not read what the composer holds, and the follow-ups box is the only editor it
-   knows. Codex's shift+← moves the last queued message back into its composer to be edited, which
-   nothing here recognizes, so a bell typed into the pane then is added to that message. A bell to
-   Codex is typed in two cases only. When herdr shows the session in its pane by its process alone,
-   with no thread id, the bell is typed without trying the queue. When herdr shows the thread and
-   `codex queue --thread ID` fails, the bell falls back to the pane, which is looked at and read
-   again first. The queue itself types nothing into the composer.
+   Last, on a screen wide enough to tell that it shows no dialog, the bell reads what the composer
+   holds, since `herdr agent prompt` types the bell after whatever is there and submits both, so a
+   person's unsent draft would go out glued to the bell's line. The composer here is the last prompt
+   line outside Cursor's follow-ups box that marks no option, whatever lies beside it: a draft wider
+   than the pane, or broken by a newline, goes on at the column of its text, where the dialog rule
+   takes it for a menu's entry. Each harness puts one blank between its prompt and the text. The
+   composer is empty when it shows nothing after its prompt, or only its harness's placeholder,
+   perhaps with a hint after a gap of two or more blanks such as Cursor's "ctrl+c to stop", and the
+   next line does not go on at the text's column. The placeholders are Cursor's "Add a follow-up",
+   alone or with its plan hint "/plan to review and build" after a dash, and "Plan, search, build
+   anything"; Codex's "Ask Codex to do anything" and "Ask a follow-up question"; and Claude Code's
+   `Try "..."` example and its four "Press up to ..." hints while messages are queued. Anything else
+   defers the bell, saying the screen shows text typed in the composer. That covers Codex's
+   shift+← too, which moves the last queued message back into its composer to be edited.
+
+   The draft rule errs toward waiting, and these are its known limits. A screen with no composer
+   whose last prompt line is an older prompt of the transcript defers as a draft; each harness draws
+   its composer at the bottom of the lines the bell reads, below any older prompt, so only a screen
+   without one does this. Among them is a narrow dialog the dialog rule does not recognize under an
+   older prompt: it reads as a draft, not a dialog, so its receipt says the composer holds text and
+   no dialog notice goes to the director for it, as none went before the draft rule, which typed
+   into it. A menu with an arrow on an entry that has no number or key, and no phrase or footer
+   keryx knows, defers as a draft too, where it was typed into before. A wrapped draft hides the
+   composer from the dialog rule, which then reads from the older prompt above it, or from the top
+   when none shows, so a dialog's words on those lines, in the transcript or in the draft, defer the
+   bell as a dialog whose evidence quotes those matched words. A draft that reads exactly as a
+   placeholder passes for an empty composer, since the screen as herdr gives it has no colors to
+   tell a dim placeholder from typed text, and text a harness draws in its composer that is no
+   placeholder listed here, such as a suggested prompt, reads as a draft.
+
+   A bell to Codex is typed in two cases only. When herdr shows the session in its pane by its
+   process alone, with no thread id, the bell is typed without trying the queue. When herdr shows
+   the thread and `codex queue --thread ID` fails, the bell falls back to the pane, which is looked
+   at and read again first. The queue itself types nothing into the composer.
 
    The detail of a deferral for a dialog or an edited message names what matched, the words keryx's
    own patterns took or a marked option, and the line of the screen it showed on, as in
    `the screen shows a dialog ("Hooks need review", line 2 of 11)`. The receipt also keeps the
-   obstacle, which is dialog, editor or cramped, and the evidence, which never holds more than the
+   obstacle, which is dialog, editor, cramped or draft, and the evidence, which never holds more than the
    matched words, without their quotes or their line and cut at 60 characters, and is null for a
-   marked option or a cramped pane, which quote none. The receipt reaches the sender, on whatever
-   machine, so it never holds the rest of that line, and its control characters are made visible.
+   marked option, a cramped pane or a draft, which quote none. The receipt reaches the sender, on
+   whatever machine, so it never holds the rest of that line, and its control characters are made
+   visible. A draft is a person's unsent words, not words keryx's patterns matched, so its detail
+   gives only the composer's line, as in `the screen shows text typed in the composer (line 2 of 6)`.
 
 Cursor has no channel of its own, so it is always rung by typing.
 
@@ -809,10 +838,11 @@ another dialog or one that does not parse, which is a problem and an error of th
 courier that writes the mark reports the notice. A read with no obstacle at all removes the record,
 taking the lock only when the round found a record before reading the pane and removing it only when
 the hold finds it as the round read it, so the same dialog shown again later, such as the same
-permission question for a second command, is told again. A pane herdr does not read, a screen too
-narrow to tell and a queued message being edited tell nothing and keep the record, since none of
-them shows that the dialog is gone. A director retired here or with no address here takes no mail,
-so the dialog counts as told and the courier that marks it says once that it did not tell it, while
+permission question for a second command, is told again. A read whose only obstacle is a draft
+removes it too, since a draft shows in the composer, whose place a dialog takes. A pane herdr does
+not read, a screen too narrow to tell and a queued message being edited tell nothing and keep the
+record, since none of them shows that the dialog is gone. A director retired here or with no address
+here takes no mail, so the dialog counts as told and the courier that marks it says once that it did not tell it, while
 a failure that passes, such as a busy lock or a full disk, is an error of each round it happens in.
 Three costs remain. A round that read no record and then the dialog, and claims only after another
 courier told the dialog and a third removed its record on a read with no dialog, finds no record, as

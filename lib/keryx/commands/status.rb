@@ -25,12 +25,13 @@ module Keryx
                     'context, ceiling, unread and waiting, as keryx who gives them. Each of open_requests is the ' \
                     'request with state and overdue, true once its deadline passed, and without withdrawn_by, since ' \
                     'no open request was withdrawn. Each of not_rung has id, to, from, bell, the status ' \
-                    "of the last bell or none, detail, and that bell's obstacle (dialog, editor or cramped when it " \
-                    'waited because its pane showed a dialog, a queued message being edited or too few columns to ' \
-                    'tell, else null), channel, at (when it was tried, ISO 8601 in UTC) and evidence (the words that ' \
-                    "showed the obstacle on the screen, at most #{Bell::EVIDENCE_CHARACTERS} characters, or null " \
-                    'when no words are quoted, as for a marked option or a cramped pane), the four null for a ' \
-                    'message never rung. Each of not_forwarded has id, to, from, state, attempts and detail.'.freeze
+                    "of the last bell or none, detail, and that bell's obstacle (dialog, editor, cramped or draft " \
+                    'when it waited because its pane showed a dialog, a queued message being edited, too few ' \
+                    'columns to tell or text typed in its composer, else null), channel, at (when it was tried, ' \
+                    'ISO 8601 in UTC) and evidence (the words that showed the obstacle on the screen, at most ' \
+                    "#{Bell::EVIDENCE_CHARACTERS} characters, or null when no words are quoted, as for a marked " \
+                    'option, a cramped pane or a draft), the four null for a message never rung. Each of ' \
+                    'not_forwarded has id, to, from, state, attempts and detail.'.freeze
 
       define 'status', section: 'Overview Commands',
                        summary: 'Show what is pending on this machine',

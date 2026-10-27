@@ -53,6 +53,10 @@ All notable changes to this project are documented here. The format follows
   its harness when the session holding the address on this machine joined in an earlier second
   than the message was written, and the address alone otherwise, since Claude Code shows every bell
   as sent by another Claude session.
+- A bell typed into a herdr pane waits while the harness's composer holds anything other than its
+  placeholder, such as a person's unsent draft, which `herdr agent prompt` would have sent glued to
+  the bell's line. `keryx status` lists it under NOT RUNG as `the screen shows text typed in the
+  composer`, with the composer's line and none of its text, and its receipt's obstacle is `draft`.
 - `keryx hook stop`, the stop hook of Claude Code, Codex and Cursor, which reminds a session of
   unread mail and unanswered requests before it ends a turn.
 - Mail between machines over SSH, with an outbox that holds it while the other machine is
@@ -138,8 +142,9 @@ All notable changes to this project are documented here. The format follows
   before its join. A record keryx cannot read counts as none, in `who` and in `join`.
 - `obstacle`, `channel`, `at` and `evidence` in each `not_rung` record of `status -o json`, from a
   bell's receipt, which now keeps the obstacle that kept the bell from typing into a herdr pane
-  (dialog, editor or cramped) and the words on the screen that showed it, cut at 60 characters, or
-  null when it quotes none. A receipt written before, or by an older keryx, reads with null for both.
+  (dialog, editor, cramped or draft) and the words on the screen that showed it, cut at 60
+  characters, or null when it quotes none. A receipt written before, or by an older keryx, reads
+  with null for both.
 - `keryx sent`, which lists what the address you act as sent, oldest first, from every mailbox on
   this machine and the outbox, with `delivery` (delivered, queued, forwarded or refused) and, for a
   recipient on this machine, `read_at`, the time its read mark was made, read from the mark's change

@@ -191,12 +191,16 @@ class BellTest < Minitest::Test
 
   def test_an_ordinary_screen_is_no_dialog
     code = "Updated the configuration:\nconst allowOnce = false;\nonEnterConfirm(form);\nTests passed.\n\n> "
+    idle = "\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n"
+
+    [idle, code, "allowOnce()\nfalse\n> ", '> '].each { assert_nil Keryx::Bell.obstacle(it), it }
+  end
+
+  def test_a_screen_whose_last_prompt_is_an_older_one_defers_as_a_draft
     answered = "\u203a yes\n\n\u2022 No problem, I will go on.\n  No other file changes.\n"
     list = "\u203a 1.5 seconds faster\n  2.1 seconds before\n"
 
-    idle = "\u203a Ask Codex to do anything\n\n  gpt-6 low \u00b7 ~/work\n"
-
-    [idle, code, "allowOnce()\nfalse\n> ", answered, list, '> '].each { assert_nil Keryx::Bell.obstacle(it), it }
+    [answered, list].each { assert_equal :draft, Keryx::Bell.obstacle(it), it }
   end
 
   def test_herdr_defers_when_the_screen_cannot_be_read
