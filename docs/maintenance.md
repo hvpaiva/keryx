@@ -68,12 +68,14 @@ If a command of `bin/release prepare` fails, it names the command after what git
 and the clone stays where it stopped. Fix the cause and run `bin/release prepare` again, on the
 release branch it left you on or on a clean `main`. It goes on from there: it reuses the release
 branch, commits the dated changelog unless the branch holds that commit already, pushes the branch
-unless origin has it, and opens the pull request unless one is open. It refuses a release branch
-that holds anything besides that commit, one that origin holds at another commit, and one that
-`origin/main` moved past, since its changelog would miss what merged in between. To start over,
-discard the dated changelog with `git restore CHANGELOG.md` if the commit never happened,
-switch to `main` and pull, delete the branch with `git branch -D release/vX.Y.Z`, and if it reached
-origin, close its pull request and delete it there with `git push origin --delete release/vX.Y.Z`.
+unless origin has it, and opens the pull request unless one is open. The branch's one commit must be
+the one `bin/release prepare` made: a second run reuses any single commit that changes only a dated
+`CHANGELOG.md`, signed or not, and the `main` ruleset refuses an unsigned one. It refuses a release
+branch that holds anything besides that commit, one that origin holds at another commit, and one
+that `origin/main` moved past, since its changelog would miss what merged in between. To start over,
+discard the dated changelog with `git restore CHANGELOG.md` if the commit never happened, switch to
+`main` and pull, delete the branch with `git branch -D release/vX.Y.Z`, and if it reached origin,
+close its pull request and delete it there with `git push origin --delete release/vX.Y.Z`.
 
 If `bin/release tag` signs the tag but cannot push it, the tag stays in your clone and the next
 run refuses it. Delete it with `git tag -d vX.Y.Z` and run `bin/release tag` again, which signs it
