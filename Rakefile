@@ -59,10 +59,13 @@ namespace :lint do
   end
 end
 
-Rake::Task['release'].clear
-desc 'Refuse: releases go through bin/release (docs/maintenance.md)'
-task :release do
-  abort 'keryx releases through bin/release; see docs/maintenance.md'
+# Bundler's release tasks would tag and push the gem from this machine, past every check of bin/release.
+%w[release release:guard_clean release:source_control_push release:rubygem_push].each do |name|
+  Rake::Task[name].clear
+  desc 'Refuse: releases go through bin/release (docs/maintenance.md)'
+  task name do
+    abort 'keryx releases through bin/release; see docs/maintenance.md'
+  end
 end
 
 desc 'Run what CI runs: RuboCop, shellcheck, the tests with coverage and the advisory audit'
